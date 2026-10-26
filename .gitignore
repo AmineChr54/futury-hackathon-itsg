@@ -4,3 +4,6 @@ hackathon-files/General - Futury/
 
 # Editor
 .obsidian/
+
+# Python
+__pycache__/

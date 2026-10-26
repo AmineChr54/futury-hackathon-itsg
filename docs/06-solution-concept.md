@@ -22,6 +22,15 @@ See [07-itsg-meeting-notes.md](07-itsg-meeting-notes.md). In short:
 So the centre of gravity moves **left in the pipeline**, onto spec → criteria → test cases and
 spec change → affected test cases. Validation stays, but as a supporting piece.
 
+> **Update (afternoon, 26.10.):** the follow-up talks sharpened three points, and the demo is built
+> on them. See [09-demo-design.md](09-demo-design.md).
+> 1. **The LLM only extracts parameters, with verbatim quotes, and picks a pre-written function.**
+>    The functions compute. Five deterministic guards check every answer.
+> 2. **Change detection uses the change log *and* a section diff against last year's spec**,
+>    because the government doesn't always ship a change log.
+> 3. **The next audit scope is failed + changed + new.** Criteria are checked on site and recorded
+>    as a pass/fail checklist.
+
 ## Pipeline
 
 ```

@@ -1,0 +1,134 @@
+# Demo Design
+
+The decisions behind `demo/index.html`, from the 20-question scoping round on 26.10.2026 and the
+afternoon conversations with ITSG engineers ([07-itsg-meeting-notes.md](07-itsg-meeting-notes.md)).
+For how to run it, see [`demo/README.md`](../demo/README.md).
+
+## Decisions
+
+| Area | Decision |
+|---|---|
+| Users | Role switch: **ITSG examiner ⇄ vendor** |
+| Story | Starts with ITSG's biggest pain (spec change → affected tests), with the full pipeline one click away |
+| Presenting | Guided demo with spotlight, zoom and captions, plus a **separate presenter window** (speaker notes, timer, next step) synced to the projector window; free deep-dive at any time |
+| Language | DE/EN toggle; German spec quotes are always kept verbatim |
+| AI | Hybrid: recorded runs by default, **live hessian.AI** (Kolibri-1 / GLM-Flash) optional |
+| Trust | **The LLM only extracts parameters and picks a function; pre-written functions compute.** Every value has a provenance trail |
+| Human loop | Approve, reject (with a reason) or edit parameters, once per rule; everything goes to a hash-chained audit trail |
+| Domain depth | DBVO / Abgabegrund 41 in depth; 42/62 (EEL end) and 03 (maternity) shallow |
+| Data | ITSG's reference case + generated employees; fictional vendors only |
+| Style | Clean, professional tool, crimson accent, light and dark; built from tokens so it can move into Claude Design |
+| Tech | One HTML file, vanilla JS, works offline; CDN only for optional extras |
+| Name | Open: working title "EEL Review Assistant", tracked as a GitHub issue |
+
+## Inputs → workflow → outputs
+
+**Inputs**
+- The yearly government spec PDFs. This is the only external input. The change log is included
+  when the government provides one.
+- From our own archive:
+  - last year's spec version,
+  - the existing test catalogue,
+  - last year's audit reports.
+- From vendors: their DTA output files. Each file carries the product and modification IDs.
+
+**Workflow**
+1. **Ingest.** Build the § index from the PDF's structure.
+2. **Detect changes.** Parse the change log and diff the sections.
+3. **Impact.** Find the affected catalogue rows.
+4. **Extract.** The LLM extracts the parameters.
+5. **Approve.** An examiner signs off each rule.
+6. **Generate.** Functions compute the test cases and expected outputs, including fresh variants.
+7. **Publish.** Send the test package to vendors.
+8. **Compare.** Check vendor files against the expected output.
+9. **Audit and report.** Run the on-site checklist, then produce the report, its seal and the next
+   audit scope.
+
+**Outputs**
+- **Test package:** scenario sheet, expected DTA files, criteria checklist, and optional
+  importable JSON.
+- **Comparison results.**
+- **Sealed report** and the **next audit scope**: failed + changed + new.
+- **Updated catalogue** as a CSV.
+
+## The trust architecture
+
+```
+spec § section ──structural retrieval──▶ LLM ──JSON tool call──▶ 5 guards ──▶ examiner ──▶ rule function ──▶ expected value
+                                         reads numbers,           1 quote is verbatim in the spec
+                                         picks function_id        2 number appears in the quote (Woche = 7 Tage …)
+                                         + verbatim quotes        3 parameter exists and is in range
+                                                                  4 run A = run B
+                                                                  5 function unit tests pass
+```
+
+- **The LLM never computes.** Expected values come from pre-written, versioned, hashed and
+  unit-tested functions such as `dbvo.gates`, `dbvo.chain`, `efz.end` and `eel.confirmedEnd`.
+- **The guards are deterministic.** A paraphrased quote, or a number that isn't in its quote, is
+  rejected mechanically. The demo shows both cases: run B paraphrases one quote in R-3.12-A, and
+  reads 14 weeks from a "12 Wochen" quote in R-3.11.1.
+- **26 self-tests run in the browser** (and in Node). They include ITSG's reference case:
+  - 35 days,
+  - sick pay ending 30.03 → 27.03.2026,
+  - the expected DBVO block matching the real `TEEL0-Test1-DBVO` file **byte for byte**.
+
+## Spec change detection
+
+- **Two deterministic sources:**
+  - the official change log, parsed with a regex over § numbers and quoted titles;
+  - a section-by-section word diff of the old and new text.
+- **Reconciliation** gives each change one source badge:
+  - **in log + diff**: confirmed.
+  - **diff only**: not in the change log. These are shown first, because they're the riskiest.
+  - **log only, no text change**: the change is probably in a table or annex.
+  - **log only, text not loaded**: the demo only embeds some sections.
+- **Classification:**
+  - *Type* is the only AI judgement. The examiner confirms it.
+  - *Test impact* is counted from the catalogue's § references.
+  - *Risk* follows a fixed rule from type and impact:
+    - high: a condition, parameter or format change with affected tests;
+    - medium: a new or removed rule;
+    - low: editorial.
+- **Demo highlight.** The change log calls the §3.12 change *editorial*. The (illustrative) diff
+  shows "nicht **mindestens** 6 Monate" → "nicht **mehr als** 6 Monate". At exactly six months the
+  result flips, so the boundary test's expected value changes.
+  > Interesting detail in the real v13.4: the employer paragraph says "nicht mehr als", while the
+  > insurer paragraph a page later still says "nicht mindestens". That's worth asking ITSG about.
+
+## Retrieval and context discipline
+
+- **Retrieval is structural, not embedding similarity.** It uses numbered §-headings, the table
+  of contents with page numbers, and the 3,528 internal links in the v13.4 PDF. A retrieved span
+  must start with its expected heading.
+- **Each LLM call gets only:**
+  - the target § section,
+  - the sections it links to directly (depth 1),
+  - the old version of the same section.
+- **The archive is never sent in bulk.** A context meter shows what was sent.
+
+## Traceability: why a linear trail
+
+The primary traceability view is a **linear provenance trail**, opened from any value or verdict:
+
+> German quote → extracted parameter → function@version (+ tests) → inputs → step-by-step
+> calculation → result → where it's used
+
+People read top to bottom, while node graphs are hard to read on a projector. Each supporting
+view answers one question:
+
+| View | Question it answers |
+|---|---|
+| **Coverage matrix** | Is everything covered? |
+| **Byte view** in the comparator | Which bytes are wrong? |
+| **Audit trail** | Who did what, and when? Entries are hash-chained. |
+
+## Known limits of the demo
+
+- **No real v13.3 text yet.** The old wording is reconstructed from the change log and labelled.
+- **Partial record layouts.** VOSZ, DSKO, NCSZ and DSLW positions 206–224 aren't fully specified
+  in the documents we have.
+- **Simulated data:**
+  - the catalogue is a 46-row EEL subset;
+  - the vendors and their previous audit results are fictional;
+  - the KK replies are simulated.
+- **Live mode needs the local proxy.** It is blocked inside a published artifact.

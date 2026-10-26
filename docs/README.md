@@ -30,5 +30,10 @@ A working prototype is optional but strongly encouraged.
 | [06-solution-concept.md](06-solution-concept.md) | Proposed architecture, MVP scope, open questions |
 | [07-itsg-meeting-notes.md](07-itsg-meeting-notes.md) | What the ITSG team told us: how testing works today, constraints, what to focus on |
 | [08-problem-and-solution.md](08-problem-and-solution.md) | **Start here:** the problem and our solution, explained with diagrams |
+| [09-demo-design.md](09-demo-design.md) | The demo: decisions, inputs/workflow/outputs, trust architecture, change detection, traceability |
+| [10-hessian-ai-api.md](10-hessian-ai-api.md) | The hessian.AI inference API (endpoint, models, auth), without the key |
+
+**The demo:** [`demo/index.html`](../demo/index.html) is a single file that opens offline.
+[`demo/README.md`](../demo/README.md) explains how to present it and how to use the live AI mode.
 
 Source files live in `hackathon-files/`.

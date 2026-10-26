@@ -131,6 +131,33 @@ flowchart LR
     DIFF --> SEC --> CRIT --> TESTS --> REGEN --> READY
 ```
 
+The government doesn't always ship a change log, so both sources run, and every change gets a
+source badge:
+
+```mermaid
+flowchart LR
+    LOG["Change log<br/>(parsed by code)"] --> REC{"Reconcile<br/>per § section"}
+    DIF["Section diff<br/>v13.3 vs v13.4"] --> REC
+    REC --> A["in log + diff<br/>confirmed"]
+    REC --> B["diff only<br/>NOT in change log<br/>shown first"]
+    REC --> C["log only<br/>no text change<br/>check tables/annex"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000;
+    class B bad;
+```
+
+### Next audit scope: failed + changed + new
+
+ITSG doesn't re-check all ~3,000 criteria every year (ITSG engineer, 26.10.2026).
+
+```mermaid
+flowchart LR
+    PREV["Last report<br/>e.g. 2 of 3,000 failed"] --> SCOPE["Next audit scope"]
+    CHG["Criteria touched<br/>by spec changes"] --> SCOPE
+    NEWC["New criteria"] --> SCOPE
+    SCOPE --> VISIT["On-site checklist"] --> REP["Sealed report<br/>pass/fail per criterion"]
+    REP -. failed items carry over .-> PREV
+```
+
 ### Killer feature 2: fresh variants against gaming
 
 Each criterion is a **template**, not a fixed answer. Every test cycle, or every vendor, gets new

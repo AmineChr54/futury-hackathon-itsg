@@ -31,6 +31,19 @@ spec change → affected test cases. Validation stays, but as a supporting piece
 > 3. **The next audit scope is failed + changed + new.** Criteria are checked on site and recorded
 >    as a pass/fail checklist.
 
+> **Update (evening, 26.10.):** ITSG reviewed the demo. See
+> [11-demo-feedback-itsg.md](11-demo-feedback-itsg.md).
+> 1. **The real bottleneck is manual input.** Vendor engineers type every test case into their own
+>    software. So: **one test case per rule to start**, and more only once input is automated.
+> 2. **Proposal: automatic test input.** Vendors import test cases as JSON; the output stays DTA.
+>    This needs a **spec change**. Pilot with **SAP**.
+> 3. **Rules must be readable.** Show a plain-language rule between spec and test case, which the
+>    examiner approves, edits or declines. Function IDs, hashes and guards stay behind the scenes.
+> 4. **Baseline check:** check the ~4,000 historically grown test scenarios against the current spec
+>    and flag obsolete and missing ones. Start from the **original government PDF**.
+> 5. **Our comparison stays.** ITSG has its own comparator but would replace it with ours "if it's
+>    better". Differences must be explained in words, not bytes.
+
 ## Pipeline
 
 ```
@@ -57,7 +70,8 @@ spec change → affected test cases. Validation stays, but as a supporting piece
    computed by deterministic code rather than the LLM, so the expected results are guaranteed
    correct.
 4. **Execution (human).** The vendor enters each scenario in their payroll software and uploads the
-   resulting DTA file(s).
+   resulting DTA file(s). Each case is typed in by hand today, which is why ITSG wants few cases
+   per rule until there is an import interface (see the evening update above).
 5. **Validation.**
    - Parse the file against the schema: format errors, wrong default values, field lengths.
    - Run the rule engine: e.g. periods newest-first, gaps ≤ 6 months, insurer-only fields at their
@@ -110,6 +124,11 @@ In priority order, re-weighted after the ITSG conversation:
       citations
 - [ ] Stretch: the message-sequence check (61 / 88 / 01 / 62 chain) and a second area (e.g.
       Abgabegrund 03, maternity benefit)
+- [ ] *(From the demo review)* **Readable rule text** with approve / edit / decline, one default
+      test case per rule, field-level explanations of differences, and a per-vendor pass/fail report
+      (print and JSON). Full list: [11-demo-feedback-itsg.md](11-demo-feedback-itsg.md)
+- [ ] *(From the demo review)* **Automatic input proposal** (JSON import, SAP pilot) and a
+      **baseline check** of the existing catalogue against the current spec
 
 ## Pitch angles (USP)
 
@@ -122,6 +141,10 @@ In priority order, re-weighted after the ITSG conversation:
 - **Vendor self-service:** it runs locally at the vendor (data protection: real employee data never
   leaves the premises), and ITSG receives the report.
 - **Sovereign AI:** it can run on Kolibri-1 (German, open weights, self-hostable).
+- **Removes the manual-input bottleneck:** test cases ship as importable JSON, so vendors stop
+  typing scenarios in by hand. This is a proposed spec change, piloted with SAP.
+- **Cleans up 30 years of test history:** a baseline check flags obsolete and missing tests
+  against the current law.
 
 ## Open questions
 
@@ -133,3 +156,8 @@ In priority order, re-weighted after the ITSG conversation:
 - [ ] Ask ITSG: more sample output files, especially the KK replies (61, 62) and the 01 pay
       certificate?
 - [ ] Ask ITSG: how are test results documented today (format of the current test record)?
+- [ ] Ask Gerhard (ITSG): where do the ~4,000 test scenarios live, and does the reworked
+      rule-extraction screen make sense to him?
+- [ ] Would ITSG support a spec change that requires vendors to accept JSON test input?
+- [x] ~~Do we need to re-implement DTA comparison?~~ ITSG has a comparator, but ours may replace it,
+      so keep it

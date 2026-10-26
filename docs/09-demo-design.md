@@ -21,6 +21,24 @@ For how to run it, see [`demo/README.md`](../demo/README.md).
 | Tech | One HTML file, vanilla JS, works offline; CDN only for optional extras |
 | Name | Open: working title "EEL Review Assistant", tracked as a GitHub issue |
 
+## Planned changes after the ITSG review (evening, 26.10.)
+
+ITSG reviewed this demo; the full feedback and the checklist are in
+[11-demo-feedback-itsg.md](11-demo-feedback-itsg.md). These changes are **planned, not built yet**.
+They revise the decisions above:
+
+| Area | Was | Becomes |
+|---|---|---|
+| Human loop | Approve / reject / edit numeric parameters | Approve / **edit** / decline the **plain-language rule text**; parameters stay editable |
+| Rule extraction view | Function ID, hashes and five guards up front | Readable rule first; technical details collapsed ("why you can trust this") |
+| Function library | Pipeline step 4 | Moved under **Evidence**. ITSG doesn't have one and didn't follow it |
+| Test cases | Full boundary set per rule (e.g. 12 for §3.12) | **One case per rule** by default, expandable; described in human words like ITSG's own |
+| Compare output | Byte view with red differences | **Explained differences** (field, expected vs actual, §), decoded with the GKV dictionary; byte view as a second tab; comparison fires on upload |
+| Report | Sealed report + next audit scope | Plus **pass/fail per test case and vendor**, printable and as **JSON per customer** |
+| Inputs | Prepared spec sections | Visibly the **original government PDF** |
+| New | — | **Automatic input proposal** (JSON import, SAP pilot) and **baseline check** of the catalogue (obsolete / missing / OK) |
+| Inbox | Simulated insurer replies | Show the AG ⇄ KK exchange like ITSG's table; KK replies are input the vendor must handle |
+
 ## Inputs → workflow → outputs
 
 **Inputs**

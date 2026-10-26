@@ -26,7 +26,7 @@ test results, but they're less directly testable than the Verfahrensbeschreibung
 | File                                                            | What it is                                                                                            |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `DTA-EEL-Beispiel_Vorerkrankung.docx`                           | Test scenario "DBVO": the requirement, **4 testable criteria with UUIDs**, and the expected result    |
-| `Hinweise_DTA-EEL-Bespiel_Vorerkrankung_Testkonstellation.docx` | The test setup: sick-leave periods, employment end, the expected message sequence, and the IDs to use |
+| `Hinweise_DTA-EEL-Bespiel_Vorerkrankung_Testkonstellation.docx` | The test setup: sick-leave periods, employment end, the expected message sequence, and the IDs to use. This is **how ITSG writes test cases today** (human words, expected values by hand). ITSG itself calls the format "not very good"; see [11-demo-feedback-itsg.md](11-demo-feedback-itsg.md) |
 | `TEEL0-Test1-DBVO`                                              | **A real output file** produced by payroll software for this case (fixed-width, ISO-8859-1, CRLF)     |
 
 See [04-example-test-case-dbvo.md](04-example-test-case-dbvo.md) and [05-data-format.md](05-data-format.md).
@@ -39,6 +39,15 @@ See [04-example-test-case-dbvo.md](04-example-test-case-dbvo.md) and [05-data-fo
 | `Futury-Hackathon-2026-Englisch.pdf` | The challenge slides. Summarised in [01-challenge-overview.md](01-challenge-overview.md). |
 | `../General - Futury/Jury_Scorecard_Build_Days.pdf` | Judging criteria |
 | `../hessian.AI - Tech Sponsor/*` | Model info (Kolibri-1, GLM-5.3-Flash) and server access |
+
+## Not downloaded yet: GKV-Datenaustausch
+
+ITSG showed us the **GKV data-exchange site** (*GKV-Datenaustausch*, section
+*Entgeltersatzleistungen*). It holds **many more EEL documents than the challenge SharePoint**,
+including a **data dictionary** of every short form (VOSZ, DSKO…) with record, position, type
+(alphanumeric or integer) and whether the field is mandatory. We want it for decoding comparison
+differences and for the missing record layouts. This is the official source of the government
+PDFs, which ITSG wants us to start from.
 
 ## Version note
 

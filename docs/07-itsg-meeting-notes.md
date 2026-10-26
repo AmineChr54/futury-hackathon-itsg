@@ -174,11 +174,25 @@ transcription is rough, and some names and terms were garbled.
 | A comparator already exists | Our expected output uses the same DTA format, so it feeds into their comparator; ours mirrors it for the demo |
 | Manual UI entry takes a week | Export scenarios as machine-importable files (whether vendors accept them is an open question) |
 
+## Evening: demo review
+
+ITSG reviewed the demo at 18:31 and 18:50. The full write-up and the list of demo changes are in
+**[11-demo-feedback-itsg.md](11-demo-feedback-itsg.md)**. In short:
+
+- Manual input is the real bottleneck. Start with one test case per rule, and propose a JSON
+  import interface (a spec change, SAP first).
+- Rules must be readable text that a human approves, edits or declines. They couldn't follow
+  function IDs, hashes and guards.
+- Keep our comparison, because it may replace theirs. Explain differences in words.
+- New idea from ITSG: check the ~4,000 historical test scenarios against the current law.
+
 ## Questions to ask while they're here
 
-- [ ] Can we see **a page of the 600-page test-case sheet**? We want to match its format.
+- [x] Can we see **a page of the 600-page test-case sheet**? → We saw the format: a description in
+      human words plus a hand-made expected dataset (the *Hinweise … Testkonstellation* doc).
 - [ ] What does the **electronic testing device** compare: whole message, field by field, or
-      selected fields? What's its input format?
+      selected fields? What's its input format? → Partly answered: it parses the DTA fields and
+      compares them with the solution. Details are with Gerhard.
 - [ ] Do the 3,000 test cases cover all procedures? How many are for **EEL** specifically?
 - [ ] Is the **change log** in the Verfahrensbeschreibung what they use to find changes today, or do
       they diff the documents?

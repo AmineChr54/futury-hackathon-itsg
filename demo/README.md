@@ -121,3 +121,8 @@ are blocked by the sandbox; recorded mode still works there.
 3. **APP.** The screens, the provenance drawer and all actions. `ruleCase()` defines the one
    representative test case per rule; `describeCase()` writes a scenario in human words.
 4. **TOUR.** The guided demo and the presenter window.
+
+Run the upload and rerun regression checks with `node demo/test_demo.cjs`.
+When the pipeline server is connected, PDF uploads use its text extraction and
+do not need the pdf.js CDN. Completed sections have a **Run tests again** action
+in the AI test pipeline.

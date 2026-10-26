@@ -60,6 +60,10 @@ class SandboxTests(unittest.TestCase):
         self.assertTrue(r["ok"], r)
         self.assertEqual(r["stdout"].split(), ["2026-03-27", "2"])
 
+    def test_umlauts_survive_the_terminal(self):
+        r = sandbox.run("print('Arbeitsunfähigkeit für Prüfung')")
+        self.assertEqual(r["stdout"].strip(), "Arbeitsunfähigkeit für Prüfung")
+
     def test_refuses_dangerous_code(self):
         for code in ["import os\nos.listdir('.')", "open('x','w')", "import subprocess", "().__class__.__bases__",
                      "from socket import socket", "getattr(1, 'real')"]:
@@ -147,6 +151,12 @@ class GuardTests(unittest.TestCase):
         self.assertTrue(agent.quote_in("möglichst alle Vorerkrankungen über- mittelt werden", text))
         self.assertTrue(agent.quote_in("möglichst alle Vorerkrankungen übermittelt werden", text))
         self.assertTrue(agent.quote_in("Dies bedeutet, … übermittelt werden", text))
+
+    def test_closest_sentence_points_to_the_real_wording(self):
+        text = ("Relevant für die Beurteilung sind alle Erkrankungen, bei welchen nicht mindestens 6 Monate vergangen sind. "
+                "Hierbei ist bis zur erstmalig bescheinigten Erkrankung zurückzugehen.")
+        hint = agent.closest_sentence("Relevant für die Beurteilung sind alle Erkrankungen, bei welchen nicht mehr als 6 Monate vergangen sind.", text)
+        self.assertIn("nicht mindestens 6 Monate", hint)
 
     def test_number_not_in_quote_warns(self):
         c = self.case()

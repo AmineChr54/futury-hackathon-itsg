@@ -64,7 +64,8 @@ def run(code):
         env = {"PYTHONIOENCODING": "utf-8", "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""), "PATH": ""}
         t0 = time.time()
         try:
-            p = subprocess.run([sys.executable, "-I", "-S", path], cwd=tmp, env=env, capture_output=True,
+            # -X utf8: -I ignores PYTHONIOENCODING, and Windows would otherwise print umlauts in cp1252
+            p = subprocess.run([sys.executable, "-I", "-S", "-X", "utf8", path], cwd=tmp, env=env, capture_output=True,
                                timeout=TIMEOUT_S, text=True, encoding="utf-8", errors="replace",
                                stdin=subprocess.DEVNULL)
             out, err, code_ = p.stdout, p.stderr, p.returncode

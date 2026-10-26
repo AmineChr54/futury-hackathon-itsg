@@ -61,11 +61,13 @@ TOOLS = [
                         "result is defined by `formula` over `variables`; `expected_value` must be the value you got "
                         "from evaluate() in your terminal. Submit 1-3 cases: positive, negative, and a boundary case "
                         "where the change flips the result."),
-        "parameters": {"type": "object", "required": ["reasoning", "title", "kind", "criterion", "scenario", "formula", "expected_value", "quotes"], "properties": {
+        "parameters": {"type": "object", "required": ["reasoning", "title", "kind", "criterion", "preconditions", "steps", "scenario", "formula", "expected_value", "expected_outcome", "quotes"], "properties": {
             "reasoning": {"type": "string", "description": "Why this case tests the change and how the expected value follows."},
-            "title": {"type": "string"},
+            "title": {"type": "string", "description": "Short and specific, e.g. 'Gap of exactly 6 months: prior illness is included in request 41'."},
             "kind": {"type": "string", "enum": ["positive", "negative", "boundary"]},
             "criterion": {"type": "string", "description": "Testable criterion, in the style 'The system ensures that …'."},
+            "preconditions": {"type": "array", "items": {"type": "string"}, "description": "What must be set up before the test, e.g. 'Employee insured with a statutory health insurer', 'Certified AU 01.03.2026–03.03.2026 on file'."},
+            "steps": {"type": "array", "items": {"type": "string"}, "description": "Numbered actions the tester performs in the payroll program, with the concrete data, e.g. 'Enter current AU from 11.03.2026', 'Trigger the prior-illness request (Abgabegrund 41)'."},
             "scenario": {"type": "object", "description": "The employee / absence / payroll situation the tester enters, as key-value pairs.", "additionalProperties": True},
             "formula": {"type": "object", "required": ["expression", "result_name", "variables"], "properties": {
                 "expression": {"type": "string", "description": "One expression in the formula language (see the system prompt)."},
@@ -79,7 +81,7 @@ TOOLS = [
             "previous_expression": {"type": "string", "description": "The formula under the OLD version, if it was different."},
             "formula_changed": {"type": "boolean"},
             "expected_value": {"type": "string", "description": "The value evaluate() printed in your terminal."},
-            "expected_outcome": {"type": "string", "description": "What the payroll software must do or report, in words."},
+            "expected_outcome": {"type": "string", "description": "The expected result the tester checks: what the payroll software must do or report, with the concrete value."},
             "quotes": {"type": "array", "items": {"type": "string"}, "description": "Verbatim sentences from the NEW text this case is based on."},
             "replaces": {"type": "string", "description": "Id of an earlier submission this one corrects."}}}}},
     {"type": "function", "function": {
@@ -113,13 +115,21 @@ Procedure:
    If the formula differs from the old rule, set formula_changed and give previous_expression.
 5. Call finish.
 
-Do not invent rules that are not in the text. If the change is purely editorial and nothing can be tested,
-say so in record_spec_change (change_type "editorial") and call finish.
+You are not done until you have submitted at least one test case. Every section that states or changes
+a testable rule MUST end with a test case. Make each test case clear enough for a tester who has not
+read the spec: a specific title, preconditions, numbered steps with concrete data, and an expected
+outcome with the concrete value.
+
+Do not invent rules that are not in the text. Only if the change is purely editorial and nothing can be
+tested, say so in record_spec_change (change_type "editorial") and call finish.
 
 Formula language (one expression; numbers are exact decimals; dates are 'YYYY-MM-DD'):
   + - * / // % **, comparisons, and / or / not, `a if condition else b`
   date ± whole days, date - date = days
 {funcs}
+Periods in months or weeks: use add_months / add_weeks, never approximate them as a number of days
+(6 months is not 180 or 183 days). "not more than 6 months between end and start" is
+  add_months(previous_end, 6) >= current_start
 Example: sick pay ends after 42 days minus creditable prior days, counting the first day:
   add_days(au_start, efz_days - prior_days - 1)   with au_start=2026-03-11, efz_days=42, prior_days=25 → 2026-03-27
 """
@@ -158,8 +168,14 @@ class LLMError(RuntimeError):
     pass
 
 
-def chat(cfg, messages, on_delta=None):
-    """One streamed chat completion. Returns {reasoning, content, tool_calls}."""
+class Stopped(Exception):
+    """The examiner pressed Stop."""
+
+
+def chat(cfg, messages, on_delta=None, should_stop=lambda: False):
+    """One streamed chat completion. Returns {reasoning, content, tool_calls}.
+    Raises Stopped as soon as should_stop() turns true; the stream is closed, so the
+    gateway stops generating too."""
     body = {"model": cfg["model"], "messages": messages, "tools": TOOLS, "tool_choice": cfg.get("tool_choice", "required"),
             "temperature": 0, "max_tokens": 16000, "stream": True}
     req = urllib.request.Request(cfg["base"].rstrip("/") + "/chat/completions", data=json.dumps(body).encode(),
@@ -170,6 +186,8 @@ def chat(cfg, messages, on_delta=None):
     try:
         with urllib.request.urlopen(req, timeout=180) as resp:
             for raw in resp:
+                if should_stop():
+                    raise Stopped()
                 line = raw.decode("utf-8", "replace").strip()
                 if not line.startswith("data:"):
                     continue
@@ -246,6 +264,16 @@ def quote_in(quote, *texts):
     return bool(parts) and any(all(p in h for p in parts) for h in hay)
 
 
+def closest_sentence(quote, text):
+    """The sentence of the spec text most similar to a quote that was not found verbatim,
+    so the model can copy the real wording instead of retyping its own."""
+    import difflib
+    sents = [s.strip() for s in re.split(r"(?<=[.;:!?])\s+", _loose(text or "")) if len(s.strip()) > 20]
+    q = _loose(quote or "")
+    best = max(sents, key=lambda s: difflib.SequenceMatcher(None, q, s, autojunk=False).ratio(), default="")
+    return best[:400]
+
+
 def number_in_quote(value, quote):
     try:
         v = F._num(value)
@@ -310,25 +338,50 @@ def check_case(case, item, terminal_runs):
 
 def run_item(cfg, item, new_doc, old_doc, emit, lang="en", should_stop=lambda: False):
     """Process one section. emit(type, data) streams the chain of thought. Returns
-    {"spec_change": {...} | None, "cases": [...], "summary": str}."""
+    {"spec_change": {...} | None, "cases": [...], "summary": str, "stopped": bool}.
+    Stop is honoured mid-stream and between tool calls; test cases already submitted are kept."""
+    state = {"spec_change": None, "cases": []}
+    try:
+        return _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state)
+    except Stopped:
+        emit("live", None)
+        emit("stopped", {"kept": len(state["cases"])})
+        return {"spec_change": state["spec_change"], "cases": state["cases"], "summary": "stopped by the examiner", "stopped": True}
+
+
+def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
     messages = [{"role": "system", "content": system_prompt(lang)},
                 {"role": "user", "content": user_prompt(item, new_doc, old_doc)}]
     emit("context", {"chars": sum(len(m["content"]) for m in messages),
                      "sent": [item["sec"]], "old_version": bool(item["old_text"])})
     spec_change, cases, summary, terminal_runs = None, [], "", []
-    nudges = 0
+    nudges, refusals = 0, 0
+    force = None  # name of the tool the next turn must call
+
+    def needs_case():  # every testable section must end with at least one test case
+        return not cases and not (spec_change and spec_change.get("change_type") == "editorial")
+
+    def next_required():
+        return "record_spec_change" if not spec_change else "submit_test_case"
+
     for turn in range(MAX_TURNS):
+        state["spec_change"], state["cases"] = spec_change, cases
         if should_stop():
-            emit("stopped", {})
-            break
+            raise Stopped()
+        if turn >= MAX_TURNS - 3 and needs_case():
+            force = next_required()  # running out of turns: no more exploring, write the test case
+        call_cfg = dict(cfg, tool_choice={"type": "function", "function": {"name": force}}) if force else cfg
+        if force:
+            emit("retry", {"message": f"the model must now call {force}"})
         for attempt in range(2):
             try:
-                resp = chat(cfg, messages, on_delta=lambda o: emit("live", {"reasoning": o["reasoning"], "content": o["content"],
-                                                                         "tool": ", ".join(c["name"] for c in o["tool_calls"].values()) if isinstance(o["tool_calls"], dict) else ""}))
+                resp = chat(call_cfg, messages, on_delta=lambda o: emit("live", {"reasoning": o["reasoning"], "content": o["content"],
+                                                                              "tool": ", ".join(c["name"] for c in o["tool_calls"].values()) if isinstance(o["tool_calls"], dict) else ""}),
+                            should_stop=should_stop)
                 break
             except LLMError as e:
-                if "tool_choice" in str(e) and cfg.get("tool_choice") != "auto":
-                    cfg = dict(cfg, tool_choice="auto")  # gateway/model without "required" support
+                if "tool_choice" in str(e) and call_cfg.get("tool_choice") != "auto":
+                    cfg = call_cfg = dict(cfg, tool_choice="auto")  # gateway/model without "required"/named support
                     continue
                 if attempt:
                     emit("error", {"message": str(e)})
@@ -336,28 +389,33 @@ def run_item(cfg, item, new_doc, old_doc, emit, lang="en", should_stop=lambda: F
                 emit("retry", {"message": str(e)})
                 time.sleep(2)
         emit("live", None)
+        force = None
         if resp["reasoning"].strip():
             emit("thought", {"text": resp["reasoning"].strip(), "source": "model reasoning"})
         if resp["content"].strip():
             emit("text", {"text": resp["content"].strip()})
         calls = resp["tool_calls"]
         if not calls:
-            if spec_change and cases:
+            if spec_change and not needs_case():
                 break
             nudges += 1
-            if nudges > 2:
+            if nudges > 3:
                 emit("error", {"message": f"the model stopped without using the tools (finish_reason: {resp.get('finish_reason')})"})
                 break
             emit("retry", {"message": f"no tool call (finish_reason: {resp.get('finish_reason')}), asking the model to continue"})
             # keep its analysis so it continues instead of starting over
             carry = (resp["content"] or "") or ("My analysis so far:\n" + resp["reasoning"][-4000:] if resp["reasoning"] else "(no answer)")
             messages.append({"role": "assistant", "content": carry})
-            messages.append({"role": "user", "content": "Use the tools: record_spec_change first, then run_python and submit_test_case, then finish."})
+            force = next_required()
+            messages.append({"role": "user", "content": f"Continue with the tools. Call {force} now."})
             continue
         messages.append({"role": "assistant", "content": resp["content"] or None,
                          "tool_calls": [{"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": c["arguments"] or "{}"}} for c in calls]})
         finished = False
         for c in calls:
+            state["spec_change"], state["cases"] = spec_change, cases
+            if should_stop():
+                raise Stopped()
             try:
                 args = _parse_args(c["arguments"])
             except (json.JSONDecodeError, ValueError) as e:
@@ -387,15 +445,19 @@ def run_item(cfg, item, new_doc, old_doc, emit, lang="en", should_stop=lambda: F
                            "source": item["source"], "document": new_doc["name"], "previous_document": old_doc["name"] if old_doc else None})
                 spec_change = sc
                 emit("spec_change", sc)
-                bad = [x["quote"][:80] for x in checks if not x["ok"]]
-                result = "recorded." + (f" These quotes are NOT verbatim in the text, fix them in your test cases: {bad}" if bad else " All quotes verified verbatim.")
+                bad = [x for x in checks if not x["ok"]]
+                result = "recorded." + ((" These quotes are NOT verbatim in the text; in your test cases use the real wording: "
+                                         + " | ".join(f"'{x['quote'][:60]}…' → \"{closest_sentence(x['quote'], item['new_text'] if x['side'] == 'new' else item['old_text'])}\"" for x in bad))
+                                        if bad else " All quotes verified verbatim.")
             elif name == "submit_test_case":
                 if not spec_change:
                     result = "error: call record_spec_change first."
                 else:
                     guards, oracle = check_case(args, item, terminal_runs)
+                    as_list = lambda v: [str(x) for x in v] if isinstance(v, list) else ([str(v)] if v else [])
                     case = {"title": args.get("title") or "untitled", "kind": args.get("kind", "positive"),
                             "criterion": args.get("criterion", ""), "scenario": args.get("scenario") or {},
+                            "preconditions": as_list(args.get("preconditions")), "steps": as_list(args.get("steps")),
                             "formula": args.get("formula") or {}, "previous_expression": args.get("previous_expression") or "",
                             "formula_changed": bool(args.get("formula_changed")), "ai_expected_value": args.get("expected_value"),
                             "expected_value": oracle, "expected_outcome": args.get("expected_outcome", ""),
@@ -405,33 +467,53 @@ def run_item(cfg, item, new_doc, old_doc, emit, lang="en", should_stop=lambda: F
                         case["formula_changed"] = True
                     if spec_change.get("formula_changed") or spec_change.get("change_type") == "formula":
                         case["formula_changed"] = True
-                    if case["replaces"]:
-                        cases = [x for x in cases if x["local_id"] != case["replaces"]]
+                    replaced = next((x for x in cases if x["local_id"] == case["replaces"]), None) if case["replaces"] else None
+                    case["fix_round"] = replaced["fix_round"] + 1 if replaced else 0
+                    if replaced:
+                        cases = [x for x in cases if x is not replaced]
                     case["local_id"] = f"case-{len(cases) + 1}-{int(time.time() * 1000) % 100000}"
                     cases.append(case)
                     emit("test_case", case)
                     fails = [f"{x['id']} {x['name']}: {x['detail']}" for x in guards if x["status"] == "fail"]
                     warns = [f"{x['id']} {x['name']}: {x['detail']}" for x in guards if x["status"] == "warn"]
+                    unclear = [k for k in ("preconditions", "steps", "expected_outcome") if not case[k]]
                     result = f"stored as {case['local_id']}. Oracle value: {oracle}."
-                    if fails:
-                        result += " GUARDS FAILED: " + "; ".join(fails) + f". Fix it and call submit_test_case again with replaces='{case['local_id']}'."
+                    if (fails or unclear) and case["fix_round"] >= 2:
+                        # don't let the model loop on the same case: the examiner decides from here
+                        result += (" Checks still failing: " + "; ".join(fails + [f"missing {k}" for k in unclear])
+                                   + ". The case is kept and flagged for the examiner. Do NOT resubmit it; submit a different case or call finish.")
+                    else:
+                        if fails:
+                            result += " GUARDS FAILED: " + "; ".join(fails) + f". Fix it and call submit_test_case again with replaces='{case['local_id']}'."
+                            hints = [f"'{q[:60]}…' → closest real sentence: \"{closest_sentence(q, item['new_text'])}\""
+                                     for q in case["quotes"] if not quote_in(q, item["new_text"], item["old_text"])]
+                            if hints:
+                                result += " Copy quotes from these sentences instead of retyping them: " + " | ".join(hints)
+                        if unclear:
+                            result += f" The test case is not clear enough: add {', '.join(unclear)} and resubmit with replaces='{case['local_id']}'."
                     if warns:
                         result += " Warnings: " + "; ".join(warns) + "."
             elif name == "finish":
-                summary = args.get("summary", "")
-                finished = True
-                result = "ok"
+                if needs_case() and refusals < 3:
+                    refusals += 1
+                    force = next_required()
+                    result = ("not finished: " + ("record the spec change first. " if not spec_change else "")
+                              + "This section has a testable rule, so you must submit at least one clear test case "
+                              "(title, preconditions, steps, expected outcome, formula) before finishing. "
+                              f"Call {force} now.")
+                else:
+                    summary = args.get("summary", "")
+                    finished = True
+                    result = "ok"
             else:
                 result = f"error: unknown tool {name}"
             messages.append({"role": "tool", "tool_call_id": c["id"], "content": result})
             if name != "run_python":
                 emit("tool_result", {"tool": name, "result": result})
         if finished:
-            if not spec_change and nudges < 2:
-                nudges += 1
-                messages.append({"role": "user", "content": "You must call record_spec_change before finishing."})
-                continue
             break
     else:
         emit("error", {"message": f"stopped after {MAX_TURNS} turns"})
+    if needs_case():
+        emit("error", {"message": "no test case was produced for this section; start it again with Generate"})
     return {"spec_change": spec_change, "cases": cases, "summary": summary}

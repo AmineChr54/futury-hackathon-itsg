@@ -23,7 +23,7 @@ Or double-click `pipeline/start.cmd`. The API key goes in `pipeline/.env` (gitig
 ```
 HAI_API_KEY=<team key>
 HAI_BASE_URL=https://hip-gw.hessian.ai/v1
-HAI_MODEL=vllm/GLM-Flash:Latest
+HAI_MODEL=vllm/Kolibri-1
 ```
 
 Open `http://localhost:8787` (the demo page, served by the pipeline). Then:

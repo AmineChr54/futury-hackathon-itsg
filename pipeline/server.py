@@ -52,8 +52,8 @@ def load_env():
 load_env()
 CFG = {"base": os.environ.get("HAI_BASE_URL", "https://hip-gw.hessian.ai/v1").rstrip("/"),
        "key": os.environ.get("HAI_API_KEY", ""),
-       "model": os.environ.get("HAI_MODEL", "vllm/GLM-Flash:Latest")}
-MODELS = ["vllm/GLM-Flash:Latest", "vllm/Kolibri-1"]
+       "model": os.environ.get("HAI_MODEL", "vllm/Kolibri-1")}
+MODELS = ["vllm/Kolibri-1", "vllm/GLM-Flash:Latest"]
 LAW_DIR = os.environ.get("LAW_DIR", os.path.join(ROOT, "docs", "law_file"))
 DATA = os.environ.get("PIPELINE_DATA", os.path.join(HERE, "data"))
 UPLOADS = os.path.join(DATA, "uploads")
@@ -272,13 +272,14 @@ def start_run(body, user):
 
 def finish_run_if_done(run):
     with LOCK:
-        if all(i["status"] in ("done", "error", "candidate", "skipped") for i in run["items"]) and run["status"] == "running":
-            run["status"] = "done"
+        if all(i["status"] in ("done", "error", "candidate", "skipped", "stopped") for i in run["items"]) and run["status"] == "running":
+            run["status"] = "stopped" if run.get("stop") else "done"
             run["seq"] += 1
             n = sum(len(i["cases"]) for i in run["items"])
+            text = (f"Stopped: {n} test case(s) kept for review" if run.get("stop") else f"Finished: {n} test case(s) waiting for review")
             run["events"].append({"seq": run["seq"], "t": now(), "item": None, "type": "stage",
-                                  "data": {"step": "done", "text": f"Finished: {n} test case(s) waiting for review"}})
-    if run["status"] == "done":
+                                  "data": {"step": "stop" if run.get("stop") else "done", "text": text}})
+    if run["status"] in ("done", "stopped"):
         save_run(run)
 
 
@@ -322,7 +323,7 @@ def process_item(run, sec):
             recompute(tc)
             STORE["testcases"].insert(0, tc)
             it["cases"].append(tc_id)
-        it["status"] = "error" if res.get("error") and not res["cases"] else "done"
+        it["status"] = "stopped" if res.get("stopped") else "error" if res.get("error") and not res["cases"] else "done"
         it["summary"] = res.get("summary", "")
         save_store()
     emit(run, sec, "item_done", {"sec": sec, "cases": it["cases"], "summary": it.get("summary", ""), "status": it["status"]})
@@ -351,6 +352,7 @@ def export_case(tc):
     return {
         "id": tc["id"], "status": tc["status"], "title": tc.get("title"), "kind": tc.get("kind"),
         "criterion": tc.get("criterion"),
+        "preconditions": tc.get("preconditions", []), "steps": tc.get("steps", []),
         "source": {"document": tc["document"], "previous_document": tc.get("previous_document"),
                    "section": tc["section"], "section_title": tc["section_title"], "page": tc.get("page"),
                    "quotes": tc.get("quotes", [])},
@@ -375,6 +377,12 @@ def edit_case(tc, body, user):
         if k in body and body[k] != tc.get(k):
             changes.append(f"{k}: {tc.get(k)!r} → {body[k]!r}")
             tc[k] = body[k]
+    for k in ("preconditions", "steps"):
+        if isinstance(body.get(k), list):
+            new = [str(x).strip() for x in body[k] if str(x).strip()]
+            if new != tc.get(k, []):
+                changes.append(f"{k} edited")
+                tc[k] = new
     if "scenario" in body and isinstance(body["scenario"], dict) and body["scenario"] != tc.get("scenario"):
         changes.append("scenario edited")
         tc["scenario"] = body["scenario"]

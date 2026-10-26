@@ -80,6 +80,8 @@ def _load_store():
 
 
 STORE = _load_store()
+for _k in ("users", "testcases", "packages", "runs", "submissions"):
+    STORE.setdefault(_k, [])
 
 
 def save_store():
@@ -344,6 +346,140 @@ def recompute(tc):
         tc["expected_value"] = None
         tc["formula_error"] = str(e)
         tc["trace"] = []
+
+
+def redact_for_dev(tc):
+    """Developers compute the expected values themselves and ITSG verifies them, so a developer
+    never receives ITSG's values: not as fields, not inside the AI's chain of thought."""
+    out = {k: v for k, v in tc.items() if k not in ("expected_value", "ai_expected_value", "trace", "dev_results")}
+    out["guards"] = [{**g, "detail": re.sub(r"oracle \S+ · AI \S+", "values hidden", g.get("detail", ""))} for g in tc.get("guards", [])]
+    cot = []
+    for e in tc.get("cot", []):
+        d = e.get("data")
+        if e["type"] == "terminal":
+            d = {**d, "stdout": "(output hidden from developers)", "stderr": ""}
+        elif e["type"] == "test_case":
+            d = {k: v for k, v in d.items() if k not in ("expected_value", "ai_expected_value")}
+        elif e["type"] in ("tool_result", "thought", "text") and isinstance(d, dict):
+            d = {**d, **{k: re.sub(r"(Oracle value|oracle|expected[_ ]value)[:=]?\s*\S+", r"\1: (hidden)", d[k], flags=re.I) for k in ("result", "text") if isinstance(d.get(k), str)}}
+        cot.append({**e, "data": d})
+    out["cot"] = cot
+    out["redacted"] = True
+    return out
+
+
+def result_type(value):
+    if value in ("true", "false"):
+        return "bool"
+    if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        return "date"
+    return "number"
+
+
+def checklist_row(tc):
+    fm = tc.get("formula") or {}
+    return {"id": tc["id"], "title": tc.get("title"), "kind": tc.get("kind"), "section": tc.get("section"),
+            "section_title": tc.get("section_title"), "criterion": tc.get("criterion"), "preconditions": tc.get("preconditions", []),
+            "steps": tc.get("steps", []), "expected_outcome_hint": fm.get("result_name"), "result_name": fm.get("result_name"),
+            "result_unit": fm.get("result_unit"), "result_type": result_type(tc.get("expected_value")),
+            "version": (tc.get("document") or {}).get("version"), "demo": tc.get("demo", False)}
+
+
+def public_submission(sub, with_expected):
+    """A developer's submitted values; with_expected adds the values ITSG verified for this spec version."""
+    out = {k: sub[k] for k in ("id", "package", "by", "t", "status")}
+    rows = []
+    for r in sub["rows"]:
+        tc = tc_by_id(r["id"]) or {}
+        row = {**r, "title": tc.get("title"), "section": tc.get("section"), "kind": tc.get("kind"),
+               "result_name": (tc.get("formula") or {}).get("result_name"), "result_unit": (tc.get("formula") or {}).get("result_unit"),
+               "version": (tc.get("document") or {}).get("version"), "document": (tc.get("document") or {}).get("name")}
+        if with_expected:
+            row["expected"] = tc.get("expected_value")
+            row["verified_by"], row["verified_at"] = tc.get("verified_by"), tc.get("verified_at")
+            row["auto_verdict"] = "pass" if r["value"] and F.same_value(r["value"], tc.get("expected_value")) else "fail"
+        rows.append(row)
+    out["rows"] = rows
+    if sub.get("validation"):
+        v = {x["id"]: x for x in sub["validation"]["rows"]}
+        for row in rows:
+            if row["id"] in v:
+                row["verdict"], row["comment"] = v[row["id"]]["verdict"], v[row["id"]]["comment"]
+                if not with_expected:  # the developer sees ITSG's value once the result is shared
+                    row["expected"] = v[row["id"]]["expected"]
+        out["validation"] = {"by": sub["validation"]["by"], "t": sub["validation"]["t"],
+                             "passed": sum(1 for x in sub["validation"]["rows"] if x["verdict"] == "pass"),
+                             "failed": sum(1 for x in sub["validation"]["rows"] if x["verdict"] == "fail")}
+    return out
+
+
+DEMO_CASES = [
+    # ITSG reference case (Peter Mustermann, DBVO / Abgabegrund 41) and its neighbours
+    {"title": "Sick pay ends 27.03.2026 when 25 prior days are creditable", "kind": "positive", "section": "3.12.5",
+     "criterion": "The system ensures that continued pay (EFZ) ends after 42 days minus all creditable prior-illness days.",
+     "preconditions": ["Employee Peter Mustermann, statutory health insurance", "Prior AUs (same illness): 14.07.–15.07.2025, 01.10.–17.10.2025, 01.12.–03.12.2025, 01.03.–03.03.2026 (25 days)", "Insurer confirmed all four periods as creditable (reply 61)"],
+     "steps": ["Enter the current AU from 11.03.2026", "Import the insurer's reply 61", "Run the payroll for March 2026", "Read the last day of continued pay (EFZ)"],
+     "expression": "add_days(au_start, efz_days - prior_days - 1)", "result_name": "efz_end",
+     "variables": [("au_start", "date", "2026-03-11", "scenario"), ("efz_days", "number", "42", "spec"), ("prior_days", "number", "25", "scenario")],
+     "outcome": "Continued pay ends on 27.03.2026; sickness benefit starts the next day."},
+    {"title": "Sick pay ends 30.03.2026 while the paper note is not yet confirmed", "kind": "boundary", "section": "3.12.5",
+     "criterion": "The system ensures that only prior days confirmed by the insurer reduce the 42 days.",
+     "preconditions": ["Same employee and AUs as above", "The insurer marked 01.03.–03.03.2026 as 'AU not on file' (KZ-NACHWEIS 4)"],
+     "steps": ["Enter the current AU from 11.03.2026", "Import the first reply 61 (22 creditable days)", "Run the payroll", "Read the last day of continued pay"],
+     "expression": "add_days(au_start, efz_days - prior_days - 1)", "result_name": "efz_end",
+     "variables": [("au_start", "date", "2026-03-11", "scenario"), ("efz_days", "number", "42", "spec"), ("prior_days", "number", "22", "scenario")],
+     "outcome": "Continued pay ends on 30.03.2026."},
+    {"title": "Request 41 allowed: 25 prior days + current AU reach 30 days", "kind": "positive", "section": "3.12",
+     "criterion": "The system ensures that request 41 can only be generated if prior illnesses plus the current AU total at least 30 days.",
+     "preconditions": ["Certified prior AUs with 25 days in the last 12 months", "Current AU 11.03.–20.03.2026 (certified)"],
+     "steps": ["Enter the current AU 11.03.–20.03.2026", "Open the prior-illness request (Abgabegrund 41)", "Check whether the program allows sending it"],
+     "expression": "prior_days + days_inclusive(au_start, au_end) >= min_days", "result_name": "request_allowed",
+     "variables": [("prior_days", "number", "25", "scenario"), ("au_start", "date", "2026-03-11", "scenario"), ("au_end", "date", "2026-03-20", "scenario"), ("min_days", "number", "30", "spec")],
+     "outcome": "The request may be generated (35 ≥ 30 days)."},
+    {"title": "Request 41 refused: 15 prior days + 4 days current AU", "kind": "negative", "section": "3.12",
+     "criterion": "The system ensures that request 41 is refused below 30 days.",
+     "preconditions": ["Certified prior AUs with 15 days in the last 12 months", "Current AU 11.03.–14.03.2026"],
+     "steps": ["Enter the current AU 11.03.–14.03.2026", "Try to create the prior-illness request (Abgabegrund 41)"],
+     "expression": "prior_days + days_inclusive(au_start, au_end) >= min_days", "result_name": "request_allowed",
+     "variables": [("prior_days", "number", "15", "scenario"), ("au_start", "date", "2026-03-11", "scenario"), ("au_end", "date", "2026-03-14", "scenario"), ("min_days", "number", "30", "spec")],
+     "outcome": "The program refuses the request (19 < 30 days)."},
+    {"title": "Gap of exactly 6 months: the prior AU is included", "kind": "boundary", "section": "3.12",
+     "criterion": "AU periods are included if no more than 6 months lie between the end of one AU and the start of the next.",
+     "preconditions": ["Prior certified AU ending 11.09.2025", "Current AU starting 11.03.2026"],
+     "steps": ["Enter both AUs", "Create the prior-illness request (Abgabegrund 41)", "Check whether the prior AU is listed in the DBVO block"],
+     "expression": "add_months(previous_end, gap_months) >= current_start", "result_name": "prior_au_included",
+     "variables": [("previous_end", "date", "2025-09-11", "scenario"), ("current_start", "date", "2026-03-11", "scenario"), ("gap_months", "number", "6", "spec")],
+     "outcome": "The prior AU is included in the request."},
+]
+
+
+def seed_demo(user):
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    ids = []
+    for n, d in enumerate(DEMO_CASES, start=1):
+        tc = {"id": f"TC-{d['section']}-DEMO{stamp[-6:]}-{n}", "run": "demo", "created": now(), "status": "sent", "model": "ITSG reference case",
+              "demo": True, "section": d["section"], "section_title": "DBVO – Vorerkrankungszeiten" if d["section"] == "3.12" else "Entgeltfortzahlung",
+              "page": 135, "change_kind": "changed", "change_source": "demo",
+              "document": {"name": "Verfahrensbeschreibung DTA EEL", "version": "13.4"}, "previous_document": {"name": "Verfahrensbeschreibung DTA EEL", "version": "13.3"},
+              "spec_change": {"change_type": "condition", "summary": "ITSG reference case for the prior-illness procedure."},
+              "title": d["title"], "kind": d["kind"], "criterion": d["criterion"], "preconditions": d["preconditions"], "steps": d["steps"],
+              "scenario": {v[0]: v[2] for v in d["variables"] if v[3] == "scenario"},
+              "formula": {"expression": d["expression"], "result_name": d["result_name"],
+                          "variables": [{"name": a, "type": b, "value": c, "source": s} for a, b, c, s in d["variables"]]},
+              "formula_changed": False, "expected_outcome": d["outcome"], "quotes": [],
+              "guards": [{"id": "G2", "name": "formula valid", "status": "ok", "detail": "reference case"}],
+              "cot": [], "verified_by": "ITSG examiner", "verified_at": now(), "sent_to": [user], "sent_at": now(), "acks": [],
+              "history": [{"t": now(), "who": "ITSG examiner", "action": "verified", "detail": "ITSG reference case (demo)"},
+                          {"t": now(), "who": "ITSG examiner", "action": "sent", "detail": f"to {user}"}]}
+        recompute(tc)
+        STORE["testcases"].insert(0, tc)
+        ids.append(tc["id"])
+    pkg = {"id": "PKG-" + stamp, "t": now(), "by": "ITSG examiner", "to": [user], "ids": ids,
+           "note": "EEL 13.4 — prior-illness request and continued pay (demo)", "demo": True}
+    for tc_id in ids:
+        tc_by_id(tc_id)["package"] = pkg["id"]
+    STORE["packages"].insert(0, pkg)
+    return pkg
 
 
 def export_case(tc):
@@ -647,9 +783,10 @@ class Handler(BaseHTTPRequestHandler):
             tc = tc_by_id(parts[0])
             if not tc:
                 raise ApiError(404, "test case not found")
+            dev = self.role == "dev"
             if len(parts) > 1 and parts[1] == "export":
-                return self.send_json(export_case(tc))
-            return self.send_json(tc)
+                return self.send_json(export_case(redact_for_dev(tc) if dev else tc))
+            return self.send_json(redact_for_dev(tc) if dev else tc)
         run = (q.get("run") or [None])[0]
         lst = [t for t in STORE["testcases"] if not run or t["run"] == run]
         self.send_json([{k: t.get(k) for k in ("id", "run", "status", "title", "kind", "section", "section_title", "expected_value",
@@ -752,15 +889,113 @@ class Handler(BaseHTTPRequestHandler):
             pkg = next((p for p in STORE["packages"] if p["id"] == parts[0]), None)
             if not pkg:
                 raise ApiError(404, "package not found")
-            return self.send_json({**pkg, "testcases": [export_case(tc_by_id(i)) for i in pkg["ids"] if tc_by_id(i)]})
+            fix = redact_for_dev if self.role == "dev" else (lambda t: t)
+            return self.send_json({**pkg, "testcases": [export_case(fix(tc_by_id(i))) for i in pkg["ids"] if tc_by_id(i)]})
         self.send_json(STORE["packages"][:50])
 
     def api_get_inbox(self, parts, q):
         user = (q.get("user") or [self.user])[0]
         lst = [t for t in STORE["testcases"] if user in t.get("sent_to", [])]
-        self.send_json([{**{k: t.get(k) for k in ("id", "status", "title", "kind", "section", "section_title", "expected_value",
+        self.send_json([{**{k: t.get(k) for k in ("id", "status", "title", "kind", "section", "section_title",
                                                   "formula_changed", "formula_edited", "sent_at", "package", "document")},
                          "my_ack": next((a for a in t.get("acks", []) if a["who"] == user), None)} for t in lst])
+
+    # ---- developer checklist → submission → ITSG validation → results back to the developer
+    def api_get_checklists(self, parts, q):
+        user = (q.get("user") or [self.user])[0]
+        out = []
+        for p in STORE["packages"]:
+            if user not in p["to"]:
+                continue
+            sub = next((s for s in STORE["submissions"] if s["package"] == p["id"] and s["by"] == user), None)
+            out.append({**p, "rows": [checklist_row(tc_by_id(i)) for i in p["ids"] if tc_by_id(i)],
+                        "submission": public_submission(sub, with_expected=False) if sub else None})
+        self.send_json(out)
+
+    def api_post_checklists(self, parts, q):
+        if len(parts) != 2 or parts[1] != "submit":
+            raise ApiError(404, "unknown action")
+        pkg = next((p for p in STORE["packages"] if p["id"] == parts[0]), None)
+        if not pkg:
+            raise ApiError(404, "checklist not found")
+        if self.user not in pkg["to"]:
+            raise ApiError(403, "this checklist was not sent to you")
+        rows = [r for r in (self.json_body().get("rows") or []) if isinstance(r, dict) and r.get("id") in pkg["ids"]]
+        if not rows or not any(str(r.get("value", "")).strip() for r in rows):
+            raise ApiError(400, "enter at least one value")
+        with LOCK:
+            if any(s["package"] == pkg["id"] and s["by"] == self.user and s["status"] == "validated" for s in STORE["submissions"]):
+                raise ApiError(409, "ITSG has already validated this checklist")
+            STORE["submissions"] = [s for s in STORE["submissions"] if not (s["package"] == pkg["id"] and s["by"] == self.user)]
+            sub = {"id": "SUB-" + time.strftime("%Y%m%d-%H%M%S"), "package": pkg["id"], "by": self.user, "t": now(), "status": "submitted",
+                   "rows": [{"id": r["id"], "value": str(r.get("value", "")).strip(), "note": str(r.get("note", "")).strip()[:500]} for r in rows]}
+            STORE["submissions"].insert(0, sub)
+            for r in sub["rows"]:
+                tc = tc_by_id(r["id"])
+                tc["history"].append({"t": now(), "who": self.user, "action": "developer result submitted", "detail": f"value {r['value'] or '—'}"})
+            save_store()
+        self.send_json(public_submission(sub, with_expected=False))
+
+    def api_get_submissions(self, parts, q):
+        self.need_examiner()
+        if not parts:
+            return self.send_json([{k: s[k] for k in ("id", "package", "by", "t", "status")} | {"n": len(s["rows"]), "seen": s.get("seen", False)}
+                                   for s in STORE["submissions"]])
+        sub = next((s for s in STORE["submissions"] if s["id"] == parts[0]), None)
+        if not sub:
+            raise ApiError(404, "submission not found")
+        with_expected = (q.get("expected") or ["0"])[0] == "1" or sub["status"] == "validated"
+        if not sub.get("seen"):
+            sub["seen"] = True
+            save_store()
+        self.send_json(public_submission(sub, with_expected))
+
+    def api_post_submissions(self, parts, q):
+        self.need_examiner()
+        sub = next((s for s in STORE["submissions"] if s["id"] == (parts[0] if parts else "")), None)
+        if not sub or len(parts) < 2 or parts[1] != "validate":
+            raise ApiError(404, "submission not found")
+        verdicts = {r.get("id"): r for r in (self.json_body().get("rows") or []) if isinstance(r, dict)}
+        with LOCK:
+            full = public_submission(sub, with_expected=True)
+            rows = []
+            for r in full["rows"]:
+                v = verdicts.get(r["id"], {})
+                verdict = v.get("verdict") if v.get("verdict") in ("pass", "fail") else r["auto_verdict"]
+                rows.append({"id": r["id"], "expected": r["expected"], "value": r["value"], "auto_verdict": r["auto_verdict"],
+                             "verdict": verdict, "comment": str(v.get("comment", "")).strip()[:500]})
+                tc = tc_by_id(r["id"])
+                tc.setdefault("dev_results", []).append({"dev": sub["by"], "t": now(), "value": r["value"], "verdict": verdict})
+                tc["history"].append({"t": now(), "who": self.user, "action": f"developer result {verdict}",
+                                      "detail": f"{sub['by']}: {r['value'] or '—'} vs expected {r['expected']}"})
+            sub["validation"] = {"by": self.user, "t": now(), "rows": rows}
+            sub["status"] = "validated"
+            save_store()
+        self.send_json(public_submission(sub, with_expected=True))
+
+    def api_get_results(self, parts, q):
+        """What a developer sees after ITSG validated: last passed and failed tests."""
+        user = (q.get("user") or [self.user])[0]
+        out = []
+        for s in STORE["submissions"]:
+            if s["by"] != user or s["status"] != "validated":
+                continue
+            for r in s["validation"]["rows"]:
+                tc = tc_by_id(r["id"]) or {}
+                out.append({"id": r["id"], "title": tc.get("title"), "section": tc.get("section"), "package": s["package"],
+                            "value": r["value"], "expected": r["expected"], "verdict": r["verdict"], "comment": r["comment"],
+                            "validated_by": s["validation"]["by"], "t": s["validation"]["t"], "version": (tc.get("document") or {}).get("version")})
+        self.send_json(out)
+
+    def api_post_demo(self, parts, q):
+        """Seed a demo checklist (ITSG reference case) for a developer, so the demo never depends on the AI."""
+        user = (self.json_body().get("user") or self.user).strip()
+        if not user or user == "anonymous":
+            raise ApiError(400, "log in first")
+        with LOCK:
+            pkg = seed_demo(user)
+            save_store()
+        self.send_json(pkg)
 
 
 def main():

@@ -380,6 +380,25 @@ details.cot-more summary::marker { color: var(--accent); }
 .var-name { font: 600 13px var(--font-mono); }
 .trace { font: 400 12px/1.7 var(--font-mono); color: var(--fg-2); }
 .chk { display: inline-flex; align-items: center; }
+.split.wide { grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); }
+#valTable td:nth-child(2), #clTable td:nth-child(2) { min-width: 220px; }
+@media (max-width: 900px) { .split.wide { grid-template-columns: minmax(0, 1fr); } }
+.login-scrim { position: fixed; inset: 0; z-index: 90; background: var(--bg); display: grid; place-items: center; padding: 16px; }
+.login-box { width: min(560px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: var(--s-6); display: grid; gap: var(--s-4); }
+.login-box h2 { font: 700 var(--fs-xl)/1.2 var(--font-display); }
+.login-roles { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+.login-role { display: grid; gap: 6px; text-align: left; padding: var(--s-4); border: 2px solid var(--line); border-radius: var(--r-lg); background: var(--surface-2); cursor: pointer; font-size: var(--fs-sm); color: var(--fg-2); }
+.login-role b { font: 700 var(--fs-lg)/1.2 var(--font-display); color: var(--fg); }
+.login-role .icon { width: 22px; height: 22px; color: var(--accent); }
+.login-role[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+@media (max-width: 560px) { .login-roles { grid-template-columns: 1fr; } }
+.notify-host { position: fixed; top: calc(var(--bar-h) + 12px); right: 16px; z-index: 70; display: grid; gap: 8px; width: min(380px, calc(100% - 32px)); }
+.notify { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 10px; align-items: start; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--r-md); box-shadow: var(--shadow); padding: 12px; cursor: pointer; font-size: var(--fs-sm); animation: toast-in .3s ease; }
+.notify.result { border-left-color: var(--ok); }
+.notify:hover { background: var(--surface-2); }
+.notify-ic { font-size: 18px; line-height: 1; }
+.tbl tr.row-fail td { background: var(--bad-soft); }
+.tbl tr.flash-row td { animation: flash 1s ease; }
 @media (max-width: 560px) { .drop-row { grid-template-columns: minmax(0, 1fr); } }
 
 /* ---------- modal ---------- */
@@ -2686,8 +2705,13 @@ const PIPE = (() => {
 
   /* ---------- users and the developer inbox ---------- */
   function shell() {
-    const b = document.getElementById("userBtn");
-    if (b) b.innerHTML = `👤 <span>${esc(P.user || L("Sign in", "Anmelden"))}</span>`;
+    // signed in: show who and as what instead of the role switch; the user button logs out
+    const seg = document.getElementById("roleSeg"), b = document.getElementById("userBtn");
+    if (P.session) {
+      if (seg) seg.innerHTML = `<button aria-pressed="true" tabindex="-1">${S.role === "dev" ? L("Developer", "Entwickler") : "ITSG"}</button>`;
+      if (b) { b.innerHTML = `👤 <span>${esc(P.session.user)}</span> · ${L("Log out", "Abmelden")}`; b.dataset.act = "pipeLogout"; }
+      const ai = document.getElementById("aiBtn"); if (ai) ai.hidden = S.role === "dev";
+    } else if (b) { b.innerHTML = `👤 <span>${L("Sign in", "Anmelden")}</span>`; b.dataset.act = "pipeLogout"; }
   }
   function askName(then) {
     A.modal(L("Who are you?", "Wer sind Sie?"), `<p class="muted" style="font-size:var(--fs-sm)">${L("Your name is recorded with every edit, verification and hand-over. Developers receive test cases under this name.", "Ihr Name wird bei jeder Änderung, Verifizierung und Übergabe vermerkt. Entwickler erhalten Testfälle unter diesem Namen.")}</p>
@@ -2765,8 +2789,15 @@ const PIPE = (() => {
     badge: () => { const n = P.cases.filter(c => c.status === "draft").length; return n ? { n, hot: true } : null; } });
   A.SCREENS.push({ id: "devinbox", group: "dev", step: null, icon: "inbox", roles: ["dev"], t: () => L("Test cases from ITSG", "Testfälle von ITSG"),
     badge: () => { const n = P.inbox.filter(t => !P.seenInbox.includes(t.id)).length; return n ? { n, hot: true } : null; } });
+  A.SCREENS.splice(at("devinbox"), 0,
+    { id: "devchecklist", group: "dev", step: null, icon: "check", roles: ["dev"], t: () => L("Checklist", "Checkliste"),
+      badge: () => { const n = (P.checklists || []).filter(c => !c.submission).length; return n ? { n, hot: true } : null; } },
+    { id: "devresults", group: "dev", step: null, icon: "report", roles: ["dev"], t: () => L("Results", "Ergebnisse"),
+      badge: () => { const n = (P.results || []).filter(r => r.verdict === "fail").length; return n ? { n, hot: true } : null; } });
+  A.SCREENS.splice(at("audit"), 0, { id: "validation", group: "cert", step: null, icon: "check", roles: ["itsg"], t: () => L("Test validation", "Testvalidierung"),
+    badge: () => { const n = (P.subs || []).filter(s => s.status === "submitted").length; return n ? { n, hot: true } : null; } });
   A.GROUPS.dev = () => L("Developer", "Entwicklung");
-  Object.assign(A.RENDER, { pipeline: vPipeline, review: vReview, devinbox: vDevInbox });
+  Object.assign(A.RENDER, { pipeline: vPipeline, review: vReview, devinbox: vDevInbox, devchecklist: vChecklist, devresults: vResults, validation: vValidation });
 
   Object.assign(A.ACT, {
     pipeStart: () => startRun(),
@@ -2808,6 +2839,25 @@ const PIPE = (() => {
     pipeUser: () => askName(() => { if (S.role === "dev") loadInbox(); }),
     pipeSaveUser: () => { const v = ((document.getElementById("pipeUserName") || {}).value || "").trim(); if (!v) return; P.user = v; store.set("user", v); document.getElementById("modalHost").innerHTML = ""; register(); shell(); const f = P.afterName; P.afterName = null; if (f) f(); rerender(); },
     pipeOpenInbox: el => openInbox(el.dataset.id),
+    pipePickRole: el => { P.loginName = null; loginGate(el.dataset.v); },
+    pipeLogin: () => {
+      const n = ((document.getElementById("loginName") || {}).value || "").trim().toLowerCase();
+      const role = { istg: "itsg", itsg: "itsg", dev: "dev" }[n];
+      if (!role) { document.getElementById("loginError").innerHTML = `<div class="callout bad">${L("Unknown user. Log in as istg or dev.", "Unbekannter Benutzer. Als istg oder dev anmelden.")}</div>`; return; }
+      login(role, n === "dev" ? "dev" : "istg");
+    },
+    pipeLogout: () => logout(),
+    pipeNotify: (el, e) => { if (e && e.target.closest('[data-act="pipeDismiss"]')) return; openNotify(el.dataset.key, el.dataset.go, el.dataset.sel); if (DEV.idx === 0) devNext(); },
+    pipeDismiss: el => dismiss(el.dataset.key),
+    pipeSelPkg: el => { P.selPkg = el.dataset.id; dismiss("pkg:" + el.dataset.id); rerender(); },
+    pipeSubmitCl: el => submitChecklist(el.dataset.id),
+    pipeRefreshDev: () => refreshSession().then(rerender),
+    pipeOpenSub: el => { P.subDetail = null; P.subReveal = 0; dismiss("sub:" + el.dataset.id); openSub(el.dataset.id); },
+    pipeRefreshSubs: () => loadSubs().then(rerender),
+    pipeFetchExpected: () => openSub(P.selSub, true),
+    pipeValidate: () => confirmValidation(),
+    devNext: () => devNext(),
+    devEnd: () => devEnd(false),
     pipeRefreshInbox: () => loadInbox(),
     pipeAck: async el => {
       try {
@@ -2818,6 +2868,23 @@ const PIPE = (() => {
     }
   });
 
+  const clInput = t => {  // checklist values and notes, kept per package so a refresh doesn't wipe them
+    const id = t.dataset.cl || t.dataset.clNote; if (!id || !P.selPkg) return false;
+    const d = (P.clDraft[P.selPkg] = P.clDraft[P.selPkg] || {}), row = (d[id] = d[id] || {});
+    if (t.dataset.cl) row.value = t.value; else row.note = t.value;
+    const c = P.checklists.find(x => x.id === P.selPkg), cnt = document.getElementById("clCount");
+    if (c && cnt) cnt.textContent = `${c.rows.filter(r => (d[r.id] || {}).value).length} / ${c.rows.length} ${L("values entered", "Werte eingetragen")}`;
+    return true;
+  };
+  const valInput = t => {
+    const id = t.dataset.verdict || t.dataset.vcomment; if (!id) return false;
+    const v = (P.subVerdicts[id] = P.subVerdicts[id] || {});
+    if (t.dataset.verdict) { v.verdict = t.value; rerender(); } else v.comment = t.value;
+    return true;
+  };
+  document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "loginName") { e.preventDefault(); A.ACT.pipeLogin(); } });
+  document.addEventListener("input", e => { if (clInput(e.target) || (e.target.dataset && e.target.dataset.vcomment && valInput(e.target))) e.stopImmediatePropagation(); });
+  document.addEventListener("change", e => { if (e.target.dataset && (e.target.dataset.cl || e.target.dataset.verdict)) { if (e.target.dataset.cl) clInput(e.target); else valInput(e.target); } });
   document.addEventListener("input", e => {
     const t = e.target;
     if (t.id === "pipeExpr" && P.draft) { P.draft.formula.expression = t.value; scheduleEval(); }
@@ -2837,25 +2904,336 @@ const PIPE = (() => {
     else if (t.dataset && t.dataset.var != null && t.dataset.k === "type" && P.draft) { P.draft.formula.variables[Number(t.dataset.var)].type = t.value; scheduleEval(); }
   });
 
+  /* ---------- session: sign in as ITSG or Developer ---------- */
+  Object.assign(P, { session: store.get("session", null), checklists: [], selPkg: null, clDraft: {}, results: [],
+    subs: [], selSub: null, subDetail: null, subReveal: 0, subVerdicts: {}, dismissed: store.get("dismissed", []) });
+  function loginGate(preset) {
+    let host = document.getElementById("loginHost");
+    if (!host) { host = document.createElement("div"); host.id = "loginHost"; document.body.appendChild(host); }
+    // one Login tab: the username decides the role ("istg" = ITSG examiner, "dev" = developer)
+    const value = preset != null ? preset : (P.loginName || "");
+    host.innerHTML = `<div class="login-scrim"><div class="login-box" role="dialog" aria-modal="true" aria-label="${esc(L("Sign in", "Anmelden"))}">
+      <div class="row"><div class="brand-mark" aria-hidden="true">§</div><div><div class="brand-name">EEL Review Assistant</div><div class="muted" style="font-size:var(--fs-xs)">${L("AI-assisted system review · DTA EEL", "KI-gestützte Systemuntersuchung · DTA EEL")}</div></div></div>
+      <div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="true">${L("Login", "Anmeldung")}</button></div>
+      <label class="stack" style="gap:4px"><span class="field-label">${L("Username", "Benutzername")}</span><input class="input" id="loginName" value="${esc(value)}" placeholder="istg / dev" autocomplete="username" spellcheck="false"></label>
+      <span class="muted" style="font-size:var(--fs-xs)">${L("istg: ITSG examiner (specs, test cases, validation) · dev: developer (checklist, results)", "istg: ITSG-Prüfer (Spezifikationen, Testfälle, Validierung) · dev: Entwickler (Checkliste, Ergebnisse)")}</span>
+      <div id="loginError"></div>
+      <button class="btn primary" data-act="pipeLogin" style="justify-content:center">${L("Login", "Anmelden")}</button></div></div>`;
+    setTimeout(() => { const i = document.getElementById("loginName"); if (i) i.focus(); }, 30);
+  }
+  function login(role, name) {
+    P.session = { role, user: name };
+    store.set("session", P.session);
+    P.user = name; store.set("user", name);
+    S.role = role; store.set("role", role);
+    P.loginName = null;
+    const host = document.getElementById("loginHost"); if (host) host.innerHTML = "";
+    S.screen = role === "dev" ? "devchecklist" : "overview";
+    register();
+    A.log(role === "dev" ? "developer" : "examiner", L("Signed in", "Angemeldet"), `${name} (${role === "dev" ? "Developer" : "ITSG"})`);
+    A.render();
+    refreshSession();
+  }
+  function logout(preset) {
+    document.getElementById("tourHost").innerHTML = "";
+    document.getElementById("main").style.transform = "";
+    P.session = null; store.set("session", null);
+    P.user = ""; store.set("user", "");
+    P.selPkg = P.selSub = P.subDetail = null; P.checklists = []; P.subs = []; P.results = [];
+    paintNotify();
+    loginGate(preset);
+  }
+  async function refreshSession() {
+    if (!P.online || !P.session) return;
+    if (S.role === "dev") await Promise.all([loadChecklists(), loadResults(), loadInbox()]);
+    else if (S.role === "itsg") await loadSubs();
+    paintNotify();
+  }
+  /* ---------- notifications ---------- */
+  function notifications() {
+    if (!P.session) return [];
+    const out = [];
+    if (S.role === "dev") {
+      P.checklists.filter(c => !c.submission).forEach(c => out.push({ key: "pkg:" + c.id, kind: "new", go: "devchecklist", sel: c.id,
+        title: L("New test cases have been created", "Neue Testfälle wurden erstellt"),
+        body: `${c.rows.length} ${L("test cases from", "Testfälle von")} ${esc(c.by)}${c.note ? " · " + esc(c.note) : ""}` }));
+      P.checklists.filter(c => c.submission && c.submission.validation).forEach(c => out.push({ key: "val:" + c.submission.id, kind: "result", go: "devresults", sel: c.id,
+        title: L("ITSG validated your results", "ITSG hat Ihre Ergebnisse validiert"),
+        body: `${c.submission.validation.passed} ${L("passed", "bestanden")} · ${c.submission.validation.failed} ${L("failed", "nicht bestanden")}` }));
+    } else if (S.role === "itsg") {
+      P.subs.filter(s => s.status === "submitted").forEach(s => out.push({ key: "sub:" + s.id, kind: "result", go: "validation", sel: s.id,
+        title: L("Dev test results are here!", "Testergebnisse der Entwickler sind da!"),
+        body: `${esc(s.by)} ${L("submitted", "hat")} ${s.n} ${L("values", "Werte eingereicht")} · ${esc(s.package)}` }));
+    }
+    return out.filter(n => !P.dismissed.includes(n.key));
+  }
+  function paintNotify() {
+    let host = document.getElementById("notifyHost");
+    if (!host) { host = document.createElement("div"); host.id = "notifyHost"; host.className = "notify-host"; host.setAttribute("aria-live", "polite"); document.body.appendChild(host); }
+    host.innerHTML = notifications().map(n => `<div class="notify ${n.kind}" role="button" tabindex="0" data-act="pipeNotify" data-key="${esc(n.key)}" data-go="${n.go}" data-sel="${esc(n.sel)}">
+      <span class="notify-ic">${n.kind === "new" ? "🔔" : "✓"}</span><div class="stack" style="gap:2px"><b>${n.title}</b><span>${n.body}</span><span class="muted" style="font-size:var(--fs-xs)">${L("Click to open", "Zum Öffnen klicken")}</span></div>
+      <button class="btn ghost sm" data-act="pipeDismiss" data-key="${esc(n.key)}" aria-label="${esc(L("Dismiss", "Ausblenden"))}">✕</button></div>`).join("");
+  }
+  function dismiss(key) { if (!P.dismissed.includes(key)) { P.dismissed.push(key); store.set("dismissed", P.dismissed.slice(-200)); } paintNotify(); }
+  /* ---------- developer: checklist ---------- */
+  async function loadChecklists() {
+    if (!P.online || !P.user) return;
+    try {
+      P.checklists = await api(`/api/checklists?user=${encodeURIComponent(P.user)}`);
+      if (!P.selPkg && P.checklists.length) P.selPkg = P.checklists[0].id;
+      if (onScreen("devchecklist", "devresults") && !editing()) rerender(); else { A.renderShell(); paintNotify(); }
+    } catch (e) { /* offline */ }
+  }
+  async function loadResults() {
+    if (!P.online || !P.user) return;
+    try { P.results = await api(`/api/results?user=${encodeURIComponent(P.user)}`); } catch (e) { /* offline */ }
+  }
+  function valueInput(r, val, disabled) {
+    const a = `data-cl="${esc(r.id)}" ${disabled ? "disabled" : ""} aria-label="${esc(r.title)}"`;
+    if (r.result_type === "bool") return `<select class="select" ${a}><option value="" ${!val ? "selected" : ""}>—</option><option value="true" ${val === "true" ? "selected" : ""}>${L("yes / true", "ja / true")}</option><option value="false" ${val === "false" ? "selected" : ""}>${L("no / false", "nein / false")}</option></select>`;
+    if (r.result_type === "date") return `<input class="input mono" type="date" ${a} value="${esc(val || "")}">`;
+    return `<input class="input mono" inputmode="decimal" ${a} value="${esc(val || "")}" placeholder="0">`;
+  }
+  function clStatus(c) {
+    const s = c.submission;
+    if (!s) return pill(L("new", "neu"), "accent");
+    if (s.validation) return pill(`✓ ${s.validation.passed} · ✕ ${s.validation.failed}`, s.validation.failed ? "warn" : "ok");
+    return pill(L("submitted", "eingereicht"), "info");
+  }
+  function vChecklist() {
+    if (P.online === false) return `${head(L("Checklist", "Checkliste"), "")}${docsInner()}`;
+    const c = P.checklists.find(x => x.id === P.selPkg);
+    const list = P.checklists.length ? P.checklists.map(x => `<button class="list-item" data-act="pipeSelPkg" data-id="${esc(x.id)}" aria-selected="${x.id === P.selPkg}"><span class="mono muted" style="font-size:11px">${esc(x.id)} · ${esc((x.t || "").replace("T", " ").slice(0, 16))}</span><b style="font-size:var(--fs-sm)">${esc(x.note || L("Test package", "Testpaket"))}</b><div class="row" style="gap:4px">${clStatus(x)}${pill(x.rows.length + " " + L("tests", "Tests"), "")}</div></button>`).join("")
+      : `<div class="empty">${L("No checklist yet. ITSG sends one when new test cases are verified — or press Demo.", "Noch keine Checkliste. ITSG sendet eine, sobald neue Testfälle verifiziert sind — oder Demo drücken.")}</div>`;
+    return `${head(L("Checklist", "Checkliste"), L("ITSG sends you the verified test cases for the next release. Run each case in your payroll program, enter the value it calculates, and submit the form. ITSG compares your values with the values verified for this spec version.", "ITSG sendet Ihnen die verifizierten Testfälle für das nächste Release. Jeden Fall im Abrechnungsprogramm ausführen, den berechneten Wert eintragen und das Formular absenden. ITSG vergleicht Ihre Werte mit den für diese Spezifikationsversion verifizierten Werten."), `<button class="btn" data-act="pipeRefreshDev">↻ ${L("Refresh", "Aktualisieren")}</button>`)}
+      <div class="split wide"><section class="panel"><div class="panel-head"><h4>${L("Checklists from ITSG", "Checklisten von ITSG")}</h4></div><div class="panel-body flush">${list}</div></section>
+      <div class="stack" id="clDetail">${c ? checklistTable(c) : `<section class="panel"><div class="empty">${L("Select a checklist.", "Checkliste auswählen.")}</div></section>`}</div></div>`;
+  }
+  function checklistTable(c) {
+    const sub = c.submission, locked = !!(sub && sub.validation);
+    const draft = P.clDraft[c.id] || (P.clDraft[c.id] = Object.fromEntries((sub ? sub.rows : []).map(r => [r.id, { value: r.value, note: r.note }])));
+    const subRow = id => sub ? sub.rows.find(r => r.id === id) : null;
+    const filled = c.rows.filter(r => (draft[r.id] || {}).value).length;
+    const rows = c.rows.map((r, i) => { const d = draft[r.id] || {}, s = subRow(r.id);
+      return `<tr><td class="mono muted">${i + 1}</td>
+        <td><b>${esc(r.title)}</b><div class="row" style="gap:4px;margin-top:3px">${pill(esc(r.kind), "")}${pill("§" + esc(r.section), "mono")}${r.version ? pill("v" + esc(r.version), "") : ""}</div>
+          <details class="cot-more" style="margin-top:4px"><summary class="muted" style="font-size:var(--fs-xs)">${L("How to run it", "Durchführung")}</summary>${tcSheet({ preconditions: r.preconditions, steps: r.steps })}</details></td>
+        <td><span class="mono">${esc(r.result_name || "")}</span>${r.result_unit ? ` <span class="muted">${esc(r.result_unit)}</span>` : ""}<div class="muted" style="font-size:11px">${{ date: L("date", "Datum"), bool: L("yes / no", "ja / nein"), number: L("number", "Zahl") }[r.result_type]}</div></td>
+        <td style="min-width:170px">${valueInput(r, d.value, locked)}</td>
+        <td><input class="input" data-cl-note="${esc(r.id)}" value="${esc(d.note || "")}" ${locked ? "disabled" : ""} placeholder="${esc(L("optional", "optional"))}"></td>
+        ${locked ? `<td>${s && s.verdict === "pass" ? pill("✓ " + L("passed", "bestanden"), "ok") : pill("✕ " + L("failed", "nicht bestanden"), "bad")}${s && s.verdict === "fail" && s.expected != null ? `<div class="muted mono" style="font-size:11px">ITSG: ${esc(s.expected)}</div>` : ""}</td>` : ""}</tr>`; }).join("");
+    return checklistShell(c, sub, locked, filled, rows);
+  }
+  function checklistShell(c, sub, locked, filled, rows) {
+    const state = !sub ? "" : sub.validation
+      ? `<div class="callout ${sub.validation.failed ? "warn" : "ok"}"><b>${L("Validated by ITSG", "Von ITSG validiert")}</b>${sub.validation.passed} ${L("passed", "bestanden")} · ${sub.validation.failed} ${L("failed", "nicht bestanden")} · ${esc(sub.validation.by)}</div>`
+      : `<div class="callout"><b>${L("Submitted", "Eingereicht")} ${esc((sub.t || "").replace("T", " ").slice(0, 16))}</b>${L("Waiting for ITSG to validate. You can still change values and submit again.", "Wartet auf die Validierung durch ITSG. Werte können noch geändert und erneut eingereicht werden.")}</div>`;
+    return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${esc(c.id)} · ${L("from", "von")} ${esc(c.by)}</span><h3>${esc(c.note || L("Test package", "Testpaket"))}</h3></div>${clStatus(c)}</div>
+      ${state ? `<div class="panel-body">${state}</div>` : ""}
+      <div class="panel-body flush tbl-wrap"><table class="tbl" id="clTable"><thead><tr><th>#</th><th>${L("Test case", "Testfall")}</th><th>${L("Value to report", "Zu meldender Wert")}</th><th>${L("Your value", "Ihr Wert")}</th><th>${L("Note", "Notiz")}</th>${locked ? `<th>${L("Result", "Ergebnis")}</th>` : ""}</tr></thead><tbody>${rows}</tbody></table></div>
+      ${locked ? "" : `<div class="panel-body"><div class="row between"><span class="muted" id="clCount" style="font-size:var(--fs-sm)">${filled} / ${c.rows.length} ${L("values entered", "Werte eingetragen")}</span><button class="btn primary" id="clSubmit" data-act="pipeSubmitCl" data-id="${esc(c.id)}">${ic("upload")} ${sub ? L("Submit again", "Erneut einreichen") : L("Submit to ITSG", "An ITSG senden")}</button></div></div>`}</section>`;
+  }
+  async function submitChecklist(id) {
+    const c = P.checklists.find(x => x.id === id), d = P.clDraft[id] || {};
+    const rows = c.rows.map(r => ({ id: r.id, value: (d[r.id] || {}).value || "", note: (d[r.id] || {}).note || "" }));
+    const missing = rows.filter(r => !r.value).length;
+    if (missing && !confirm(`${missing} ${L("values are empty. Submit anyway?", "Werte sind leer. Trotzdem senden?")}`)) return false;
+    try {
+      await api(`/api/checklists/${encodeURIComponent(id)}/submit`, { body: { rows } });
+      A.log("developer", L("Checklist submitted", "Checkliste eingereicht"), `${id}: ${rows.length - missing} ${L("values", "Werte")}`);
+      A.toast(L("Sent to ITSG — they will validate your values", "An ITSG gesendet — dort werden Ihre Werte validiert"));
+      await loadChecklists(); rerender(); return true;
+    } catch (e) { A.toast(e.message); return false; }
+  }
+  function vResults() {
+    const r = P.results, passed = r.filter(x => x.verdict === "pass").length, failed = r.length - passed;
+    const last = r.length ? r.reduce((a, b) => (a.t > b.t ? a : b)).t : null;
+    const rows = r.slice().sort((a, b) => (a.verdict === b.verdict ? (b.t > a.t ? 1 : -1) : a.verdict === "fail" ? -1 : 1));
+    return `${head(L("Results", "Ergebnisse"), L("Your last tested cases as validated by ITSG. Failed tests come first: compare your value with the value ITSG verified for this spec version.", "Ihre zuletzt getesteten Fälle, von ITSG validiert. Nicht bestandene zuerst: Ihren Wert mit dem für diese Spezifikationsversion verifizierten Wert vergleichen."), `<button class="btn" data-act="pipeRefreshDev">↻ ${L("Refresh", "Aktualisieren")}</button>`)}
+      <div class="grid-3"><div class="panel kpi"><div class="kpi-value" style="color:var(--ok)">${passed}</div><div class="kpi-label">${L("passed", "bestanden")}</div></div><div class="panel kpi"><div class="kpi-value" style="color:var(--bad)">${failed}</div><div class="kpi-label">${L("failed", "nicht bestanden")}</div></div><div class="panel kpi"><div class="kpi-value" style="font-size:var(--fs-lg)">${last ? esc(last.replace("T", " ").slice(0, 16)) : "—"}</div><div class="kpi-label">${L("last validation", "letzte Validierung")}</div></div></div>
+      <section class="panel"><div class="panel-body flush tbl-wrap">${rows.length ? `<table class="tbl" id="resTable"><thead><tr><th>${L("Result", "Ergebnis")}</th><th>${L("Test case", "Testfall")}</th><th>${L("Your value", "Ihr Wert")}</th><th>${L("ITSG value", "ITSG-Wert")}</th><th>${L("Comment", "Kommentar")}</th><th>${L("Validated", "Validiert")}</th></tr></thead><tbody>
+        ${rows.map(x => `<tr><td>${x.verdict === "pass" ? pill("✓ " + L("passed", "bestanden"), "ok") : pill("✕ " + L("failed", "nicht bestanden"), "bad")}</td><td><b>${esc(x.title)}</b><div class="muted mono" style="font-size:11px">${esc(x.id)} · §${esc(x.section)}${x.version ? " · v" + esc(x.version) : ""}</div></td><td class="mono">${esc(x.value || "—")}</td><td class="mono">${esc(x.expected)}</td><td>${esc(x.comment || "")}</td><td class="muted" style="font-size:var(--fs-xs)">${esc(x.validated_by)}<br>${esc((x.t || "").replace("T", " ").slice(0, 16))}</td></tr>`).join("")}</tbody></table>`
+        : `<div class="empty">${L("No validated results yet. They appear here once ITSG has validated a checklist you submitted.", "Noch keine validierten Ergebnisse. Sie erscheinen, sobald ITSG eine eingereichte Checkliste validiert hat.")}</div>`}</div></section>`;
+  }
+  /* ---------- ITSG: test validation ---------- */
+  async function loadSubs() {
+    if (!P.online || S.role !== "itsg") return;
+    try {
+      P.subs = await api("/api/submissions");
+      if (onScreen("validation") && !editing() && !P.subDetail) rerender(); else { A.renderShell(); paintNotify(); }
+    } catch (e) { /* offline */ }
+  }
+  async function openSub(id, withExpected) {
+    P.selSub = id;
+    dismiss("sub:" + id);
+    try { P.subDetail = await api(`/api/submissions/${encodeURIComponent(id)}${withExpected ? "?expected=1" : ""}`); } catch (e) { A.toast(e.message); return; }
+    const fetched = P.subDetail.rows.some(r => r.expected !== undefined);
+    P.subReveal = fetched && !withExpected ? P.subDetail.rows.length : 0;
+    P.subVerdicts = Object.fromEntries(P.subDetail.rows.map(r => [r.id, { verdict: r.verdict || r.auto_verdict, comment: r.comment || "" }]));
+    if (S.screen !== "validation") A.go("validation"); else rerender();
+    if (withExpected) revealRows();
+  }
+  function revealRows() {  // fetched values appear row by row, so the comparison is visible in the demo
+    if (!P.subDetail || P.subReveal >= P.subDetail.rows.length) { rerender(); return; }
+    P.subReveal++; rerender();
+    setTimeout(revealRows, 350);
+  }
+  function vValidation() {
+    if (P.online === false) return `${head(L("Test validation", "Testvalidierung"), "")}${docsInner()}`;
+    const list = P.subs.length ? P.subs.map(s => `<button class="list-item" data-act="pipeOpenSub" data-id="${esc(s.id)}" aria-selected="${s.id === P.selSub}"><span class="mono muted" style="font-size:11px">${esc(s.id)} · ${esc((s.t || "").replace("T", " ").slice(0, 16))}</span><b style="font-size:var(--fs-sm)">${esc(s.by)} · ${s.n} ${L("values", "Werte")}</b><div class="row" style="gap:4px">${s.status === "validated" ? pill("✓ " + L("validated", "validiert"), "ok") : pill(L("to validate", "zu validieren"), "accent")}${pill(esc(s.package), "mono")}</div></button>`).join("")
+      : `<div class="empty">${L("No developer results yet.", "Noch keine Entwicklerergebnisse.")}</div>`;
+    return `${head(L("Test validation", "Testvalidierung"), L("Developers ran the test cases in their payroll program and sent back the values it calculated. Fetch the values verified for this spec version and confirm each result; the verdicts go back to the developer.", "Entwickler haben die Testfälle in ihrem Abrechnungsprogramm ausgeführt und die berechneten Werte zurückgesendet. Die für diese Spezifikationsversion verifizierten Werte abrufen und jedes Ergebnis bestätigen; die Bewertungen gehen an den Entwickler zurück."), `<button class="btn" data-act="pipeRefreshSubs">↻ ${L("Refresh", "Aktualisieren")}</button>`)}
+      <div class="split wide"><section class="panel"><div class="panel-head"><h4>${L("Submissions", "Einreichungen")}</h4></div><div class="panel-body flush">${list}</div></section>
+      <div class="stack">${P.subDetail ? validationTable(P.subDetail) : `<section class="panel"><div class="empty">${L("Select a submission.", "Einreichung auswählen.")}</div></section>`}</div></div>`;
+  }
+  function validationTable(s) {
+    const done = s.status === "validated", fetched = s.rows.some(r => r.expected !== undefined);
+    const version = [...new Set(s.rows.map(r => r.version).filter(Boolean))].join(", ");
+    const rows = s.rows.map((r, i) => {
+      const shown = fetched && i < P.subReveal, v = P.subVerdicts[r.id] || {};
+      const verdictCell = !shown ? `<span class="muted">—</span>` : done ? (r.verdict === "pass" ? pill("✓ pass", "ok") : pill("✕ fail", "bad"))
+        : `<select class="select" data-verdict="${esc(r.id)}" style="min-width:96px"><option value="pass" ${v.verdict === "pass" ? "selected" : ""}>✓ pass</option><option value="fail" ${v.verdict === "fail" ? "selected" : ""}>✕ fail</option></select>`;
+      return `<tr class="${shown ? (r.auto_verdict === "pass" ? "" : "row-fail") : ""}"><td class="mono muted">${i + 1}</td><td><b>${esc(r.title)}</b><div class="muted mono" style="font-size:11px">${esc(r.id)} · §${esc(r.section)}</div></td>
+        <td><span class="mono">${esc(r.result_name || "")}</span></td><td class="mono"><b>${esc(r.value || "—")}</b>${r.note ? `<div class="muted" style="font-size:11px">${esc(r.note)}</div>` : ""}</td>
+        <td class="mono">${shown ? `<b>${esc(r.expected)}</b><div class="muted" style="font-size:11px">${L("verified by", "verifiziert von")} ${esc(r.verified_by || "—")}</div>` : `<span class="muted">${L("not fetched", "nicht abgerufen")}</span>`}</td>
+        <td>${shown ? (r.auto_verdict === "pass" ? pill("= " + L("match", "gleich"), "ok") : pill("≠ " + L("differs", "abweichend"), "bad")) : ""}</td><td>${verdictCell}</td>
+        <td>${done ? esc(r.comment || "") : `<input class="input" data-vcomment="${esc(r.id)}" value="${esc(v.comment || "")}" ${shown ? "" : "disabled"}>`}</td></tr>`; }).join("");
+    return validationShell(s, done, fetched, version, rows);
+  }
+  function validationShell(s, done, fetched, version, rows) {
+    const all = fetched && P.subReveal >= s.rows.length;
+    const pass = s.rows.filter(r => (P.subVerdicts[r.id] || {}).verdict === "pass").length;
+    return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${esc(s.id)} · ${esc(s.package)} · ${esc((s.t || "").replace("T", " ").slice(0, 16))}</span><h3>${L("Results from", "Ergebnisse von")} ${esc(s.by)}</h3></div>${done ? pill("✓ " + L("validated", "validiert"), "ok") : pill(L("to validate", "zu validieren"), "accent")}</div>
+      <div class="panel-body"><div class="row between">${fetched ? `<span class="muted" style="font-size:var(--fs-sm)">${L("Expected values verified for version", "Verifizierte Erwartungswerte für Version")} <b>${esc(version || "?")}</b></span>` : `<span class="muted" style="font-size:var(--fs-sm)">${L("The developer's values are shown. Fetch the values ITSG verified for", "Die Werte des Entwicklers werden angezeigt. Die von ITSG verifizierten Werte abrufen für")} v${esc(version || "?")}.</span>`}
+        ${fetched ? "" : `<button class="btn primary" id="valFetch" data-act="pipeFetchExpected">${ic("download")} ${L("Fetch expected values", "Erwartungswerte abrufen")} (v${esc(version || "?")})</button>`}</div></div>
+      <div class="panel-body flush tbl-wrap"><table class="tbl" id="valTable"><thead><tr><th>#</th><th>${L("Test case", "Testfall")}</th><th>${L("Value", "Wert")}</th><th>${L("Developer", "Entwickler")}</th><th>${L("Expected", "Erwartet")}</th><th>${L("Check", "Prüfung")}</th><th>${L("Verdict", "Bewertung")}</th><th>${L("Comment", "Kommentar")}</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${done ? `<div class="panel-body"><div class="callout ok"><b>${L("Shared with", "Geteilt mit")} ${esc(s.by)}</b>${s.validation.passed} ${L("passed", "bestanden")} · ${s.validation.failed} ${L("failed", "nicht bestanden")} · ${esc(s.validation.by)} · ${esc((s.validation.t || "").replace("T", " ").slice(0, 16))}</div></div>`
+        : all ? `<div class="panel-body"><div class="row between"><span style="font-size:var(--fs-sm)"><b>${pass}</b> ${L("pass", "bestanden")} · <b>${s.rows.length - pass}</b> ${L("fail", "nicht bestanden")}</span><button class="btn primary" id="valConfirm" data-act="pipeValidate">✓ ${L("Confirm & share results with", "Bestätigen & teilen mit")} ${esc(s.by)}</button></div></div>` : ""}</section>`;
+  }
+  async function confirmValidation() {
+    const s = P.subDetail; if (!s) return false;
+    try {
+      const rows = s.rows.map(r => ({ id: r.id, ...(P.subVerdicts[r.id] || {}) }));
+      P.subDetail = await api(`/api/submissions/${encodeURIComponent(s.id)}/validate`, { body: { rows } });
+      A.log("examiner", L("Developer results validated", "Entwicklerergebnisse validiert"), `${s.id} (${s.by}): ${P.subDetail.validation.passed} pass · ${P.subDetail.validation.failed} fail`);
+      A.toast(L("Results shared with ", "Ergebnisse geteilt mit ") + s.by);
+      dismiss("sub:" + s.id);
+      await loadSubs(); rerender(); return true;
+    } catch (e) { A.toast(e.message); return false; }
+  }
+
+  /* ---------- developer demo (the Demo button while signed in as a developer) ---------- */
+  const DEMO_VALUES = ["2026-03-28", "2026-03-30", "true", "false", "true"]; // what a payroll program reported; row 1 is off by one day
+  const DEV = { idx: -1, pkg: null };
+  function devSteps() {
+    return [
+      { sel: "#notifyHost .notify", title: L("New test cases from ITSG", "Neue Testfälle von ITSG"),
+        body: L("ITSG verified new test cases for spec version 13.4 and sent them to you. A notification appears — click it to open your checklist.", "ITSG hat neue Testfälle für Version 13.4 verifiziert und an Sie gesendet. Eine Benachrichtigung erscheint — Klick öffnet die Checkliste."),
+        before: async () => { A.go("devchecklist"); const pkg = await api("/api/demo", { body: { user: P.user } }); DEV.pkg = pkg.id; await loadChecklists(); P.dismissed = P.dismissed.filter(k => k !== "pkg:" + pkg.id); paintNotify(); },
+        next: async () => openNotify("pkg:" + DEV.pkg, "devchecklist", DEV.pkg) },
+      { sel: "#clTable", title: L("Your checklist", "Ihre Checkliste"),
+        body: L("Each row is a test case: what to set up, the steps to run in your payroll program, and the value to report. ITSG's expected values are not shown — ITSG verifies.", "Jede Zeile ist ein Testfall: Vorbedingungen, Schritte im Abrechnungsprogramm und der zu meldende Wert. Die Erwartungswerte von ITSG werden nicht angezeigt — ITSG prüft.") },
+      { sel: "#clTable", title: L("Enter the calculated values", "Berechnete Werte eintragen"),
+        body: L("The demo types in what a payroll program calculated. Note row 1: the program ends sick pay one day too late.", "Die Demo trägt ein, was ein Abrechnungsprogramm berechnet hat. Achtung Zeile 1: Das Programm beendet die Entgeltfortzahlung einen Tag zu spät."),
+        before: async () => fillDemo() },
+      { sel: "#clSubmit", title: L("Submit to ITSG", "An ITSG senden"),
+        body: L("Submit sends the form back to ITSG. Next, ITSG compares each value with the value verified for this version.", "Absenden schickt das Formular an ITSG zurück. Dann vergleicht ITSG jeden Wert mit dem für diese Version verifizierten Wert."),
+        next: async () => submitChecklist(DEV.pkg) },
+      { sel: '[data-screen="devresults"]', title: L("Results come back here", "Ergebnisse kommen hierher zurück"),
+        body: L("Once ITSG has validated, your last passed and failed tests appear under Results. Now sign in as ITSG to validate this submission.", "Sobald ITSG validiert hat, erscheinen bestandene und nicht bestandene Tests unter Ergebnisse. Jetzt als ITSG anmelden und die Einreichung validieren."),
+        finish: L("Sign in as ITSG", "Als ITSG anmelden") }
+    ];
+  }
+  function openNotify(key, go, sel) {
+    dismiss(key);
+    if (go === "devchecklist" || go === "devresults") { P.selPkg = sel; if (go === "devresults") loadResults().then(rerender); A.go(go); }
+    else if (go === "validation") { P.subDetail = null; P.subReveal = 0; openSub(sel); }
+  }
+  async function fillDemo() {
+    const c = P.checklists.find(x => x.id === DEV.pkg); if (!c) return;
+    const d = P.clDraft[c.id] = P.clDraft[c.id] || {};
+    for (let i = 0; i < c.rows.length; i++) {
+      const r = c.rows[i]; d[r.id] = { value: DEMO_VALUES[i] || "", note: "" };
+      const el = document.querySelector(`[data-cl="${CSS.escape(r.id)}"]`);
+      if (el) { el.value = d[r.id].value; el.closest("tr").classList.add("flash-row"); }
+      const cnt = document.getElementById("clCount"); if (cnt) cnt.textContent = `${i + 1} / ${c.rows.length} ${L("values entered", "Werte eingetragen")}`;
+      await new Promise(ok => setTimeout(ok, 420));
+    }
+  }
+  function devCard() {
+    const steps = devSteps(), s = steps[DEV.idx], last = DEV.idx === steps.length - 1;
+    document.getElementById("tourHost").innerHTML = `<div class="tour-spot" id="devSpot"></div><div class="tour-card" role="dialog" aria-live="polite">
+      <div class="tour-progress">${steps.map((_, i) => `<i class="${i <= DEV.idx ? "on" : ""}"></i>`).join("")}</div>
+      <span class="eyebrow">${L("Developer demo", "Entwickler-Demo")} · ${DEV.idx + 1} / ${steps.length}</span><h3>${s.title}</h3><p>${s.body}</p>
+      <div class="row between"><span></span><div class="actions"><button class="btn sm ghost" data-act="devEnd">${L("End", "Ende")}</button><button class="btn sm primary" data-act="devNext" id="devNextBtn">${last ? s.finish : L("Next", "Weiter")}</button></div></div></div>`;
+  }
+  function devSpot() {
+    const s = devSteps()[DEV.idx], el = s && document.querySelector(s.sel), sp = document.getElementById("devSpot");
+    if (!sp) return;
+    if (!el) { sp.style.opacity = "0"; return; }
+    el.scrollIntoView({ block: "center" });
+    setTimeout(() => { const r = el.getBoundingClientRect(); Object.assign(sp.style, { opacity: "1", left: Math.max(4, r.left - 6) + "px", top: Math.max(4, r.top - 6) + "px", width: Math.min(innerWidth - 8, r.width + 12) + "px", height: Math.min(innerHeight - 8, r.height + 12) + "px" }); }, 250);
+  }
+  let devBusy = false;
+  async function devShow(i) {
+    const steps = devSteps();
+    if (i >= steps.length) return devEnd(true);
+    DEV.idx = i; devBusy = true;
+    devCard();
+    const btn = document.getElementById("devNextBtn"); if (btn) btn.disabled = true;
+    try { if (steps[i].before) await steps[i].before(); } catch (e) { A.toast(e.message); }
+    devCard(); devSpot(); devBusy = false;
+  }
+  async function devNext() {
+    if (devBusy) return;
+    const s = devSteps()[DEV.idx];
+    devBusy = true;
+    try { if (s.next && (await s.next()) === false) { devBusy = false; return; } } catch (e) { A.toast(e.message); }
+    devBusy = false;
+    setTimeout(() => devShow(DEV.idx + 1), 150);
+  }
+  function devEnd(toItsg) {
+    DEV.idx = -1;
+    document.getElementById("tourHost").innerHTML = "";
+    if (toItsg === true) logout("istg");
+  }
+  function devStart() {
+    if (!P.online) { A.toast(L("The demo needs the pipeline server (python pipeline/server.py)", "Die Demo braucht den Pipeline-Server (python pipeline/server.py)")); return; }
+    devShow(0);
+  }
   function afterRender() {
     if (S.screen === "pipeline") paintRun(false);
     if (S.screen === "review" && P.selCase && !P.caseDetail) openCase(P.selCase);
+    if (S.screen === "validation" && P.selSub && !P.subDetail) openSub(P.selSub);
+    paintNotify();
   }
   function init() {
     if (A.IS_PRESENTER) return;
     // deep links, e.g. ?role=dev&user=Kim or ?run=<id>#pipeline or ?case=<id>#review
     const q = new URLSearchParams(location.search);
-    if (q.get("user")) { P.user = q.get("user"); store.set("user", P.user); }
-    if (["itsg", "vendor", "dev"].includes(q.get("role")) && q.get("role") !== S.role) { S.role = q.get("role"); store.set("role", S.role); A.render(); }
+    if (["itsg", "dev"].includes(q.get("role"))) P.session = { role: q.get("role"), user: q.get("user") || (q.get("role") === "dev" ? "dev" : "istg") };
     if (q.get("run")) { P.runId = q.get("run"); store.set("pipeRun", P.runId); }
-    if (q.get("case")) { if (S.role === "dev") P.selInbox = q.get("case"); else P.selCase = q.get("case"); }
+    if (q.get("sub")) { P.selSub = q.get("sub"); P.openSubFetch = q.get("fetch") === "1"; S.screen = "validation"; }
+    if (q.get("case")) { if (P.session && P.session.role === "dev") P.selInbox = q.get("case"); else P.selCase = q.get("case"); }
+    // the Demo button (and the D key) runs the developer demo when signed in as a developer
+    const itsgStart = TOUR.start;
+    TOUR.start = () => (S.role === "dev" ? devStart() : itsgStart());
+    window.addEventListener("keydown", e => { if (S.role === "dev" && (e.key === "d" || e.key === "D") && !e.target.matches("input, textarea, select")) { e.stopImmediatePropagation(); if (DEV.idx < 0) devStart(); } }, true);
+    if (P.session) { P.user = P.session.user; store.set("session", P.session); S.role = P.session.role; store.set("role", S.role); A.render(); } else { P.user = ""; loginGate(); }
     shell();
-    connect().then(() => { if (P.selInbox && S.role === "dev") openInbox(P.selInbox); else if (P.selCase && S.role === "itsg") openCase(P.selCase); });
+    connect().then(() => {
+      refreshSession();
+      if (P.selSub && S.role === "itsg") openSub(P.selSub, P.openSubFetch);
+      if (P.selInbox && S.role === "dev") openInbox(P.selInbox); else if (P.selCase && S.role === "itsg") openCase(P.selCase);
+    });
     setInterval(() => { if (P.online === false) connect(); }, 5000);
     setInterval(() => pollRun(false), 1000);
-    setInterval(() => { if (S.role === "dev" && P.online) loadInbox(); else if (S.role === "itsg" && P.online && !onScreen("review")) loadCases(); }, 6000);
-    if (S.role === "dev" && !P.user) setTimeout(() => askName(() => loadInbox()), 300);
-    else register();
+    setInterval(() => {
+      if (!P.online || !P.session) return;
+      if (S.role === "dev") { loadChecklists(); loadResults(); }
+      else if (S.role === "itsg") { loadSubs(); if (!onScreen("review")) loadCases(); }
+    }, 5000);
+    register();
   }
   return { init, upload, testButton, docsBlock, afterRender, shell, onRole, P, evHtml };
 })();

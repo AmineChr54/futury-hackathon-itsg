@@ -34,6 +34,22 @@ Open `http://localhost:8787` (the demo page, served by the pipeline). Then:
 4. **Test-case review**: formulas that changed with the law are flagged **ƒ updated**. Edit the formula or the variable values (the result is recomputed live), then **Verify** and **Send to developers**.
 5. Developers open the same URL, choose **Developer** and enter their name. They see the test cases sent to them and can try other variable values, read the chain of thought, accept or ask a question, and download JSON.
 
+## Sign-in and the developer loop
+
+The page opens with a sign-in: **ITSG** or **Developer** (plus a name; there are no passwords).
+
+| | ITSG | Developer |
+|---|---|---|
+| Screens | everything above, plus **Test validation** | **Checklist**, **Results**, test-case details |
+| Demo button | the guided ITSG demo | the developer demo below |
+| Notifications | "Dev test results are here!" | "New test cases have been created", "ITSG validated your results" |
+
+1. ITSG sends verified test cases; the developer gets a notification and a **checklist**: one row per test case, an input for the value their payroll program calculates, then **Submit to ITSG**.
+2. ITSG gets "Dev test results are here!". **Test validation** shows the developer's values, **Fetch expected values** loads the values verified for that spec version, and each row is compared (pass / fail, editable with a comment). **Confirm & share** sends the verdicts back.
+3. The developer sees the last passed and failed tests under **Results**.
+
+Developers never receive ITSG's expected values before validation: the server strips them, including from the AI's chain of thought. The developer demo seeds a checklist from ITSG's reference case (`POST /api/demo`), so it works without the AI.
+
 ## What is compared with what
 
 | Documents | Mode |

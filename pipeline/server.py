@@ -15,6 +15,8 @@ The API key is read from pipeline/.env or the environment (HAI_API_KEY) and neve
 Standard library + pypdf.
 """
 import argparse
+import hmac
+import secrets
 import json
 import os
 import re
@@ -37,6 +39,7 @@ sys.path.insert(0, HERE)
 import agent  # noqa: E402
 import documents  # noqa: E402
 import formula as F  # noqa: E402
+import recap  # noqa: E402
 
 
 def load_env():
@@ -55,6 +58,12 @@ CFG = {"base": os.environ.get("HAI_BASE_URL", "https://hip-gw.hessian.ai/v1").rs
        "key": os.environ.get("HAI_API_KEY", ""),
        "model": os.environ.get("HAI_MODEL", "vllm/Kolibri-1")}
 MODELS = ["vllm/Kolibri-1", "vllm/GLM-Flash:Latest"]
+# Sign-in. The username decides the role. With a password set (a hosted server: it holds the API key and
+# proxies /v1, so it must not be open), the Login tab asks for it and every API call needs the session token.
+ACCOUNTS = {"istg": "itsg", "dev": "dev"}
+ALIASES = {"itsg": "istg"}
+PASSWORDS = {u: os.environ.get(f"PIPELINE_PASSWORD_{u.upper()}") or os.environ.get("PIPELINE_PASSWORD", "") for u in ACCOUNTS}
+AUTH = any(PASSWORDS.values())
 LAW_DIR = os.environ.get("LAW_DIR", os.path.join(ROOT, "docs", "law_file"))
 DATA = os.environ.get("PIPELINE_DATA", os.path.join(HERE, "data"))
 UPLOADS = os.path.join(DATA, "uploads")
@@ -83,6 +92,9 @@ def _load_store():
 STORE = _load_store()
 for _k in ("users", "testcases", "packages", "runs", "submissions"):
     STORE.setdefault(_k, [])
+STORE.setdefault("sessions", {})  # token → {user, role, t}; kept so a restart does not sign everyone out
+if not any(u["name"] == "dev" for u in STORE["users"]):  # the developer account of this build: always a recipient
+    STORE["users"].append({"name": "dev", "role": "dev", "since": "2025-11-01T09:00:00", "seen": None})
 
 
 def save_store():
@@ -235,7 +247,7 @@ def item_of(run, sec):
 def start_run(body, user):
     p = plan(body.get("new"), body.get("old"))
     model = body.get("model") or CFG["model"]
-    max_items = max(1, min(int(body.get("max_items") or 4), 20))
+    max_items = int(body.get("max_items") or 0)  # optional; by default every changed section is processed
     if p["mode"] == "diff":
         items = documents.diff_documents(p["old"], p["new"], p["new"]["changelog"])
         if not items:
@@ -247,7 +259,7 @@ def start_run(body, user):
     run = {"id": run_id, "created": now(), "by": user, "status": "running", "model": model, "lang": body.get("lang", "en"),
            "plan": plan_public(p), "items": [], "events": [], "seq": 0, "live": {}, "stop": False}
     for i, it in enumerate(items[:200]):
-        run["items"].append({**it, "status": "queued" if i < max_items else "candidate", "cases": [], "spec_change": None})
+        run["items"].append({**it, "status": "queued" if not max_items or i < max_items else "candidate", "cases": [], "spec_change": None})
     RUNS[run_id] = run
     with LOCK:
         STORE["runs"].insert(0, {"id": run_id, "created": run["created"], "by": user, "mode": p["mode"],
@@ -448,37 +460,61 @@ def public_submission(sub, with_expected):
     return out
 
 
+def start_recap(pkg):
+    """Write the developer briefing for a package in the background; the checklist shows it when ready."""
+    cases = [tc for tc in (tc_by_id(i) for i in pkg["ids"]) if tc]
+    rows = [checklist_row(tc) for tc in cases]
+    pkg["recap"] = {"status": "pending", "t": now()}
+
+    def work():
+        try:
+            if not CFG["key"]:
+                raise RuntimeError("HAI_API_KEY is not set")
+            out = {"status": "done", "source": "ai", "model": CFG["model"], **recap.generate(CFG, pkg, rows, cases)}
+        except Exception as e:  # noqa: BLE001 — any failure falls back to the plain summary
+            out = {"status": "done", "source": "summary", "error": str(e)[:200], **recap.fallback(pkg, rows, cases)}
+        with LOCK:
+            pkg["recap"] = {**out, "t": now()}
+            save_store()
+    threading.Thread(target=work, daemon=True).start()
+
+
 DEMO_CASES = [
     # ITSG reference case (Peter Mustermann, DBVO / Abgabegrund 41) and its neighbours
-    {"title": "Sick pay ends 27.03.2026 when 25 prior days are creditable", "kind": "positive", "section": "3.12.5",
+    {"title": "End of sick pay with 25 creditable prior days", "kind": "positive", "section": "3.12.5",
+     "change": ("condition", "Only prior-illness periods the insurer confirmed as creditable (reply 61) now reduce the 42-day continued-pay period.", "All prior AU periods reported by the employer reduced the 42 days.", "Only periods confirmed by the insurer (reply 61) reduce the 42 days; unconfirmed periods are ignored."),
      "criterion": "The system ensures that continued pay (EFZ) ends after 42 days minus all creditable prior-illness days.",
      "preconditions": ["Employee Peter Mustermann, statutory health insurance", "Prior AUs (same illness): 14.07.–15.07.2025, 01.10.–17.10.2025, 01.12.–03.12.2025, 01.03.–03.03.2026 (25 days)", "Insurer confirmed all four periods as creditable (reply 61)"],
      "steps": ["Enter the current AU from 11.03.2026", "Import the insurer's reply 61", "Run the payroll for March 2026", "Read the last day of continued pay (EFZ)"],
      "expression": "add_days(au_start, efz_days - prior_days - 1)", "result_name": "efz_end",
      "variables": [("au_start", "date", "2026-03-11", "scenario"), ("efz_days", "number", "42", "spec"), ("prior_days", "number", "25", "scenario")],
      "outcome": "Continued pay ends on 27.03.2026; sickness benefit starts the next day."},
-    {"title": "Sick pay ends 30.03.2026 while the paper note is not yet confirmed", "kind": "boundary", "section": "3.12.5",
+    {"title": "End of sick pay while one prior AU is not yet confirmed", "kind": "boundary", "section": "3.12.5",
+     "change": ("condition", "Only prior-illness periods the insurer confirmed as creditable (reply 61) now reduce the 42-day continued-pay period.", "All prior AU periods reported by the employer reduced the 42 days.", "Only periods confirmed by the insurer (reply 61) reduce the 42 days; unconfirmed periods are ignored."),
      "criterion": "The system ensures that only prior days confirmed by the insurer reduce the 42 days.",
      "preconditions": ["Same employee and AUs as above", "The insurer marked 01.03.–03.03.2026 as 'AU not on file' (KZ-NACHWEIS 4)"],
      "steps": ["Enter the current AU from 11.03.2026", "Import the first reply 61 (22 creditable days)", "Run the payroll", "Read the last day of continued pay"],
      "expression": "add_days(au_start, efz_days - prior_days - 1)", "result_name": "efz_end",
      "variables": [("au_start", "date", "2026-03-11", "scenario"), ("efz_days", "number", "42", "spec"), ("prior_days", "number", "22", "scenario")],
      "outcome": "Continued pay ends on 30.03.2026."},
-    {"title": "Request 41 allowed: 25 prior days + current AU reach 30 days", "kind": "positive", "section": "3.12",
+    {"title": "Request 41 with 25 prior days + current AU 11.–20.03.2026", "kind": "positive", "section": "3.12",
+     "change": ("parameter", "Request 41 (prior illnesses) may only be generated when prior illnesses plus the current AU total at least 30 days.", "No minimum duration was required before generating request 41.", "Request 41 needs at least 30 days of prior illnesses plus the current AU."),
      "criterion": "The system ensures that request 41 can only be generated if prior illnesses plus the current AU total at least 30 days.",
      "preconditions": ["Certified prior AUs with 25 days in the last 12 months", "Current AU 11.03.–20.03.2026 (certified)"],
      "steps": ["Enter the current AU 11.03.–20.03.2026", "Open the prior-illness request (Abgabegrund 41)", "Check whether the program allows sending it"],
      "expression": "prior_days + days_inclusive(au_start, au_end) >= min_days", "result_name": "request_allowed",
      "variables": [("prior_days", "number", "25", "scenario"), ("au_start", "date", "2026-03-11", "scenario"), ("au_end", "date", "2026-03-20", "scenario"), ("min_days", "number", "30", "spec")],
      "outcome": "The request may be generated (35 ≥ 30 days)."},
-    {"title": "Request 41 refused: 15 prior days + 4 days current AU", "kind": "negative", "section": "3.12",
+    {"title": "Request 41 with 15 prior days + current AU 11.–14.03.2026", "kind": "negative", "section": "3.12",
+     "change": ("parameter", "Request 41 (prior illnesses) may only be generated when prior illnesses plus the current AU total at least 30 days.", "No minimum duration was required before generating request 41.", "Request 41 needs at least 30 days of prior illnesses plus the current AU."),
      "criterion": "The system ensures that request 41 is refused below 30 days.",
      "preconditions": ["Certified prior AUs with 15 days in the last 12 months", "Current AU 11.03.–14.03.2026"],
      "steps": ["Enter the current AU 11.03.–14.03.2026", "Try to create the prior-illness request (Abgabegrund 41)"],
      "expression": "prior_days + days_inclusive(au_start, au_end) >= min_days", "result_name": "request_allowed",
      "variables": [("prior_days", "number", "15", "scenario"), ("au_start", "date", "2026-03-11", "scenario"), ("au_end", "date", "2026-03-14", "scenario"), ("min_days", "number", "30", "spec")],
      "outcome": "The program refuses the request (19 < 30 days)."},
-    {"title": "Gap of exactly 6 months: the prior AU is included", "kind": "boundary", "section": "3.12",
+    {"title": "Prior AU with a gap of exactly 6 months", "kind": "boundary", "section": "3.12",
+     "change": ("condition", "The 6-month gap rule was inverted: prior AUs now count if NO MORE than 6 months lie between them (was: at least 6 months).", "AU periods were included if at least 6 months lay between the end of one AU and the start of the next.", "AU periods are included if no more than 6 months lie between the end of one AU and the start of the next."),
      "criterion": "AU periods are included if no more than 6 months lie between the end of one AU and the start of the next.",
      "preconditions": ["Prior certified AU ending 11.09.2025", "Current AU starting 11.03.2026"],
      "steps": ["Enter both AUs", "Create the prior-illness request (Abgabegrund 41)", "Check whether the prior AU is listed in the DBVO block"],
@@ -488,33 +524,133 @@ DEMO_CASES = [
 ]
 
 
-def seed_demo(user):
-    stamp = time.strftime("%Y%m%d-%H%M%S")
+SECTION_TITLES = {"3.12": "DBVO – Vorerkrankungszeiten", "3.12.5": "Entgeltfortzahlung"}
+DOC = "Verfahrensbeschreibung DTA EEL"
+
+
+def ref_package(defs, user, t, version, prev, note, pkg_id, tag, by="ITSG examiner", mock=False):
+    """A package of ITSG reference cases sent to one developer (the demo and the mock history)."""
     ids = []
-    for n, d in enumerate(DEMO_CASES, start=1):
-        tc = {"id": f"TC-{d['section']}-DEMO{stamp[-6:]}-{n}", "run": "demo", "created": now(), "status": "sent", "model": "ITSG reference case",
-              "demo": True, "section": d["section"], "section_title": "DBVO – Vorerkrankungszeiten" if d["section"] == "3.12" else "Entgeltfortzahlung",
+    for n, d in enumerate(defs, start=1):
+        tc = {"id": f"TC-{d['section']}-{tag}-{n}", "run": "demo", "created": t, "status": "sent", "model": "ITSG reference case",
+              "demo": True, "mock": mock, "section": d["section"], "section_title": SECTION_TITLES.get(d["section"], ""),
               "page": 135, "change_kind": "changed", "change_source": "demo",
-              "document": {"name": "Verfahrensbeschreibung DTA EEL", "version": "13.4"}, "previous_document": {"name": "Verfahrensbeschreibung DTA EEL", "version": "13.3"},
-              "spec_change": {"change_type": "condition", "summary": "ITSG reference case for the prior-illness procedure."},
+              "document": {"name": DOC, "version": version}, "previous_document": {"name": DOC, "version": prev},
+              "spec_change": dict(zip(("change_type", "summary", "old_rule", "new_rule"), d["change"])),
               "title": d["title"], "kind": d["kind"], "criterion": d["criterion"], "preconditions": d["preconditions"], "steps": d["steps"],
               "scenario": {v[0]: v[2] for v in d["variables"] if v[3] == "scenario"},
               "formula": {"expression": d["expression"], "result_name": d["result_name"],
                           "variables": [{"name": a, "type": b, "value": c, "source": s} for a, b, c, s in d["variables"]]},
               "formula_changed": False, "expected_outcome": d["outcome"], "quotes": [],
               "guards": [{"id": "G2", "name": "formula valid", "status": "ok", "detail": "reference case"}],
-              "cot": [], "verified_by": "ITSG examiner", "verified_at": now(), "sent_to": [user], "sent_at": now(), "acks": [],
-              "history": [{"t": now(), "who": "ITSG examiner", "action": "verified", "detail": "ITSG reference case (demo)"},
-                          {"t": now(), "who": "ITSG examiner", "action": "sent", "detail": f"to {user}"}]}
+              "cot": [], "verified_by": by, "verified_at": t, "sent_to": [user], "sent_at": t, "acks": [], "package": pkg_id,
+              "history": [{"t": t, "who": by, "action": "verified", "detail": "ITSG reference case"},
+                          {"t": t, "who": by, "action": "sent", "detail": f"to {user}"}]}
         recompute(tc)
-        STORE["testcases"].insert(0, tc)
+        if mock:
+            STORE["testcases"].append(tc)  # old cases: at the end, never on top of the examiner's lists
+        else:
+            STORE["testcases"].insert(0, tc)
         ids.append(tc["id"])
-    pkg = {"id": "PKG-" + stamp, "t": now(), "by": "ITSG examiner", "to": [user], "ids": ids,
-           "note": "EEL 13.4 — prior-illness request and continued pay (demo)", "demo": True}
-    for tc_id in ids:
-        tc_by_id(tc_id)["package"] = pkg["id"]
+    return {"id": pkg_id, "t": t, "by": by, "to": [user], "ids": ids, "note": note, "demo": True, "mock": mock}
+
+
+def seed_demo(user):
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    pkg = ref_package(DEMO_CASES, user, now(), "13.4", "13.3", "EEL 13.4 — prior-illness request and continued pay (demo)",
+                      "PKG-" + stamp, "DEMO" + stamp[-6:])
     STORE["packages"].insert(0, pkg)
+    start_recap(pkg)
     return pkg
+
+
+def _case(title, kind, section, criterion, pre, steps, expression, result_name, variables, outcome, change):
+    return {"title": title, "kind": kind, "section": section, "criterion": criterion, "preconditions": pre, "steps": steps,
+            "expression": expression, "result_name": result_name, "variables": variables, "outcome": outcome, "change": change}
+
+
+_COUNT = ("clarification", "AU days are counted inclusively: the first and the last day of an AU both count.",
+          "The spec did not say whether the first and the last day of an AU count.", "Both the first and the last day of an AU count.")
+_EFZ = ("parameter", "Continued pay (EFZ) lasts 42 calendar days from the first day of incapacity, minus creditable prior days.",
+        "Continued pay lasted six weeks; the counting of calendar days was not defined.", "Continued pay lasts 42 calendar days minus creditable prior days.")
+_WINDOW = ("condition", "Only prior AUs that ended within the last 12 months before the current AU are counted.",
+           "Prior AUs were counted without a time limit.", "Prior AUs count only if they ended within 12 months before the current AU.")
+
+# Packages ITSG sent before this build (mock dates), newest first: each developer sees them as their history.
+MOCK_HISTORY = [
+    {"t": "2026-03-02T09:40:00", "version": "13.3", "prev": "13.2", "note": "EEL 13.3 corrigendum — 12-month look-back for prior illnesses",
+     "covered": {1: "2026-03-04T16:12:00"},
+     "cases": [
+         _case("Prior AU that ended 13 months before the current AU", "negative", "3.12", "The system ensures that prior AUs older than 12 months are not counted.",
+               ["Prior certified AU ending 01.02.2025", "Current AU starting 11.03.2026"], ["Enter both AUs", "Open the prior-illness request (Abgabegrund 41)", "Check whether the prior AU is listed"],
+               "add_months(previous_end, lookback_months) >= current_start", "prior_in_window",
+               [("previous_end", "date", "2025-02-01", "scenario"), ("current_start", "date", "2026-03-11", "scenario"), ("lookback_months", "number", "12", "spec")],
+               "The prior AU is not counted.", _WINDOW),
+         _case("Prior AU that ended 11 months before the current AU", "positive", "3.12", "The system ensures that prior AUs within 12 months are counted.",
+               ["Prior certified AU ending 15.04.2025", "Current AU starting 11.03.2026"], ["Enter both AUs", "Open the prior-illness request (Abgabegrund 41)", "Check whether the prior AU is listed"],
+               "add_months(previous_end, lookback_months) >= current_start", "prior_in_window",
+               [("previous_end", "date", "2025-04-15", "scenario"), ("current_start", "date", "2026-03-11", "scenario"), ("lookback_months", "number", "12", "spec")],
+               "The prior AU is counted.", _WINDOW)]},
+    {"t": "2026-01-21T14:05:00", "version": "13.3", "prev": "13.2", "note": "EEL 13.3 — end of continued pay (EFZ)",
+     "covered": {1: "2026-01-26T10:31:00", 2: "2026-01-26T11:02:00", 3: "2026-01-27T09:15:00"},
+     "cases": [
+         _case("End of sick pay without prior illnesses", "positive", "3.12.5", "The system ensures that continued pay ends after 42 calendar days.",
+               ["Employee without prior AUs in the last 12 months", "Current AU from 05.01.2026, open-ended"], ["Enter the current AU", "Run the payroll for January and February 2026", "Read the last day of continued pay (EFZ)"],
+               "add_days(au_start, efz_days - 1)", "efz_end",
+               [("au_start", "date", "2026-01-05", "scenario"), ("efz_days", "number", "42", "spec")], "Continued pay ends after 42 days.", _EFZ),
+         _case("End of sick pay with 10 creditable prior days", "positive", "3.12.5", "The system ensures that creditable prior days shorten continued pay.",
+               ["Prior AU (same illness) of 10 days, confirmed by the insurer", "Current AU from 05.01.2026"], ["Enter the prior and the current AU", "Import the reply 61 of the insurer", "Read the last day of continued pay (EFZ)"],
+               "add_days(au_start, efz_days - prior_days - 1)", "efz_end",
+               [("au_start", "date", "2026-01-05", "scenario"), ("efz_days", "number", "42", "spec"), ("prior_days", "number", "10", "scenario")],
+               "Continued pay ends 10 days earlier.", _EFZ),
+         _case("Sick pay already used up by prior illnesses", "negative", "3.12.5", "The system ensures that no continued pay is due when prior days reach 42.",
+               ["Prior AUs (same illness) of 45 days, confirmed by the insurer", "Current AU from 05.01.2026"], ["Enter the prior and the current AU", "Import the reply 61 of the insurer", "Check whether continued pay is still due"],
+               "prior_days >= efz_days", "efz_exhausted",
+               [("prior_days", "number", "45", "scenario"), ("efz_days", "number", "42", "spec")], "No continued pay is due.", _EFZ)]},
+    {"t": "2025-11-14T10:20:00", "version": "13.2", "prev": "13.1", "note": "EEL 13.2 — counting days of prior illnesses",
+     "covered": {1: "2025-11-17T13:44:00", 2: "2025-11-17T15:20:00", 3: "2025-11-18T09:05:00"},
+     "cases": [
+         _case("Days of a single AU from 01.10. to 17.10.2025", "positive", "3.12", "The system counts AU days inclusively.",
+               ["Certified AU 01.10.–17.10.2025"], ["Enter the AU", "Open the prior-illness overview", "Read the number of AU days"],
+               "days_inclusive(au_start, au_end)", "au_days", [("au_start", "date", "2025-10-01", "scenario"), ("au_end", "date", "2025-10-17", "scenario")],
+               "The AU counts with all its days.", _COUNT),
+         _case("Prior days from two AUs in the last 12 months", "positive", "3.12", "The system adds up the days of all prior AUs.",
+               ["Certified AU 14.07.–15.07.2025", "Certified AU 01.10.–17.10.2025"], ["Enter both AUs", "Open the prior-illness overview", "Read the total of prior days"],
+               "days_inclusive(a_start, a_end) + days_inclusive(b_start, b_end)", "prior_days",
+               [("a_start", "date", "2025-07-14", "scenario"), ("a_end", "date", "2025-07-15", "scenario"), ("b_start", "date", "2025-10-01", "scenario"), ("b_end", "date", "2025-10-17", "scenario")],
+               "Both AUs are added up.", _COUNT),
+         _case("One-day AU on a Sunday", "boundary", "3.12", "The system counts a one-day AU as one day, also on a non-working day.",
+               ["Certified AU on Sunday 02.11.2025 only"], ["Enter the AU", "Open the prior-illness overview", "Read the number of AU days"],
+               "days_inclusive(au_start, au_end)", "au_days", [("au_start", "date", "2025-11-02", "scenario"), ("au_end", "date", "2025-11-02", "scenario")],
+               "The AU counts as one day.", _COUNT)]},
+]
+
+
+def seed_history(user):
+    """Give a developer the packages ITSG sent before this build, once, so the checklist has a history."""
+    seeded = STORE.setdefault("history_seeded", [])
+    if user in seeded:
+        return
+    tag = re.sub(r"\W", "", user)[:12] or "dev"
+    for h in MOCK_HISTORY:
+        stamp = h["t"].replace("-", "").replace(":", "").replace("T", "-")
+        pkg = ref_package(h["cases"], user, h["t"], h["version"], h["prev"], h["note"], f"PKG-{stamp}-{tag}", f"H{stamp[2:8]}{tag}", mock=True)
+        pkg["coverage"] = {user: {pkg["ids"][n - 1]: t for n, t in h["covered"].items()}}
+        for tc_id in pkg["ids"]:  # the developer accepted these back then
+            tc = tc_by_id(tc_id)
+            tc["acks"], tc["status"] = [{"who": user, "t": h["t"], "comment": "", "state": "accepted"}], "acknowledged"
+        STORE["packages"].append(pkg)
+        start_recap(pkg)
+    seeded.append(user)
+    save_store()
+
+
+def default_note(cases):
+    """A package title when the examiner leaves the note empty: document version and sections."""
+    doc = next((c.get("document") or {} for c in cases if c.get("document")), {})
+    secs = sorted({c.get("section") for c in cases if c.get("section")})
+    head = "EEL " + doc["version"] if doc.get("version") else (doc.get("name") or "Test cases")
+    return f"{head} — " + ", ".join("§" + s for s in secs) if secs else head
 
 
 def export_case(tc):
@@ -672,11 +808,20 @@ class Handler(BaseHTTPRequestHandler):
             raise ApiError(400, "body is not JSON")
 
     @property
+    def session(self):
+        tok = self.headers.get("X-Token") or ""
+        return STORE["sessions"].get(tok) if tok else None
+
+    @property
     def user(self):
+        if AUTH:  # who is signed in, not what the browser claims
+            return (self.session or {}).get("user", "anonymous")
         return urllib.parse.unquote(self.headers.get("X-User") or "") or "anonymous"
 
     @property
     def role(self):
+        if AUTH:
+            return (self.session or {}).get("role", "")
         return (self.headers.get("X-Role") or "").lower()
 
     def need_examiner(self):
@@ -705,6 +850,9 @@ class Handler(BaseHTTPRequestHandler):
         path, q = url.path, urllib.parse.parse_qs(url.query)
         self.body()
         try:
+            public = path in ("/", "/index.html", "/demo/", "/demo/index.html", "/api/status", "/api/login")
+            if AUTH and not public and not self.session:
+                raise ApiError(401, "sign in first")
             if path.startswith("/v1/"):
                 return self.proxy(method)
             if method == "GET" and path in ("/", "/index.html", "/demo/", "/demo/index.html"):
@@ -757,7 +905,31 @@ class Handler(BaseHTTPRequestHandler):
     def api_get_status(self, parts, q):
         self.send_json({"ok": True, "model": CFG["model"], "models": MODELS, "key_configured": bool(CFG["key"]),
                         "base": CFG["base"], "law_dir": os.path.relpath(LAW_DIR, ROOT).replace("\\", "/"),
-                        "functions": F.FUNC_DOCS})
+                        "functions": F.FUNC_DOCS, "auth": AUTH})
+
+    def api_post_login(self, parts, q):
+        b = self.json_body()
+        name = (b.get("name") or "").strip().lower()
+        name = ALIASES.get(name, name)
+        if name not in ACCOUNTS:
+            raise ApiError(401, "unknown user: sign in as istg or dev")
+        if AUTH and not hmac.compare_digest(str(b.get("password") or "").encode(), PASSWORDS[name].encode()):
+            time.sleep(0.5)  # slows down guessing
+            raise ApiError(401, "wrong password")
+        tok = secrets.token_urlsafe(24)
+        with LOCK:
+            STORE["sessions"][tok] = {"user": name, "role": ACCOUNTS[name], "t": now()}
+            if len(STORE["sessions"]) > 500:  # keep the newest
+                for k in sorted(STORE["sessions"], key=lambda k: STORE["sessions"][k]["t"])[:-500]:
+                    STORE["sessions"].pop(k)
+            save_store()
+        self.send_json({"token": tok, "user": name, "role": ACCOUNTS[name]})
+
+    def api_post_logout(self, parts, q):
+        with LOCK:
+            STORE["sessions"].pop(self.headers.get("X-Token") or "", None)
+            save_store()
+        self.send_json({"ok": True})
 
     def api_get_users(self, parts, q):
         self.send_json(STORE["users"])
@@ -952,7 +1124,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(export_case(redact_for_dev(tc) if dev else tc))
             return self.send_json(redact_for_dev(tc) if dev else tc)
         run = (q.get("run") or [None])[0]
-        lst = [t for t in STORE["testcases"] if not run or t["run"] == run]
+        lst = [t for t in STORE["testcases"] if (not run or t["run"] == run) and not t.get("mock")]
         self.send_json([{k: t.get(k) for k in ("id", "run", "status", "title", "kind", "section", "section_title", "expected_value",
                                                  "formula_changed", "formula_edited", "created", "sent_to", "guards", "change_kind")} for t in lst])
 
@@ -1035,18 +1207,45 @@ class Handler(BaseHTTPRequestHandler):
             missing = [i for i, c in zip(ids, cases) if not c]
             if missing:
                 raise ApiError(404, "not found: " + ", ".join(missing))
-            unverified = [c["id"] for c in cases if c["status"] not in ("verified", "sent", "acknowledged")]
-            if unverified:
-                raise ApiError(409, "verify these first: " + ", ".join(unverified))
-            pkg = {"id": "PKG-" + time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4], "t": now(), "by": self.user, "to": to, "ids": ids, "note": b.get("note", "")}
+            rejected = [c["id"] for c in cases if c["status"] == "rejected"]
+            if rejected:
+                raise ApiError(409, "rejected test cases cannot be sent: " + ", ".join(rejected))
+            pkg = {"id": "PKG-" + time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4], "t": now(), "by": self.user, "to": to, "ids": ids, "note": (b.get("note") or "").strip() or default_note(cases)}
             STORE["packages"].insert(0, pkg)
+            start_recap(pkg)
             for c in cases:
+                if c["status"] not in ("verified", "sent", "acknowledged"):  # sending is the examiner's approval
+                    c["verified_by"], c["verified_at"] = self.user, now()
+                    c["history"].append({"t": now(), "who": self.user, "action": "verified", "detail": "on sending"})
                 c["status"] = "sent"
                 c["sent_to"] = sorted(set(c["sent_to"]) | set(to))
                 c["sent_at"], c["package"] = now(), pkg["id"]
                 c["history"].append({"t": now(), "who": self.user, "action": "sent", "detail": "to " + ", ".join(to) + (f" · {pkg['note']}" if pkg["note"] else "")})
             save_store()
         self.send_json(pkg)
+
+    def api_delete_testcases(self, parts, q):
+        """Delete a test case: it also leaves the developers' checklists it was sent in."""
+        self.need_examiner()
+        tc = tc_by_id(parts[0] if parts else "")
+        if not tc:
+            raise ApiError(404, "test case not found")
+        with LOCK:
+            STORE["testcases"].remove(tc)
+            for p in STORE["packages"]:
+                if tc["id"] in p["ids"]:
+                    p["ids"].remove(tc["id"])
+                    for mine in (p.get("coverage") or {}).values():
+                        mine.pop(tc["id"], None)
+            STORE["packages"] = [p for p in STORE["packages"] if p["ids"]]
+            run = load_run(tc.get("run") or "")
+            if run:  # the pipeline screen lists the run's cases
+                for it in run.get("items") or []:
+                    if tc["id"] in (it.get("cases") or []):
+                        it["cases"].remove(tc["id"])
+                save_run(run)
+            save_store()
+        self.send_json({"deleted": tc["id"]})
 
     def api_get_packages(self, parts, q):
         if parts:
@@ -1055,11 +1254,14 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(404, "package not found")
             fix = redact_for_dev if self.role == "dev" else (lambda t: t)
             return self.send_json({**pkg, "testcases": [export_case(fix(tc_by_id(i))) for i in pkg["ids"] if tc_by_id(i)]})
-        self.send_json(STORE["packages"][:50])
+        self.send_json([p for p in STORE["packages"] if not p.get("mock")][:50])
 
     def api_get_inbox(self, parts, q):
         user = (q.get("user") or [self.user])[0]
-        lst = [t for t in STORE["testcases"] if user in t.get("sent_to", [])]
+        if self.role == "dev":
+            with LOCK:
+                seed_history(user)
+        lst = sorted((t for t in STORE["testcases"] if user in t.get("sent_to", [])), key=lambda t: t.get("sent_at") or "", reverse=True)
         self.send_json([{**{k: t.get(k) for k in ("id", "status", "title", "kind", "section", "section_title",
                                                   "formula_changed", "formula_edited", "sent_at", "package", "document")},
                          "my_ack": next((a for a in t.get("acks", []) if a["who"] == user), None)} for t in lst])
@@ -1067,23 +1269,47 @@ class Handler(BaseHTTPRequestHandler):
     # ---- developer checklist → submission → ITSG validation → results back to the developer
     def api_get_checklists(self, parts, q):
         user = (q.get("user") or [self.user])[0]
+        with LOCK:
+            seed_history(user)
         out = []
         for p in STORE["packages"]:
             if user not in p["to"]:
                 continue
+            if not p.get("recap"):  # packages sent before briefings existed
+                with LOCK:
+                    start_recap(p)
             sub = next((s for s in STORE["submissions"] if s["package"] == p["id"] and s["by"] == user), None)
-            out.append({**p, "rows": [checklist_row(tc_by_id(i)) for i in p["ids"] if tc_by_id(i)],
+            out.append({**{k: v for k, v in p.items() if k != "coverage"}, "covered": (p.get("coverage") or {}).get(user, {}),
+                        "rows": [checklist_row(tc_by_id(i)) for i in p["ids"] if tc_by_id(i)],
                         "submission": public_submission(sub, with_expected=False) if sub else None})
+        out.sort(key=lambda p: p.get("t") or "", reverse=True)  # newest first: the mock history sits below the new packages
         self.send_json(out)
 
     def api_post_checklists(self, parts, q):
-        if len(parts) != 2 or parts[1] != "submit":
+        if len(parts) != 2 or parts[1] not in ("submit", "recap", "coverage"):
             raise ApiError(404, "unknown action")
         pkg = next((p for p in STORE["packages"] if p["id"] == parts[0]), None)
         if not pkg:
             raise ApiError(404, "checklist not found")
         if self.user not in pkg["to"]:
             raise ApiError(403, "this checklist was not sent to you")
+        if parts[1] == "coverage":  # the developer's own tracking: "I have covered this case", not pass/fail
+            b = self.json_body()
+            if b.get("id") not in pkg["ids"]:
+                raise ApiError(404, "test case not in this checklist")
+            with LOCK:
+                mine = pkg.setdefault("coverage", {}).setdefault(self.user, {})
+                if b.get("done"):
+                    mine[b["id"]] = now()
+                else:
+                    mine.pop(b["id"], None)
+                save_store()
+            return self.send_json(mine)
+        if parts[1] == "recap":  # write the briefing again
+            with LOCK:
+                if (pkg.get("recap") or {}).get("status") != "pending":
+                    start_recap(pkg)
+            return self.send_json(pkg["recap"])
         rows = [r for r in (self.json_body().get("rows") or []) if isinstance(r, dict) and r.get("id") in pkg["ids"]]
         if not rows or not any(str(r.get("value", "")).strip() for r in rows):
             raise ApiError(400, "enter at least one value")
@@ -1169,7 +1395,9 @@ def main():
     a = ap.parse_args()
     print(f"EEL pipeline on http://{'localhost' if a.host == '127.0.0.1' else a.host}:{a.port}  "
           f"(model {CFG['model']}, key {'configured' if CFG['key'] else 'MISSING'}, law files: {LAW_DIR})", file=sys.stderr)
-    ThreadingHTTPServer.allow_reuse_address = False  # on Windows reuse lets two servers share a port silently
+    # on Windows reuse lets two servers share a port silently; on Linux it only lets a restart bind while the
+    # old connections are still closing (TIME_WAIT), so keep it there
+    ThreadingHTTPServer.allow_reuse_address = os.name != "nt"
     ThreadingHTTPServer.daemon_threads = True
     try:
         srv = ThreadingHTTPServer((a.host, a.port), Handler)

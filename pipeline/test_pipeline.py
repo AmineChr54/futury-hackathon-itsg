@@ -301,6 +301,24 @@ class ServerTests(unittest.TestCase):
             S.agent.run_item = real
         return [t["id"] for t in S.STORE["testcases"] if t["run"] == run["id"]]
 
+    def test_developer_history_is_seeded_once_and_hidden_from_itsg(self):
+        S = self.S
+        from unittest import mock
+        with mock.patch.object(S, "start_recap", lambda pkg: None):  # no AI in unit tests
+            S.seed_history("Kim B.")
+            S.seed_history("Kim B.")  # second sign-in: nothing new
+        pkgs = [p for p in S.STORE["packages"] if p.get("mock") and "Kim B." in p["to"]]
+        self.assertEqual(len(pkgs), len(S.MOCK_HISTORY))
+        self.assertEqual([p["t"] for p in pkgs], [h["t"] for h in S.MOCK_HISTORY])  # the mock dates are kept
+        cases = [S.tc_by_id(i) for p in pkgs for i in p["ids"]]
+        self.assertTrue(all(c["mock"] and c["expected_value"] not in (None, "") and not c.get("formula_error") for c in cases))
+        self.assertTrue(all(c["acks"][0]["who"] == "Kim B." for c in cases))
+        self.assertEqual(sum(len(p["coverage"]["Kim B."]) for p in pkgs), sum(len(h["covered"]) for h in S.MOCK_HISTORY))
+
+    def test_default_package_title(self):
+        cases = [{"document": {"version": "13.4"}, "section": "3.12.5"}, {"document": {"version": "13.4"}, "section": "3.12"}]
+        self.assertEqual(self.S.default_note(cases), "EEL 13.4 — §3.12, §3.12.5")
+
     def test_generate_again_does_not_reuse_test_case_ids(self):
         ids = self.run_with(2)
         self.assertEqual(len(ids), 4)
@@ -440,6 +458,39 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(err.exception.status, 400)
         self.assertIn("OCR", err.exception.message)
         self.assertFalse(os.path.exists(os.path.join(S.UPLOADS, "scan.pdf")))
+
+
+class RecapTests(unittest.TestCase):
+    CASES = [{"id": "A", "section": "3.12.5", "expected_value": "2026-03-27", "spec_change": {"summary": "Only confirmed days count."}},
+             {"id": "B", "section": "3.12", "expected_value": "true", "spec_change": {"summary": "30-day minimum."}}]
+    ROWS = [{"id": "A", "section": "3.12.5", "criterion": "EFZ ends after 42 days minus confirmed prior days.", "result_name": "efz_end", "result_type": "date"},
+            {"id": "B", "section": "3.12", "criterion": "Request 41 needs 30 days.", "result_name": "request_allowed", "result_type": "bool"}]
+
+    def fake_model(self, content):
+        import io
+        import json
+        from unittest import mock
+        body = json.dumps({"choices": [{"message": {"content": content}}]}).encode()
+        return mock.patch("urllib.request.urlopen", return_value=mock.MagicMock(__enter__=lambda s: io.BytesIO(body), __exit__=lambda *a: False))
+
+    def test_answers_never_reach_the_developer(self):
+        import json
+        import recap
+        leaky = {"changed": "EFZ now ends on 27.03.2026.", "todo": ["Run the cases"], "verify": ["The 30-day gate"],
+                 "rows": {"A": "efz_end should be 2026-03-27", "B": "request_allowed true at 35 days"}}
+        with self.fake_model("<think>x</think>" + json.dumps(leaky)):
+            out = recap.generate({"base": "http://x", "key": "k", "model": "m"}, {"id": "P"}, self.ROWS, self.CASES)
+        text = json.dumps(out)
+        for secret in ("2026-03-27", "27.03.2026", "true"):
+            self.assertNotIn(secret, text)
+        self.assertEqual(out["todo"], ["Run the cases"])  # clean fields are kept
+
+    def test_fallback_without_ai(self):
+        import recap
+        out = recap.fallback({"id": "P"}, self.ROWS, self.CASES)
+        self.assertIn("Only confirmed days count.", out["changed"])
+        self.assertEqual(set(out["rows"]), {"A", "B"})
+        self.assertTrue(out["todo"] and out["verify"])
 
 
 if __name__ == "__main__":

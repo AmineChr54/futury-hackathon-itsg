@@ -59,8 +59,8 @@ TOOLS = [
         "name": "submit_test_case",
         "description": ("Submit one test case. The scenario must be concrete (real dates and amounts). The expected "
                         "result is defined by `formula` over `variables`; `expected_value` must be the value you got "
-                        "from evaluate() in your terminal. Submit 1-3 cases: positive, negative, and a boundary case "
-                        "where the change flips the result."),
+                        "from evaluate() in your terminal. Submit as many cases as the rule needs, one per distinct "
+                        "situation: positive, negative, and every boundary where the change flips the result."),
         "parameters": {"type": "object", "required": ["reasoning", "title", "kind", "criterion", "preconditions", "steps", "scenario", "formula", "expected_value", "expected_outcome", "quotes"], "properties": {
             "reasoning": {"type": "string", "description": "Why this case tests the change and how the expected value follows."},
             "title": {"type": "string", "description": "Short and specific, e.g. 'Gap of exactly 6 months: prior illness is included in request 41'."},
@@ -111,7 +111,8 @@ Procedure:
    variables with source "spec" and a quote; test data (dates, salaries) are variables with source "scenario".
 3. Check the formula in your terminal with run_python: print(evaluate("<expression>", var=value, ...)).
    Also test the boundary where the change flips the result.
-4. Call submit_test_case for each case (1-3 cases). expected_value = what evaluate() printed.
+4. Call submit_test_case for each case: at least one, and as many as the rule needs (positive, negative,
+   each boundary). expected_value = what evaluate() printed.
    If the formula differs from the old rule, set formula_changed and give previous_expression.
 5. Call finish.
 

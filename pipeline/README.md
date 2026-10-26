@@ -36,7 +36,7 @@ Open `http://localhost:8787` (the demo page, served by the pipeline). Then:
 
 ## Sign-in and the developer loop
 
-The page opens with a sign-in: **ITSG** or **Developer** (plus a name; there are no passwords).
+The page opens with a **Login** tab: username `istg` (ITSG examiner) or `dev` (developer). On a local server no password is needed. With `PIPELINE_PASSWORD` set in `pipeline/.env` (or `PIPELINE_PASSWORD_ISTG` / `PIPELINE_PASSWORD_DEV` per account) the Login tab asks for it: the server checks it, hands out a session token, and every API call and the `/v1` AI proxy need that token. The server then takes the user and role from the token, not from what the browser sends. Hosting: `deploy/setup.sh`.
 
 | | ITSG | Developer |
 |---|---|---|
@@ -44,9 +44,12 @@ The page opens with a sign-in: **ITSG** or **Developer** (plus a name; there are
 | Demo button | the guided ITSG demo | the developer demo below |
 | Notifications | "Dev test results are here!" | "New test cases have been created", "ITSG validated your results" |
 
-1. ITSG sends verified test cases; the developer gets a notification and a **checklist**: one row per test case, an input for the value their payroll program calculates, then **Submit to ITSG**.
-2. ITSG gets "Dev test results are here!". **Test validation** shows the developer's values, **Fetch expected values** loads the values verified for that spec version, and each row is compared (pass / fail, editable with a comment). **Confirm & share** sends the verdicts back.
+1. On **Test-case review** ITSG ticks test cases (one by one or **Select all**) and either deletes them or sends them (**Send to developers**, enabled once one is ticked; sending a case that is not verified yet counts as the examiner's verification and is recorded in its history; rejected cases cannot be sent; a deleted case also leaves the developers' checklists; the developer `dev` is always listed, an empty note becomes e.g. "EEL 13.4 — §3.12.5"). The developer gets "ITSG sent you new test cases" within seconds and a **checklist**: one row per test case with what to check and how to run it. The developer ticks each case once they have covered it in their program. A tick tracks coverage only, not pass/fail; ticks are saved per developer (`POST /api/checklists/<id>/coverage`) and the progress bar, the package list and the nav badge show what is still open.
+   Above the table, an **AI recap** (`pipeline/recap.py`, written when the package is sent) says what changed in the spec, what to do and what the tests verify, and each row gets a one-line note on what it checks. It is written from the redacted test cases only; any text that names an expected value or a true/false answer is replaced by a plain summary, which is also used when the AI is unavailable. `POST /api/checklists/<id>/recap` writes it again.
+2. *(Older flow, still served for existing submissions: the developer submitted values.)* ITSG gets "Dev test results are here!". **Test validation** shows the developer's values, **Fetch expected values** loads the values verified for that spec version, and each row is compared (pass / fail, editable with a comment). **Confirm & share** sends the verdicts back.
 3. The developer sees the last passed and failed tests under **Results**.
+
+Each developer also sees the packages ITSG sent before this build, with their original (mock) dates and ticks, under **Shared earlier** and in **Test cases from ITSG** (`MOCK_HISTORY` in `server.py`, created once per developer on first sign-in). They are marked `mock` and never appear in ITSG's own lists.
 
 Developers never receive ITSG's expected values before validation: the server strips them, including from the AI's chain of thought. The developer demo seeds a checklist from ITSG's reference case (`POST /api/demo`), so it works without the AI.
 

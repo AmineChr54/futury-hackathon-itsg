@@ -8,7 +8,8 @@ For how to run it, see [`demo/README.md`](../demo/README.md).
 
 | Area | Decision |
 |---|---|
-| Users | Role switch: **ITSG examiner ⇄ vendor** |
+| Users | Role switch: **ITSG examiner ⇄ vendor**. The vendor signs in as SAP or Lexware and sees only its own home, test cases, results and messages; expected results are never shown to vendors |
+| Communication | E-mail-like **Messages** inbox, one window (role switch shows the other side): threads per vendor and topic, attachments for test packages, result files (compared on arrival, verdict posted in words), reports, the certificate, rules and test cases |
 | Story | Starts with ITSG's biggest pain (spec change → affected tests), with the full pipeline one click away |
 | Presenting | Guided demo with spotlight, zoom and captions, plus a **separate presenter window** (speaker notes, timer, next step) synced to the projector window; free deep-dive at any time |
 | Language | DE/EN toggle; German spec quotes are always kept verbatim |
@@ -16,7 +17,7 @@ For how to run it, see [`demo/README.md`](../demo/README.md).
 | Trust | **The LLM only extracts parameters and picks a function; pre-written functions compute.** Every value has a provenance trail |
 | Human loop | Approve, edit or decline (with a reason) the **plain-language rule text**, and confirm its numbers, once per rule; everything goes to a hash-chained audit trail |
 | Domain depth | DBVO / Abgabegrund 41 in depth; 42/62 (EEL end) and 03 (maternity) shallow |
-| Data | ITSG's reference case + generated employees; fictional vendors only |
+| Data | ITSG's reference case + generated employees; vendors are **SAP and Lexware as illustrative examples** (team decision, 26.10.); every result shown for them is imagined and labelled as such on each results screen |
 | Style | Clean, professional tool, crimson accent, light and dark; built from tokens so it can move into Claude Design |
 | Tech | One HTML file, vanilla JS, works offline; CDN only for optional extras |
 | Name | Open: working title "EEL Review Assistant", tracked as a GitHub issue |

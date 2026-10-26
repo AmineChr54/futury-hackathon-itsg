@@ -318,6 +318,49 @@ details.tech > .tech-body { padding: var(--s-4); display: grid; gap: var(--s-4);
 .seq { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .seq .arrow { color: var(--muted); }
 
+/* ---------- messages (email-like) ---------- */
+.mail { display: grid; grid-template-columns: 170px 320px minmax(0, 1fr); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); height: max(560px, calc(100vh - var(--bar-h) - 190px)); overflow: hidden; }
+.mail > * { min-height: 0; overflow: auto; }
+.mail-folders { border-right: 1px solid var(--line); padding: var(--s-3); display: grid; align-content: start; gap: 2px; background: var(--surface-2); }
+.mail-folders .eyebrow { padding: 10px 10px 4px; }
+.mail-folders button { text-align: left; border: 0; background: transparent; padding: 6px 10px; border-radius: var(--r-sm); cursor: pointer; font-size: var(--fs-sm); display: flex; justify-content: space-between; gap: 6px; }
+.mail-folders button:hover { background: var(--surface-3); }
+.mail-folders button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.mail-list { border-right: 1px solid var(--line); }
+.mail-item { display: grid; gap: 2px; padding: 10px 14px; border: 0; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; cursor: pointer; width: 100%; text-align: left; background: transparent; font-size: var(--fs-sm); }
+.mail-item:hover { background: var(--surface-2); }
+.mail-item[aria-selected="true"] { background: var(--accent-soft); border-left-color: var(--accent); }
+.mail-item .subj { font-weight: 500; }
+.mail-item.unread .subj { font-weight: 700; }
+.mail-item.unread .subj::before { content: "● "; color: var(--accent); font-size: 10px; vertical-align: 1px; }
+.mail-item .snip { color: var(--muted); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-read { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.mail-head { padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.mail-msgs { overflow: auto; padding: var(--s-4); display: grid; gap: var(--s-4); align-content: start; }
+.mail-msg { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px; }
+.mail-msg .body { white-space: pre-wrap; font-size: var(--fs-sm); max-width: 75ch; }
+.mail-msg.system .body { color: var(--muted); }
+.att { border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 12px; display: grid; gap: 4px; background: var(--surface-2); font-size: var(--fs-sm); max-width: 640px; }
+.att.ok { border-left: 4px solid var(--ok); }
+.att.bad { border-left: 4px solid var(--bad); }
+.att.cert { border: 2px solid var(--ok); background: var(--ok-soft); }
+.mail-compose { border-top: 1px solid var(--line); padding: var(--s-3) var(--s-4); display: grid; gap: 8px; background: var(--surface); }
+.mail-compose textarea { width: 100%; min-height: 72px; resize: vertical; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); }
+.chip { display: inline-flex; gap: 4px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 2px 4px 2px 10px; font-size: var(--fs-xs); background: var(--surface-2); }
+.att-menu { border: 1px solid var(--line); border-radius: var(--r-md); padding: 6px; display: grid; gap: 2px; background: var(--surface-2); max-height: 220px; overflow: auto; }
+.att-menu button { text-align: left; border: 0; background: transparent; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: var(--fs-sm); }
+.att-menu button:hover { background: var(--surface-3); }
+.vsteps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.vstep { border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px; display: grid; gap: 2px; font-size: var(--fs-sm); background: var(--surface); }
+.vstep.done { border-top: 3px solid var(--ok); }
+.vstep.cur { border-top: 3px solid var(--accent); background: var(--accent-soft); font-weight: 600; }
+.vstep.todo { border-top: 3px solid var(--line-strong); color: var(--muted); }
+.signin { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+.signin button { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); padding: var(--s-4); text-align: left; cursor: pointer; display: grid; gap: 4px; }
+.signin button:hover, .signin button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+@media (max-width: 1100px) { .mail { grid-template-columns: 140px 250px minmax(0, 1fr); } }
+@media (max-width: 900px) { .mail { grid-template-columns: minmax(0, 1fr); height: auto; } .mail > * { overflow: visible; } .mail-read { overflow: visible; } .vsteps, .signin { grid-template-columns: minmax(0, 1fr); } }
+
 /* ---------- report ---------- */
 .report { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-6); display: grid; gap: var(--s-5); }
 .report-head { display: flex; justify-content: space-between; gap: var(--s-4); flex-wrap: wrap; border-bottom: 2px solid var(--fg); padding-bottom: var(--s-4); }
@@ -1271,10 +1314,9 @@ const CORE = (() => {
 
   /* Vendors and last year's on-site audit results (fictional). */
   const VENDORS = [
-    { id: "lw", name: "LohnWerk", release: "2027.1", product: "7654321", modification: "66666XXX", size: { en: "large, ~2M messages/yr", de: "groß, ~2 Mio. Meldungen/Jahr" }, prev: { year: 2026, failed: ["EEL-3.12-009", "EEL-3.20-001"] } },
-    { id: "pf", name: "PayFlow DE", release: "11.4", product: "1180442", modification: "PF114R02", size: { en: "large, ~1.4M messages/yr", de: "groß, ~1,4 Mio. Meldungen/Jahr" }, prev: { year: 2026, failed: [] } },
-    { id: "gp", name: "GehaltPlus", release: "8.0", product: "2209118", modification: "GP80B", size: { en: "mid-size, ~90k messages/yr", de: "mittel, ~90 Tsd. Meldungen/Jahr" }, prev: { year: 2026, failed: ["EEL-3.11.1-003"] } },
-    { id: "kl", name: "KleinLohn Start", release: "1.0", product: "3300017", modification: "KL10", size: { en: "new product, ~10 messages/yr", de: "neues Produkt, ~10 Meldungen/Jahr" }, prev: null }
+    /* SAP and Lexware are illustrative examples only — every result shown for them is imagined. */
+    { id: "sap", name: "SAP", productName: "SAP HCM Payroll DE", release: "2027.1", product: "7654321", modification: "66666XXX", size: { en: "large enterprises, ~2M messages/yr", de: "Großunternehmen, ~2 Mio. Meldungen/Jahr" }, prev: { year: 2026, failed: ["EEL-3.12-009", "EEL-3.20-001"] } },
+    { id: "lex", name: "Lexware", productName: "Lexware lohn+gehalt", release: "2027", product: "1180442", modification: "LX27R01", size: { en: "small and mid-sized businesses, ~400k messages/yr", de: "kleine und mittlere Unternehmen, ~400 Tsd. Meldungen/Jahr" }, prev: { year: 2026, failed: ["EEL-3.11.1-003"] } }
   ];
 
   /* Message chain from "Hinweise zur Testkonstellation" (ITSG). */
@@ -1381,7 +1423,15 @@ const APP = (() => {
     published: false,
     sample: "teel0",
     customFile: null,
-    vendor: "lw",
+    vendor: "sap",
+    vendorUser: "sap",
+    vwork: {},
+    mail: null,
+    selThread: null,
+    mailFolder: "inbox",
+    mailFilter: "all",
+    compose: null,
+    clock: null,
     audit: {},
     log: [],
     ai: store.get("ai", { mode: "recorded", base: "http://localhost:8787/v1", model: "vllm/Kolibri-1" }),
@@ -1562,22 +1612,25 @@ const APP = (() => {
      SCREENS
      =================================================================================== */
   const SCREENS = [
-    { id: "overview", group: "start", step: null, icon: "home", roles: ["itsg", "vendor"], t: () => L("Overview", "Überblick") },
+    { id: "overview", group: "start", step: null, icon: "home", roles: ["itsg"], t: () => L("Overview", "Überblick") },
+    { id: "vhome", group: "mine", step: null, icon: "home", roles: ["vendor"], t: () => L("Home", "Start") },
+    { id: "vwork", group: "mine", step: null, vstep: 1, icon: "test", roles: ["vendor"], t: () => L("My test cases", "Meine Testfälle"), badge: () => { if (!published(S.vendorUser)) return null; const n = Object.values(work(S.vendorUser)).filter(x => x.status === "todo").length; return n ? { n, hot: true } : null; } },
     { id: "ingest", group: "spec", step: 1, icon: "archive", roles: ["itsg"], t: () => L("Inputs & archive", "Eingaben & Archiv") },
     { id: "baseline", group: "spec", step: null, icon: "grid", roles: ["itsg"], t: () => L("Baseline check", "Bestandsprüfung"), badge: () => { const c = baseline().counts; return c.obsolete + c.missing ? { n: c.obsolete + c.missing, hot: true } : null; } },
-    { id: "specs", group: "spec", step: null, icon: "doc", roles: ["itsg"], t: () => L("Specification", "Spezifikation") },
+    { id: "specs", group: () => S.role === "vendor" ? "mine" : "spec", step: null, icon: "doc", roles: ["itsg", "vendor"], t: () => L("Specification", "Spezifikation") },
     { id: "changes", group: "spec", step: 2, icon: "diff", roles: ["itsg"], t: () => L("Change impact", "Änderungen"), badge: () => CHANGES.filter(c => c.source === "diff-only").length ? { n: CHANGES.filter(c => c.source !== "log-no-text").length, hot: true } : null },
     { id: "extract", group: "rules", step: 3, icon: "ai", roles: ["itsg"], t: () => L("Rules (criteria)", "Regeln (Prüfkriterien)"), badge: () => { const n = Object.values(S.rules).filter(r => r.status === "pending").length; return n ? { n, hot: true } : null; } },
-    { id: "tests", group: "tests", step: 4, icon: "test", roles: ["itsg", "vendor"], t: () => L("Test cases", "Testfälle") },
-    { id: "inbox", group: "tests", step: 5, icon: "inbox", roles: ["itsg", "vendor"], t: () => L("Publish & inbox", "Veröffentlichen & Postfach"), badge: () => S.role === "vendor" && S.published ? { n: 1, hot: true } : null },
-    { id: "validate", group: "tests", step: 6, icon: "check", roles: ["itsg", "vendor"], t: () => L("Compare output", "Ausgabe prüfen") },
+    { id: "tests", group: "tests", step: 4, icon: "test", roles: ["itsg"], t: () => L("Test cases", "Testfälle") },
+    { id: "inbox", group: "tests", step: 5, icon: "inbox", roles: ["itsg"], t: () => L("Publish", "Veröffentlichen") },
+    { id: "validate", group: () => S.role === "vendor" ? "mine" : "tests", step: 6, vstep: 2, icon: "check", roles: ["itsg", "vendor"], t: () => S.role === "vendor" ? L("Upload & compare", "Hochladen & prüfen") : L("Compare output", "Ausgabe prüfen") },
     { id: "audit", group: "cert", step: 7, icon: "test", roles: ["itsg"], t: () => L("On-site audit", "Vor-Ort-Prüfung") },
-    { id: "report", group: "cert", step: null, icon: "report", roles: ["itsg", "vendor"], t: () => L("Report & next scope", "Bericht & nächster Umfang") },
-    { id: "functions", group: "evidence", step: null, icon: "fn", roles: ["itsg", "vendor"], t: () => L("Function library", "Funktionsbibliothek"), badge: () => ({ n: `${TESTS.filter(t => t.ok).length}/${TESTS.length}` }) },
+    { id: "report", group: () => S.role === "vendor" ? "mine" : "cert", step: null, vstep: 3, icon: "report", roles: ["itsg", "vendor"], t: () => S.role === "vendor" ? L("My results", "Meine Ergebnisse") : L("Report & next scope", "Bericht & nächster Umfang") },
+    { id: "mail", group: () => S.role === "vendor" ? "mine" : "cert", step: null, icon: "inbox", roles: ["itsg", "vendor"], t: () => L("Messages", "Nachrichten"), badge: () => { const n = unreadCount(); return n ? { n, hot: true } : null; } },
+    { id: "functions", group: "evidence", step: null, icon: "fn", roles: ["itsg"], t: () => L("Function library", "Funktionsbibliothek"), badge: () => ({ n: `${TESTS.filter(t => t.ok).length}/${TESTS.length}` }) },
     { id: "coverage", group: "evidence", step: null, icon: "grid", roles: ["itsg"], t: () => L("Coverage", "Abdeckung") },
     { id: "log", group: "evidence", step: null, icon: "log", roles: ["itsg"], t: () => L("Audit trail", "Prüfpfad"), badge: () => S.log.length ? { n: S.log.length } : null }
   ];
-  const GROUPS = { start: () => "", spec: () => L("Specification", "Spezifikation"), rules: () => L("Rules", "Regeln"), tests: () => L("Tests", "Tests"), cert: () => L("Certification", "Zertifizierung"), evidence: () => L("Evidence", "Nachweise") };
+  const GROUPS = { start: () => "", mine: () => L("My certification 2027", "Meine Zertifizierung 2027"), spec: () => L("Specification", "Spezifikation"), rules: () => L("Rules", "Regeln"), tests: () => L("Tests", "Tests"), cert: () => L("Certification", "Zertifizierung"), evidence: () => L("Evidence", "Nachweise") };
   const head = (title, sub, actions = "") => `<div class="page-head"><div class="page-head-text"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ""}</div><div class="actions">${actions}</div></div>`;
 
   /* ---------- 0 · Overview ---------- */
@@ -1988,9 +2041,8 @@ const APP = (() => {
 
   /* ---------- 6 · Inbox ---------- */
   function vInbox() {
-    const vendor = S.role === "vendor";
     const nCases = packageJSON().cases.length;
-    const pkg = `<div class="stack"><div class="row">${pill(L("Test cases in words", "Testfälle in Worten") + ` · ${nCases}`, "")}${pill(L("Expected output files (DTA)", "Erwartete Ausgabedateien (DTA)"), "")}${pill(L("Criteria checklist", "Kriterien-Checkliste"), "")}${pill(L("Test input as JSON (proposal)", "Testeingabe als JSON (Vorschlag)"), "info")}</div></div>`;
+    const pkg = `<div class="stack"><div class="row">${pill(L("Test cases in words", "Testfälle in Worten") + ` · ${nCases}`, "")}${pill(L("Criteria checklist", "Kriterien-Checkliste"), "")}${pill(L("Test input as JSON (proposal)", "Testeingabe als JSON (Vorschlag)"), "info")}</div><span class="muted" style="font-size:var(--fs-xs)">${L("Expected results stay with ITSG: vendor files are compared on arrival, so nobody can fit answers to known solutions. The package is sent through Messages.", "Erwartungswerte bleiben bei ITSG: Herstellerdateien werden beim Eingang verglichen, niemand kann Antworten an bekannte Lösungen anpassen. Das Paket geht über Nachrichten raus.")}</span></div>`;
     /* ITSG's table: one row per message; a KK reply's REF-ID points to the employer message's DSID. */
     const idCell = id => id ? `<span data-act="seqHi" data-id="${id}" class="${S.seqHi === id ? "hi" : ""}" title="${esc(L("Click to see where this ID appears", "Klicken: wo erscheint diese ID?"))}">${id}</span>` : "";
     const seqTable = `<div class="tbl-wrap"><table class="tbl seq-tbl"><thead><tr><th></th><th>Abgabe&shy;grund</th><th>${L("Cancel", "Storno")}</th><th>DSID</th><th>DSID-UR</th><th>REF-ID</th><th>AZVU</th><th>${L("12-month period from", "Beginn 12-Monatsfrist")}</th><th>${L("EEL end", "Ende EEL")}</th><th>${L("Reason", "Grund")}</th></tr></thead><tbody>
@@ -2003,17 +2055,12 @@ const APP = (() => {
         <p style="font-size:var(--fs-sm)">${L("Today every test case is typed in by a vendor engineer who simulates a company — the reason ITSG keeps test counts low. If vendors had to offer an import for test input (one JSON format for all ~100 programs, output stays the standard DTA file), the same package could be run automatically, and more tests would cost nothing.", "Heute tippt ein Hersteller-Entwickler jeden Testfall ein und simuliert dabei eine Firma — deshalb hält ITSG die Zahl der Tests klein. Müssten Hersteller einen Import für Testeingaben anbieten (ein JSON-Format für alle ~100 Programme, die Ausgabe bleibt die Standard-DTA-Datei), ließe sich dasselbe Paket automatisch ausführen, und mehr Tests kosteten nichts.")}</p>
         <dl class="kv"><dt>${L("This package", "Dieses Paket")}</dt><dd>${nCases} ${L("cases", "Fälle")}</dd><dt>${L("Typed by hand", "Von Hand getippt")}</dt><dd>≈ ${nCases * manualMin} ${L("min per vendor", "Min. je Hersteller")} (${L("assumed", "angenommen")} ${manualMin} ${L("min per case", "Min. je Fall")})</dd><dt>${L("Full catalogue by hand", "Ganzer Katalog von Hand")}</dt><dd>≈ ${fmtN(Math.round(4000 * manualMin / 60))} ${L("hours", "Stunden")}</dd><dt>${L("Imported", "Importiert")}</dt><dd>${L("seconds, any number of cases", "Sekunden, beliebig viele Fälle")}</dd></dl>
         <div class="actions"><button class="btn" data-act="packageJson">${ic(FRAMED ? "copy" : "download")} ${L("Download test package JSON", "Testpaket-JSON herunterladen")}</button></div></div></section>`;
-    if (!vendor) return `${head(L("Publish & inbox", "Veröffentlichen & Postfach"), L("Publish the test package to vendors. They receive the test cases in words, the expected outputs and the checklist — and, as a proposal, the same cases as importable JSON.", "Testpaket an Hersteller veröffentlichen. Sie erhalten die Testfälle in Worten, die Erwartungswerte und die Checkliste — und, als Vorschlag, dieselben Fälle als importierbares JSON."))}
+    return `${head(L("Publish", "Veröffentlichen"), L("Publish the test package to vendors through Messages. They receive the test cases in words and the checklist — and, as a proposal, the same cases as importable JSON. Expected results stay with ITSG.", "Testpaket über Nachrichten an Hersteller veröffentlichen. Sie erhalten die Testfälle in Worten und die Checkliste — und, als Vorschlag, dieselben Fälle als importierbares JSON. Erwartungswerte bleiben bei ITSG."))}
       <div class="grid-2"><section class="panel" data-tour="publish"><div class="panel-head"><h3>${L("Test package EEL 2027-01", "Testpaket EEL 2027-01")}</h3>${S.published ? pill("✓ " + L("published", "veröffentlicht"), "ok") : pill(L("draft", "Entwurf"), "warn")}</div>
-        <div class="panel-body">${pkg}<div class="stack">${C.VENDORS.map(v => `<label class="row"><input type="checkbox" checked id="pub-${v.id}"> <b>${esc(v.name)} ${esc(v.release)}</b> <span class="muted" style="font-size:var(--fs-xs)">${T(v.size)} · ${v.prev ? L("recertification", "Rezertifizierung") : L("first certification: full catalogue", "Erstzertifizierung: ganzer Katalog")}</span></label>`).join("")}</div>
+        <div class="panel-body">${pkg}<div class="stack">${C.VENDORS.map(v => `<label class="row"><input type="checkbox" checked id="pub-${v.id}"> <b>${esc(v.name)} ${esc(v.release)}</b> <span class="muted" style="font-size:var(--fs-xs)">${esc(v.productName)} · ${T(v.size)} · ${v.prev ? L("recertification", "Rezertifizierung") : L("first certification: full catalogue", "Erstzertifizierung: ganzer Katalog")}</span></label>`).join("")}</div>
+        ${S.published ? `<div class="callout ok"><b>${L("Sent through Messages", "Über Nachrichten verschickt")}</b><span>${(S.publishedTo || []).map(id => vendorOf(id).name).join(", ")}</span><div class="row"><button class="btn sm" data-act="go" data-screen="mail">${ic("inbox")} ${L("Open messages", "Nachrichten öffnen")}</button></div></div>` : ""}
         <div class="actions"><button class="btn primary" data-act="publish" ${S.published ? "disabled" : ""}>${ic("inbox")} ${S.published ? L("Published", "Veröffentlicht") : L("Publish to vendors", "An Hersteller veröffentlichen")}</button>${Object.values(S.rules).some(r => r.status === "pending") ? `<span class="muted" style="font-size:var(--fs-xs)">${L("Note: some rules are still awaiting approval.", "Hinweis: Einige Regeln warten noch auf Freigabe.")}</span>` : ""}</div></div></section>
       ${auto}</div>${dialogue}`;
-    return `${head(L("Inbox — LohnWerk", "Postfach — LohnWerk"), L("What a vendor sees: the package from ITSG, and the replies from the (simulated) health insurer that their software must handle.", "Was ein Hersteller sieht: das Paket von ITSG und die Antworten der (simulierten) Krankenkasse, die seine Software verarbeiten muss."))}
-      <section class="panel"><div class="panel-body flush">
-        ${S.published ? `<div class="msg"><div class="avatar itsg">IT</div><div class="stack"><div class="row between"><b>ITSG ${L("System review", "Systemuntersuchung")} · ${L("Test package EEL 2027-01", "Testpaket EEL 2027-01")}</b>${pill(L("new", "neu"), "accent")}</div>${pkg}
-          <div class="actions"><button class="btn primary" data-act="importPkg" ${S.imported ? "disabled" : ""}>${ic("upload")} ${S.imported ? L("Imported", "Importiert") : L("Import test package (JSON)", "Testpaket importieren (JSON)")}</button><button class="btn" data-act="go" data-screen="tests">${L("Enter manually (view cases)", "Manuell eingeben (Fälle ansehen)")}</button><button class="btn" data-act="go" data-screen="validate">${ic("upload")} ${L("Upload output file", "Ausgabedatei hochladen")}</button></div>
-          ${S.imported ? `<div class="callout ok"><b>${nCases} ${L("cases imported into LohnWerk 2027.1 (simulated)", "Fälle in LohnWerk 2027.1 importiert (simuliert)")}</b>${L("Instead of typing each case by hand. This needs the proposed import interface.", "Statt jeden Fall abzutippen. Dafür braucht es die vorgeschlagene Importschnittstelle.")}</div>` : ""}</div></div>` : `<div class="empty">${L("No package yet. Switch to the ITSG role and publish one.", "Noch kein Paket. In die ITSG-Rolle wechseln und eines veröffentlichen.")}</div>`}
-      </div></section>${dialogue}`;
   }
 
   /* ---------- 7 · Compare output ---------- */
@@ -2056,8 +2103,8 @@ const APP = (() => {
       if (f) fieldInfo = `<dl class="kv"><dt>${L("Field", "Feld")}</dt><dd><code>${esc(f.name)}</code></dd>${fi ? `<dt>${L("Meaning", "Bedeutung")}</dt><dd>${esc(T(fi))}</dd><dt>${L("Type", "Typ")}</dt><dd class="mono">${fi.type === "n" ? L("n (numeric)", "n (numerisch)") : L("an (alphanumeric)", "an (alphanumerisch)")}</dd>` : ""}<dt>${L("Position", "Position")}</dt><dd class="mono">${f.from}–${f.to} (${f.to - f.from + 1} ${L("chars", "Zeichen")})</dd><dt>${L("Value", "Wert")}</dt><dd class="mono">„${esc(f.value)}“</dd><dt>§</dt><dd>${f.sec && f.sec !== "—" ? secLink(f.sec) : L("not commented in the Verfahrensbeschreibung", "in der Verfahrensbeschreibung nicht kommentiert")}</dd></dl>`;
     }
     const diffLine = (a, b) => { let o = ""; for (let i = 0; i < Math.max(a.length, b.length); i++) { const x = b[i] || " "; o += a[i] === b[i] ? esc(x) : `<span style="background:var(--bad);color:var(--surface)">${esc(x)}</span>`; } return o; };
-    return `${head(L("Compare output", "Ausgabe prüfen"), L("The vendor's standardized output file is compared field by field with the expected output, as soon as it is uploaded. Every difference is explained in words, with its field and §. ITSG has its own comparator; our expected file uses the same DTA format, and ITSG said ours could replace theirs if it is better.", "Die standardisierte Ausgabedatei wird beim Hochladen sofort Feld für Feld mit dem Erwartungswert verglichen. Jede Abweichung wird in Worten erklärt, mit Feld und §. ITSG hat einen eigenen Vergleicher; unsere Erwartungsdatei hat dasselbe DTA-Format, und laut ITSG könnte unserer ihn ersetzen, wenn er besser ist."),
-      `<button class="btn" data-act="pickDta">${ic("upload")} ${L("Upload DTA file", "DTA-Datei hochladen")}</button>`)}
+    return `${head(S.role === "vendor" ? L("Upload & compare", "Hochladen & prüfen") : L("Compare output", "Ausgabe prüfen"), L("The vendor's standardized output file is compared field by field with the expected output, as soon as it is uploaded. Every difference is explained in words, with its field and §. ITSG has its own comparator; our expected file uses the same DTA format, and ITSG said ours could replace theirs if it is better.", "Die standardisierte Ausgabedatei wird beim Hochladen sofort Feld für Feld mit dem Erwartungswert verglichen. Jede Abweichung wird in Worten erklärt, mit Feld und §. ITSG hat einen eigenen Vergleicher; unsere Erwartungsdatei hat dasselbe DTA-Format, und laut ITSG könnte unserer ihn ersetzen, wenn er besser ist."),
+      `<button class="btn" data-act="pickDta">${ic("upload")} ${L("Upload DTA file", "DTA-Datei hochladen")}</button>${S.role === "vendor" ? `<button class="btn primary" data-act="sendFileToItsg">${ic("inbox")} ${L("Send this file to ITSG", "Diese Datei an ITSG senden")}</button>` : ""}`)}
       <div class="grid-2">
         <section class="panel"><div class="panel-head"><h4>${L("File", "Datei")}</h4></div><div class="panel-body">
           <select class="select" id="sampleSel" data-act="sample">${samples.map(([k, t]) => `<option value="${k}" ${S.sample === k ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>
@@ -2090,14 +2137,13 @@ const APP = (() => {
   }
   const WHY = { failed: () => pill(L("failed last time", "letztes Mal nicht bestanden"), "bad"), new: () => pill(L("new", "neu"), "accent"), changed: () => pill(L("changed", "geändert"), "warn"), full: () => pill(L("first certification", "Erstzertifizierung"), "info") };
   function autoResult(vendor, row) {
-    // LohnWerk's uploaded file → message checks for §3.12 fill in automatically.
-    if (vendor.id === "lw" && row.sec.startsWith("3.12")) { const v = C.validateMessage(C.TEEL0, C.GOLDEN, S.params); return v.ok ? "pass" : "fail"; }
-    if (vendor.id === "lw" && row.id === "EEL-3.20-002") return "fail";
-    if (vendor.id === "gp" && row.id === "EEL-3.11.1-003") return "fail";
+    // SAP's uploaded file → message checks for §3.12 fill in automatically. (Imagined results.)
+    if (vendor.id === "sap" && row.sec.startsWith("3.12")) { const v = C.validateMessage(C.TEEL0, C.GOLDEN, S.params); return v.ok ? "pass" : "fail"; }
+    if (vendor.id === "sap" && row.id === "EEL-3.20-002") return "fail";
     return "pass";
   }
   function auditState(vendor) {
-    if (!S.audit[vendor.id]) S.audit[vendor.id] = Object.fromEntries(scopeFor(vendor).map(x => [x.row.id, { res: autoResult(vendor, x.row), note: "", auto: x.row.sec.startsWith("3.12") && vendor.id === "lw" }]));
+    if (!S.audit[vendor.id]) S.audit[vendor.id] = Object.fromEntries(scopeFor(vendor).map(x => [x.row.id, { res: autoResult(vendor, x.row), note: "", auto: x.row.sec.startsWith("3.12") && vendor.id === "sap" }]));
     return S.audit[vendor.id];
   }
   const vendorSeg = () => `<div class="seg" role="group" aria-label="Vendor">${C.VENDORS.map(v => `<button aria-pressed="${S.vendor === v.id}" data-act="vendor" data-v="${v.id}">${esc(v.name)}</button>`).join("")}</div>`;
@@ -2105,7 +2151,7 @@ const APP = (() => {
     const vendor = C.VENDORS.find(v => v.id === S.vendor), scope = scopeFor(vendor), st = auditState(vendor);
     const pass = scope.filter(x => st[x.row.id] && st[x.row.id].res === "pass").length, fail = scope.length - pass;
     return `${head(L("On-site audit", "Vor-Ort-Prüfung"), L("ITSG's criteria are not sent by vendors — an examiner checks them at the vendor. The scope is computed: what failed last time, what changed, and what is new. A new product gets the whole catalogue.", "ITSG-Kriterien werden nicht von Herstellern gesendet — ein Prüfer prüft sie vor Ort. Der Umfang wird berechnet: was letztes Mal fehlschlug, was sich änderte, was neu ist. Ein neues Produkt bekommt den ganzen Katalog."), vendorSeg())}
-      <div class="grid-4"><div class="panel kpi"><div class="kpi-value">${scope.length}</div><div class="kpi-label">${L("criteria in scope", "Kriterien im Umfang")}</div></div><div class="panel kpi"><div class="kpi-value" style="color:var(--ok)">${pass}</div><div class="kpi-label">${L("pass", "bestanden")}</div></div><div class="panel kpi"><div class="kpi-value" style="color:var(--bad)">${fail}</div><div class="kpi-label">${L("fail", "nicht bestanden")}</div></div><div class="panel kpi"><div class="kpi-value">${vendor.prev ? Math.round((1 - scope.length / C.CATALOGUE.length) * 100) + " %" : "0 %"}</div><div class="kpi-label">${L("of the catalogue skipped (unchanged & passed)", "des Katalogs entfällt (unverändert & bestanden)")}</div></div></div>
+      ${demoNote()}<div class="grid-4"><div class="panel kpi"><div class="kpi-value">${scope.length}</div><div class="kpi-label">${L("criteria in scope", "Kriterien im Umfang")}</div></div><div class="panel kpi"><div class="kpi-value" style="color:var(--ok)">${pass}</div><div class="kpi-label">${L("pass", "bestanden")}</div></div><div class="panel kpi"><div class="kpi-value" style="color:var(--bad)">${fail}</div><div class="kpi-label">${L("fail", "nicht bestanden")}</div></div><div class="panel kpi"><div class="kpi-value">${vendor.prev ? Math.round((1 - scope.length / C.CATALOGUE.length) * 100) + " %" : "0 %"}</div><div class="kpi-label">${L("of the catalogue skipped (unchanged & passed)", "des Katalogs entfällt (unverändert & bestanden)")}</div></div></div>
       <section class="panel" data-tour="checklist"><div class="panel-head"><h3>${esc(vendor.name)} ${esc(vendor.release)} · ${L("product", "Produkt")} <span class="mono">${vendor.product}</span></h3><span class="muted" style="font-size:var(--fs-xs)">${vendor.prev ? L("last audit", "letzte Prüfung") + " " + vendor.prev.year + ": " + (vendor.prev.failed.length ? vendor.prev.failed.join(", ") + " " + L("failed", "nicht bestanden") : L("all passed", "alle bestanden")) : L("no previous certificate", "kein bisheriges Zertifikat")}</span></div>
         <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>ID</th><th>${L("Criterion", "Kriterium")}</th><th>${L("Why in scope", "Warum im Umfang")}</th><th>${L("Result", "Ergebnis")}</th></tr></thead><tbody>
         ${scope.map(x => { const s = st[x.row.id]; return `<tr><td class="mono" style="white-space:nowrap">${x.row.id}</td><td>${esc(T(x.row.title))}${s.auto ? `<br><span class="muted" style="font-size:11px">${L("pre-filled from the compared DTA file", "aus der geprüften DTA-Datei vorbelegt")}</span>` : ""}</td><td><div class="row">${x.why.map(w => WHY[w]()).join("")}</div></td><td><div class="seg"><button aria-pressed="${s.res === "pass"}" data-act="auditSet" data-id="${x.row.id}" data-r="pass">✓</button><button aria-pressed="${s.res === "fail"}" data-act="auditSet" data-id="${x.row.id}" data-r="fail">✕</button></div></td></tr>`; }).join("")}
@@ -2118,21 +2164,25 @@ const APP = (() => {
     const scope = scopeFor(vendor), st = auditState(vendor);
     const results = scope.map(x => ({ id: x.row.id, sec: x.row.sec, title: x.row.title.en, why: x.why, result: st[x.row.id].res }));
     const failed = results.filter(r => r.result === "fail");
-    const mv = vendor.id === "lw" ? C.validateMessage(C.TEEL0, C.GOLDEN, S.params) : null;
+    const mv = vendor.id === "sap" ? C.validateMessage(C.TEEL0, C.GOLDEN, S.params) : null;
     return { message_tests: mv ? { file: "TEEL0-Test1-DBVO", passed: mv.checks.filter(c => c.ok).length, total: mv.checks.length } : null, vendor: vendor.name, release: vendor.release, product_id: vendor.product, modification_id: vendor.modification, spec: `${C.SPEC.doc} v${C.SPEC.version}`, parameter_set: `v${S.paramVersion}`, params: S.params, function_versions: Object.fromEntries(Object.values(C.FN).map(f => [f.id, f.version + "#" + f.hash.slice(0, 12)])), date: C.iso(C.D("2026-12-14")), in_scope: results.length, passed: results.length - failed.length, failed: failed.map(f => f.id), results, next_scope: { carry_over_failed: failed.map(f => f.id), rule: "failed + changed + new" }, verdict: failed.length ? "not certified" : "certified 2027" };
   }
   function vReport() {
-    const vendor = C.VENDORS.find(v => v.id === S.vendor), d = reportData(vendor);
+    const isV = S.role === "vendor", vendor = vendorOf(isV ? S.vendorUser : S.vendor), d = reportData(vendor);
     const canonical = JSON.stringify(d), seal = C.sha256(canonical);
     const okV = !d.failed.length;
-    const summary = r => r.failed.length ? `${r.passed} ${L("of", "von")} ${r.in_scope} ${L("passed — everything passes except", "bestanden — alles besteht außer")} ${r.failed.join(", ")}` : `${L("All", "Alle")} ${r.in_scope} ${L("passed", "bestanden")}`;
+    const summary = reportSummary;
     const ruleFor = id => { for (const list of Object.values(HIGHLIGHTS)) { const h = list.find(x => x.rule && (x.t || []).includes(id)); if (h) return h.rule; } return null; };
     const all = C.VENDORS.map(v => ({ v, d: reportData(v) }));
-    return `${head(L("Report & next scope", "Bericht & nächster Umfang"), L("Pass/fail per vendor, per test case — printable and as JSON for each customer. The seal is a SHA-256 over the full record, so any later change is detectable.", "Bestanden/nicht bestanden je Hersteller und Testfall — druckbar und als JSON für jeden Kunden. Das Siegel ist ein SHA-256 über den ganzen Datensatz, spätere Änderungen sind erkennbar."),
-      `${vendorSeg()}${FRAMED ? "" : `<button class="btn" data-act="print">${ic("printer")} ${L("Print", "Drucken")}</button>`}<button class="btn" data-act="reportJson">${ic(FRAMED ? "copy" : "download")} ${L("JSON for", "JSON für")} ${esc(vendor.name)}</button>`)}
-      <section class="panel no-print" data-tour="allvendors"><div class="panel-head"><h3>${L("All vendors", "Alle Hersteller")}</h3><span class="muted" style="font-size:var(--fs-xs)">${L("click a row to open its report", "Zeile anklicken für den Bericht")}</span></div>
+    const w = work(vendor.id), sentRows = MSG_RULES.filter(r => w[r].result);
+    const myTests = isV ? `<section class="panel no-print"><div class="panel-head"><h3>${L("Result files you sent", "Gesendete Ergebnisdateien")}</h3>${pill(`${sentRows.length}/${MSG_RULES.length}`, "")}</div>
+        <div class="panel-body flush tbl-wrap">${sentRows.length ? `<table class="tbl"><tbody>${sentRows.map(r => { const x = w[r]; return `<tr><td class="mono">${ruleCase(r).id}</td><td>${esc(x.file)}${x.result.ok ? "" : x.result.words.map(y => `<br><span class="muted" style="font-size:var(--fs-xs)">• ${esc(T(y))}</span>`).join("")}</td><td>${okPill(x.result.ok)}</td></tr>`; }).join("")}</tbody></table>` : `<div class="empty">${L("No result files sent yet.", "Noch keine Ergebnisdateien gesendet.")} <button class="btn sm" data-act="go" data-screen="vwork">${L("My test cases", "Meine Testfälle")}</button></div>`}</div></section>` : "";
+    return `${head(isV ? L("My results", "Meine Ergebnisse") : L("Report & next scope", "Bericht & nächster Umfang"), isV ? L("Your own results only: the files you sent, and ITSG's on-site audit report. Printable and as JSON.", "Nur Ihre eigenen Ergebnisse: Ihre gesendeten Dateien und der Prüfbericht von ITSG. Druckbar und als JSON.") : L("Pass/fail per vendor, per test case — printable and as JSON for each customer. The seal is a SHA-256 over the full record, so any later change is detectable.", "Bestanden/nicht bestanden je Hersteller und Testfall — druckbar und als JSON für jeden Kunden. Das Siegel ist ein SHA-256 über den ganzen Datensatz, spätere Änderungen sind erkennbar."),
+      `${isV ? "" : vendorSeg()}${FRAMED ? "" : `<button class="btn" data-act="print">${ic("printer")} ${L("Print", "Drucken")}</button>`}<button class="btn" data-act="reportJson">${ic(FRAMED ? "copy" : "download")} ${L("JSON for", "JSON für")} ${esc(vendor.name)}</button>`)}
+      ${demoNote()}${myTests}
+      ${isV ? "" : `<section class="panel no-print" data-tour="allvendors"><div class="panel-head"><h3>${L("All vendors", "Alle Hersteller")}</h3><span class="muted" style="font-size:var(--fs-xs)">${L("click a row to open its report", "Zeile anklicken für den Bericht")}</span></div>
         <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>${L("Vendor", "Hersteller")}</th><th>${L("In scope", "Im Umfang")}</th><th>${L("Passed", "Bestanden")}</th><th>${L("Failed", "Nicht bestanden")}</th><th>${L("Summary", "Zusammenfassung")}</th><th>${L("Verdict", "Ergebnis")}</th></tr></thead><tbody>
-        ${all.map(({ v, d: r }) => `<tr class="clickable" data-act="vendor" data-v="${v.id}" ${v.id === vendor.id ? 'style="background:var(--accent-soft)"' : ""}><td><b>${esc(v.name)}</b> ${esc(v.release)}</td><td class="num">${r.in_scope}</td><td class="num" style="color:var(--ok)">${r.passed}</td><td class="num" style="color:${r.failed.length ? "var(--bad)" : "var(--muted)"}">${r.failed.length}</td><td style="font-size:var(--fs-sm)">${esc(summary(r))}</td><td>${r.failed.length ? pill(L("not certified", "nicht zertifiziert"), "bad") : pill(L("certified 2027", "zertifiziert 2027"), "ok")}</td></tr>`).join("")}</tbody></table></div></section>
+        ${all.map(({ v, d: r }) => `<tr class="clickable" data-act="vendor" data-v="${v.id}" ${v.id === vendor.id ? 'style="background:var(--accent-soft)"' : ""}><td><b>${esc(v.name)}</b> ${esc(v.release)}</td><td class="num">${r.in_scope}</td><td class="num" style="color:var(--ok)">${r.passed}</td><td class="num" style="color:${r.failed.length ? "var(--bad)" : "var(--muted)"}">${r.failed.length}</td><td style="font-size:var(--fs-sm)">${esc(summary(r))}</td><td>${r.failed.length ? pill(L("not certified", "nicht zertifiziert"), "bad") : pill(L("certified 2027", "zertifiziert 2027"), "ok")}</td></tr>`).join("")}</tbody></table></div></section>`}
       <article class="report" data-tour="report">
         <div class="report-head"><div class="stack"><span class="eyebrow">${L("System review · test report", "Systemuntersuchung · Prüfbericht")}</span><h2>${esc(d.vendor)} ${esc(d.release)}</h2><span class="muted mono" style="font-size:var(--fs-sm)">${L("Product", "Produkt")} ${d.product_id} · ${L("Modification", "Modifikation")} ${d.modification_id} · ${esc(d.spec)} · ${L("parameters", "Parameter")} ${d.parameter_set}</span></div>
           <div class="stack" style="justify-items:end"><span class="verdict ${okV ? "ok" : "bad"}">${okV ? L("Certified for 2027", "Zertifiziert für 2027") : L("Not certified", "Nicht zertifiziert")}</span><span class="muted" style="font-size:var(--fs-xs)">${d.passed} ✓ · ${d.failed.length} ✕ ${L("of", "von")} ${d.in_scope} ${L("in scope", "im Umfang")}</span></div></div>
@@ -2166,7 +2216,223 @@ const APP = (() => {
       <section class="panel"><div class="panel-body flush">${S.log.length ? S.log.slice().reverse().map(e => `<div class="log-item"><span class="log-time">${e.t.slice(11, 19)}</span><span class="avatar ${e.actor === "AI" ? "kk" : e.actor === "system" ? "" : "itsg"}" style="width:24px;height:24px;font-size:9px">${e.actor === "AI" ? "AI" : e.actor === "system" ? "⚙" : "EX"}</span><div class="stack" style="gap:2px"><span><b>${esc(e.action)}</b> ${esc(e.detail)}</span><span class="log-hash">${e.hash.slice(0, 24)}… ← ${e.prev.slice(0, 12)}…</span></div></div>`).join("") : `<div class="empty">${L("Nothing yet. Approve a rule or publish a package.", "Noch nichts. Regel freigeben oder Paket veröffentlichen.")}</div>`}</div></section>`;
   }
 
-  const RENDER = { overview: vOverview, ingest: vIngest, baseline: vBaseline, specs: vSpecs, changes: vChanges, extract: vExtract, functions: vFunctions, tests: vTests, inbox: vInbox, validate: vValidate, audit: vAudit, report: vReport, coverage: vCoverage, log: vLog };
+  /* ===================================================================================
+     MESSAGES + VENDOR SIDE — email-like threads between ITSG and each vendor, in memory.
+     One window: the role switch shows the other side. SAP and Lexware are illustrative
+     examples; every result shown for them is imagined.
+     =================================================================================== */
+  const vendorOf = id => C.VENDORS.find(v => v.id === id);
+  const side = () => S.role === "itsg" ? "itsg" : "vendor";
+  const MSG_RULES = ["R-3.12-A", "R-3.12-B"]; // answered with a DTA file; the other rules are checked on site
+  const DEADLINE = C.D("2026-12-31");
+  const CLOCK0 = C.D("2026-12-01") * 1440 + 9 * 60; // demo clock in minutes
+  const demoNote = () => `<p class="muted" style="font-size:var(--fs-xs)">ⓘ ${L("Demo: SAP and Lexware are illustrative examples; all results shown for them are imagined.", "Demo: SAP und Lexware sind illustrative Beispiele; alle gezeigten Ergebnisse sind erfunden.")}</p>`;
+  const tick = () => (S.clock = (S.clock || CLOCK0) + 7);
+  const today = () => Math.floor((S.clock || CLOCK0) / 1440);
+  const fmtAt = m => `${C.de(Math.floor(m / 1440))} ${String(Math.floor(m % 1440 / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+  const txt = b => typeof b === "string" ? b : T(b);
+  const reportSummary = r => r.failed.length ? `${r.passed} ${L("of", "von")} ${r.in_scope} ${L("passed — everything passes except", "bestanden — alles besteht außer")} ${r.failed.join(", ")}` : `${L("All", "Alle")} ${r.in_scope} ${L("passed", "bestanden")}`;
+
+  function post(th, from, body, attach) {
+    th.msgs.push({ id: `${th.id}-${th.msgs.length + 1}`, from, at: tick(), body, attach: attach || [] });
+    if (from === "itsg") th.read.itsg = th.msgs.length; else if (from !== "system") th.read.vendor = th.msgs.length;
+  }
+  function newThread(vendor, subject, kind) {
+    const th = { id: "T" + (S.mail.threads.length + 1), vendor, subject, kind: kind || "", msgs: [], read: { itsg: 0, vendor: 0 } };
+    S.mail.threads.push(th);
+    return th;
+  }
+  function mailbox() {
+    if (S.mail) return S.mail;
+    S.mail = { threads: [], files: {}, certs: {} };
+    C.VENDORS.forEach(v => {
+      const sc = scopeFor(v), n = k => sc.filter(x => x.why.includes(k)).length;
+      const th = newThread(v.id, { en: "Certification 2027: timeline and scope", de: "Zertifizierung 2027: Zeitplan und Umfang" }, "cert");
+      post(th, "itsg", {
+        en: `Dear ${v.name} team,\n\nspecification v13.4 (DTA EEL) applies from 01.01.2027. To keep transmitting from that date, ${v.productName} ${v.release} needs its 2027 certificate by 31.12.2026.\n\nOn site we will check ${sc.length} criteria: ${n("failed")} that failed last year, ${n("changed")} touched by spec changes and ${n("new")} new ones. The test package follows in this thread as soon as the rules are approved.\n\nKind regards\nITSG system review`,
+        de: `Liebes ${v.name}-Team,\n\ndie Spezifikation v13.4 (DTA EEL) gilt ab 01.01.2027. Damit ${v.productName} ${v.release} ab dann weiter übermitteln darf, braucht es das Zertifikat 2027 bis 31.12.2026.\n\nVor Ort prüfen wir ${sc.length} Kriterien: ${n("failed")} aus dem Vorjahr nicht bestandene, ${n("changed")} von Änderungen betroffene und ${n("new")} neue. Das Testpaket folgt in diesem Verlauf, sobald die Regeln freigegeben sind.\n\nViele Grüße\nITSG Systemuntersuchung` });
+      if (v.prev && v.prev.failed.length) {
+        const t2 = newThread(v.id, { en: "Open items from the 2026 audit", de: "Offene Punkte aus der Prüfung 2026" });
+        post(t2, "itsg", { en: "These criteria did not pass in 2026. We will check them again on site.", de: "Diese Kriterien wurden 2026 nicht bestanden. Wir prüfen sie vor Ort erneut." }, v.prev.failed.map(id => ({ type: "crit", ref: id })));
+      }
+    });
+    return S.mail;
+  }
+  const certThread = vid => mailbox().threads.find(t => t.vendor === vid && t.kind === "cert");
+  const visibleThreads = () => mailbox().threads.filter(t => S.role === "itsg" ? (S.mailFilter === "all" || t.vendor === S.mailFilter) : t.vendor === S.vendorUser);
+  const mine = (th, m) => m.from === (side() === "itsg" ? "itsg" : th.vendor);
+  const unreadIn = th => th.msgs.slice(th.read[side()]).filter(m => !mine(th, m)).length;
+  const unreadCount = () => visibleThreads().reduce((n, t) => n + unreadIn(t), 0);
+  const lastAt = th => th.msgs.length ? th.msgs[th.msgs.length - 1].at : 0;
+  const published = vid => (S.publishedTo || []).includes(vid);
+  function work(vid) {
+    const w = S.vwork[vid] || (S.vwork[vid] = {});
+    C.RULES.forEach(r => { if (!w[r.id]) w[r.id] = { status: "todo" }; });
+    return w;
+  }
+
+  /* A vendor's result file for one test case → compared at once. R-3.12-A expects NO message 41. */
+  function compareCase(ruleId, text) {
+    const neg = ruleId === "R-3.12-A", v = C.validateMessage(text, neg ? C.NEG_6M : C.GOLDEN, S.params);
+    let words = neg ? v.checks.filter(c => c.id === "V-GATE" && !c.ok).map(c => c.msg) : (v.meta.expected && v.meta.actual ? C.explainDbvo(v.meta.expected, v.meta.actual, S.params) : []);
+    if (!words.length) words = v.checks.filter(c => !c.ok).map(c => c.msg);
+    return { ok: v.ok, passed: v.checks.filter(c => c.ok).length, total: v.checks.length, words: words.map(w => ({ en: w.en, de: w.de })) };
+  }
+  function demoFile(key, vid) {
+    const name = `${vendorOf(vid).name.toUpperCase()}_TC-3.12-001${key === "gap" ? "_v1" : ""}.dta`;
+    return { name, text: key === "gap" ? C.brokenVariants().find(b => b.id === "gap").text : C.TEEL0 };
+  }
+  function storeResult(vid, ruleId, file) {
+    const mb = mailbox(), key = "F" + (Object.keys(mb.files).length + 1), res = compareCase(ruleId, file.text), rc = ruleCase(ruleId);
+    mb.files[key] = { name: file.name, text: file.text, rule: ruleId };
+    Object.assign(work(vid)[ruleId], { status: res.ok ? "pass" : "fail", result: res, file: file.name });
+    log(vid, L("Result file sent", "Ergebnisdatei gesendet"), `${vendorOf(vid).name} · ${rc.id} · ${file.name} → ${res.ok ? "pass" : "fail"}`);
+    return { att: { type: "dta", ref: key }, verdict: { type: "verdict", ref: Object.assign({ file: file.name, caseId: rc.id }, res) }, res };
+  }
+  const verdictBody = { en: "Automatic comparison against ITSG's expected result:", de: "Automatischer Vergleich mit dem erwarteten Ergebnis von ITSG:" };
+  function vendorSendFile(vid, ruleId, file) {
+    const th = certThread(vid), r = storeResult(vid, ruleId, file), id = ruleCase(ruleId).id;
+    post(th, vid, { en: `Result file for ${id}.`, de: `Ergebnisdatei zu ${id}.` }, [r.att]);
+    post(th, "system", verdictBody, [r.verdict]);
+    return r.res;
+  }
+  /* Guided demo: bring a vendor to "package received" (or "result sent") without clicking. */
+  function vendorDemo(vid, withResult) {
+    S.role = "vendor"; S.vendorUser = vid; S.compose = null; S.attachMenu = false;
+    if (!S.published) ACT.publish();
+    if (withResult) {
+      const w = work(vid);
+      Object.values(w).forEach(x => { if (x.status === "todo") x.status = "entered"; });
+      if (!w["R-3.12-B"].result) vendorSendFile(vid, "R-3.12-B", demoFile("gap", vid));
+    }
+    S.selThread = certThread(vid).id; S.mailFolder = "inbox";
+  }
+  function readLatin1(file, cb) { const r = new FileReader(); r.onload = () => cb({ name: file.name, text: new TextDecoder("latin1").decode(new Uint8Array(r.result)) }); r.readAsArrayBuffer(file); }
+
+  /* ---------- attachments ---------- */
+  function attLabel(a) {
+    if (a.type === "package") return L("Test package EEL 2027-01", "Testpaket EEL 2027-01");
+    if (a.type === "report") return `${L("Test report", "Prüfbericht")} ${vendorOf(a.ref).name}`;
+    if (a.type === "rule") return `${L("Rule", "Regel")} ${a.ref}`;
+    if (a.type === "case") return `${L("Test case", "Testfall")} ${ruleCase(a.ref).id}`;
+    if (a.type === "dta-new") return a.ref === "disk" ? a.file.name : `${L("Result file", "Ergebnisdatei")} ${a.ref === "gap" ? L("(broken version)", "(fehlerhafte Fassung)") : "TEEL0"}`;
+    return a.ref;
+  }
+  function attCard(a, th) {
+    const v = vendorOf(th.vendor), vend = S.role === "vendor";
+    const act = label => `<div class="actions"><button class="btn sm" data-act="mailOpen" data-type="${a.type}" data-ref="${esc(typeof a.ref === "string" ? a.ref : "")}" data-th="${th.id}">${label}</button></div>`;
+    if (a.type === "package") return `<div class="att"><div class="row between"><b>${ic("inbox")} ${L("Test package", "Testpaket")} EEL 2027-01</b>${pill(packageJSON().cases.length + " " + L("cases", "Fälle"), "")}</div><span class="muted">${L("Test cases in words · the same cases as JSON test input · criteria checklist. Expected results stay with ITSG.", "Testfälle in Worten · dieselben Fälle als JSON-Testeingabe · Kriterien-Checkliste. Erwartungswerte bleiben bei ITSG.")}</span>${vend ? `<div class="actions"><button class="btn sm primary" data-act="mailOpen" data-type="package" data-ref="" data-th="${th.id}">${L("Open my test cases", "Meine Testfälle öffnen")}</button><button class="btn sm" data-act="vImportAll">${ic("upload")} ${L("Import all (JSON)", "Alle importieren (JSON)")}</button></div>` : act(L("View package", "Paket ansehen"))}</div>`;
+    if (a.type === "dta") { const f = mailbox().files[a.ref]; return `<div class="att"><b>${ic("doc")} ${esc(f.name)}</b><span class="muted">${L("DTA output file", "DTA-Ausgabedatei")} · ${ruleCase(f.rule).id}</span>${act(L("Open comparison", "Vergleich öffnen"))}</div>`; }
+    if (a.type === "verdict") { const r = a.ref; return `<div class="att ${r.ok ? "ok" : "bad"}"><b>${r.ok ? "✓ " + L("PASS", "BESTANDEN") : "✕ " + L("FAIL", "NICHT BESTANDEN")} · ${esc(r.caseId)} · ${r.passed}/${r.total} ${L("checks", "Prüfungen")}</b><span class="muted" style="font-size:var(--fs-xs)">${esc(r.file)}</span>${r.ok ? `<span>${L("Matches the expected result in every field.", "Stimmt in jedem Feld mit dem erwarteten Ergebnis überein.")}</span>` : r.words.map(w => `<span>• ${esc(T(w))}</span>`).join("")}</div>`; }
+    if (a.type === "report") { const d = reportData(vendorOf(a.ref)); return `<div class="att"><b>${ic("report")} ${L("Test report", "Prüfbericht")} ${esc(vendorOf(a.ref).name)} · ${esc(d.release)}</b><span>${esc(reportSummary(d))}.</span>${act(L("Open report", "Bericht öffnen"))}</div>`; }
+    if (a.type === "certificate") { const c = mailbox().certs[th.vendor]; return `<div class="att cert"><b>${ic("check")} ${L("Certificate DTA EEL 2027", "Zertifikat DTA EEL 2027")}</b><span>${esc(v.productName)} ${esc(v.release)} · ${L("product", "Produkt")} <span class="mono">${v.product}</span> · ${L("modification", "Modifikation")} <span class="mono">${v.modification}</span></span><span>${L("Valid", "Gültig")} 01.01.2027 – 31.12.2027</span><span class="mono muted" style="font-size:11px">${L("seal", "Siegel")} ${c ? c.seal.slice(0, 32) : ""}…</span></div>`; }
+    if (a.type === "rule") { const r = C.RULES.find(x => x.id === a.ref); return `<div class="att"><b>${ic("ai")} ${r.id} · ${esc(T(r.label))}</b><span class="muted">${esc(ruleText(r))}</span>${act(L("Open rule", "Regel öffnen"))}</div>`; }
+    if (a.type === "case") { const rc = ruleCase(a.ref); return `<div class="att"><b>${ic("test")} ${rc.id} · ${esc(rc.title)}</b>${act(L("Open test case", "Testfall öffnen"))}</div>`; }
+    if (a.type === "crit") { const row = C.CATALOGUE.find(x => x.id === a.ref); return `<div class="att"><b class="mono">${esc(a.ref)}</b><span>${row ? esc(T(row.title)) + " · §" + row.sec : ""}</span></div>`; }
+    return "";
+  }
+  function attachOptions(vid) {
+    const refs = [...C.RULES.map(r => ["case", r.id, `${L("Test case", "Testfall")} ${ruleCase(r.id).id} · ${ruleCase(r.id).title}`]), ...C.RULES.map(r => ["rule", r.id, `${L("Rule", "Regel")} ${r.id} · ${T(r.label)}`])];
+    if (S.role === "itsg") return [["package", "EEL 2027-01", L("Test package EEL 2027-01", "Testpaket EEL 2027-01")], ["report", vid, `${L("Test report", "Prüfbericht")} ${vendorOf(vid).name}`], ...refs];
+    return [["dta-new", "teel0", L("Result file for TC-3.12-001: the real sample file", "Ergebnisdatei zu TC-3.12-001: die echte Beispieldatei")], ["dta-new", "gap", L("Result file for TC-3.12-001: a broken version (extra period)", "Ergebnisdatei zu TC-3.12-001: fehlerhafte Fassung (Zusatzzeitraum)")], ["dta-disk", "", L("Result file from disk…", "Ergebnisdatei von der Festplatte…")], ...refs];
+  }
+  const certifiable = vid => !reportData(vendorOf(vid)).failed.length && !Object.values(work(vid)).some(x => x.status === "fail");
+
+  /* ---------- Messages screen ---------- */
+  function vMail() {
+    mailbox();
+    const s = side(), all = visibleThreads();
+    const inFolder = th => S.mailFolder === "all" ? true : S.mailFolder === "sent" ? th.msgs.some(m => mine(th, m)) : th.msgs.some(m => !mine(th, m));
+    const list = all.filter(inFolder).sort((a, b) => lastAt(b) - lastAt(a));
+    const newMode = !!(S.compose && S.compose.thread === null);
+    const th = newMode ? null : (all.find(t => t.id === S.selThread) || list[0] || null);
+    if (th) th.read[s] = th.msgs.length;
+    const who = (from, t) => from === "itsg" ? { n: L("ITSG system review", "ITSG Systemuntersuchung"), cls: "itsg", a: "IT" } : from === "system" ? { n: L("Automatic comparison", "Automatischer Vergleich"), cls: "", a: "⚙" } : { n: vendorOf(from).name, cls: "ven", a: vendorOf(from).name.slice(0, 3).toUpperCase() };
+    const folderBtn = (k, label, n) => `<button aria-pressed="${S.mailFolder === k}" data-act="mailFolder" data-v="${k}"><span>${label}</span>${n ? `<span class="nav-badge hot">${n}</span>` : ""}</button>`;
+    const folders = `<div class="mail-folders"><button class="btn primary sm" style="justify-content:center;margin-bottom:8px" data-act="mailNew">${L("New message", "Neue Nachricht")}</button>
+      ${folderBtn("inbox", L("Inbox", "Posteingang"), unreadCount())}${folderBtn("sent", L("Sent", "Gesendet"))}${folderBtn("all", L("All", "Alle"))}
+      ${s === "itsg" ? `<span class="eyebrow">${L("Vendor", "Hersteller")}</span>${[["all", L("All vendors", "Alle Hersteller")], ...C.VENDORS.map(v => [v.id, v.name])].map(([k, n]) => `<button aria-pressed="${S.mailFilter === k}" data-act="mailFilter" data-v="${k}">${esc(n)}</button>`).join("")}` : ""}</div>`;
+    const items = `<div class="mail-list" data-tour="threads">${list.length ? list.map(t => { const last = t.msgs[t.msgs.length - 1], u = unreadIn(t), atts = t.msgs.flatMap(m => m.attach).length; return `<button class="mail-item ${u ? "unread" : ""}" aria-selected="${!!th && t.id === th.id}" data-act="openThread" data-id="${t.id}">
+        <div class="row between" style="flex-wrap:nowrap"><span class="muted" style="font-size:var(--fs-xs)">${s === "itsg" ? esc(vendorOf(t.vendor).name) : "ITSG"}${atts ? " · " + ic("link") + " " + atts : ""}</span><span class="muted" style="font-size:11px;white-space:nowrap">${last ? fmtAt(last.at) : ""}</span></div>
+        <span class="subj">${esc(txt(t.subject))}</span><span class="snip">${last ? esc(who(last.from, t).n + ": " + (txt(last.body) || attLabel(last.attach[0] || { type: "", ref: "" }))) : ""}</span></button>`; }).join("") : `<div class="empty">${L("No messages here.", "Keine Nachrichten.")}</div>`}</div>`;
+    const c = S.compose && (newMode || (th && S.compose.thread === th.id)) ? S.compose : null;
+    const chips = c && c.attach.length ? `<div class="row">${c.attach.map((a, i) => `<span class="chip">${ic("link")} ${esc(attLabel(a))}<button class="btn ghost sm" data-act="attachDel" data-i="${i}" aria-label="${esc(L("Remove", "Entfernen"))}">✕</button></span>`).join("")}</div>` : "";
+    const targetVid = newMode ? (s === "itsg" ? c.to : S.vendorUser) : th ? th.vendor : S.vendorUser;
+    const menu = S.attachMenu ? `<div class="att-menu">${attachOptions(targetVid).map(([type, ref, label]) => `<button data-act="attachAdd" data-type="${type}" data-ref="${esc(ref)}">${esc(label)}</button>`).join("")}</div>` : "";
+    const composer = (newMode || th) ? `<div class="mail-compose" data-tour="compose">
+        ${newMode ? `<div class="grid-2">${s === "itsg" ? `<label class="stack"><span class="field-label">${L("To", "An")}</span><select class="select" id="mailTo">${C.VENDORS.map(v => `<option value="${v.id}" ${c.to === v.id ? "selected" : ""}>${esc(v.name)}</option>`).join("")}</select></label>` : `<div class="stack"><span class="field-label">${L("To", "An")}</span><b>ITSG ${L("system review", "Systemuntersuchung")}</b></div>`}<label class="stack"><span class="field-label">${L("Subject", "Betreff")}</span><input class="input" data-compose="subject" value="${esc(c.subject || "")}"></label></div>` : ""}
+        <textarea data-compose="body" data-thread="${th ? th.id : ""}" placeholder="${esc(newMode ? L("Write a message…", "Nachricht schreiben…") : L("Write a reply…", "Antwort schreiben…"))}">${esc(c ? txt(c.body) : "")}</textarea>${chips}${menu}
+        <div class="row between"><button class="btn sm" data-act="mailAttachMenu" aria-expanded="${!!S.attachMenu}">${ic("link")} ${L("Attach", "Anhängen")} ▾</button><div class="actions">${newMode ? `<button class="btn sm ghost" data-act="mailCancel">${L("Discard", "Verwerfen")}</button>` : ""}<button class="btn primary sm" data-act="mailSend">${L("Send", "Senden")}</button></div></div></div>` : "";
+    let reading;
+    if (newMode) reading = `<div class="mail-read"><div class="mail-head"><h3>${L("New message", "Neue Nachricht")}</h3></div><div class="mail-msgs"><p class="muted" style="font-size:var(--fs-sm)">${L("Attach test packages, result files, reports, rules or test cases — the other side can open them with one click.", "Testpakete, Ergebnisdateien, Berichte, Regeln oder Testfälle anhängen — die andere Seite öffnet sie mit einem Klick.")}</p></div>${composer}</div>`;
+    else if (!th) reading = `<div class="mail-read"><div class="empty">${L("Select a conversation.", "Unterhaltung auswählen.")}</div></div>`;
+    else {
+      const v = vendorOf(th.vendor), ok = certifiable(v.id), hasCert = !!mailbox().certs[v.id];
+      const quick = s === "itsg" ? `<div class="actions"><button class="btn sm" data-act="itsgSendReport" data-v="${v.id}">${ic("report")} ${L("Send report", "Bericht senden")}</button><button class="btn sm" data-act="itsgRequestFix" data-v="${v.id}" ${ok ? "disabled" : ""}>${L("Request fix & resend", "Korrektur anfordern")}</button><button class="btn sm primary" data-act="itsgCert" data-v="${v.id}" ${ok && !hasCert ? "" : "disabled"} title="${esc(ok ? "" : L("Only when nothing failed", "Nur wenn nichts fehlgeschlagen ist"))}">${ic("check")} ${hasCert ? L("Certificate issued", "Zertifikat erteilt") : L("Issue certificate", "Zertifikat erteilen")}</button></div>` : "";
+      reading = `<div class="mail-read"><div class="mail-head"><div class="row between"><div class="stack" style="gap:2px"><h3>${esc(txt(th.subject))}</h3><span class="muted" style="font-size:var(--fs-xs)">ITSG ⇄ ${esc(v.name)} · ${esc(v.productName)} ${esc(v.release)}</span></div>${quick}</div></div>
+        <div class="mail-msgs" data-tour="thread">${th.msgs.map(m => { const w = who(m.from, th); return `<div class="mail-msg ${m.from === "system" ? "system" : ""}"><div class="avatar ${w.cls}">${w.a}</div><div class="stack" style="gap:6px"><div class="row between"><b>${esc(w.n)}</b><span class="muted" style="font-size:var(--fs-xs)">${fmtAt(m.at)}</span></div>${txt(m.body) ? `<div class="body">${esc(txt(m.body))}</div>` : ""}${m.attach.map(a => attCard(a, th)).join("")}</div></div>`; }).join("")}</div>${composer}</div>`;
+    }
+    return `${head(L("Messages", "Nachrichten"), s === "itsg" ? L("One conversation per vendor and topic. Publish packages, receive result files — compared automatically on arrival — and send reports or the certificate back.", "Eine Unterhaltung je Hersteller und Thema. Pakete veröffentlichen, Ergebnisdateien empfangen — beim Eingang automatisch verglichen — und Berichte oder das Zertifikat zurückschicken.") : L("Your conversations with ITSG. Packages arrive here; send your result files back and they are compared automatically.", "Ihre Unterhaltungen mit ITSG. Pakete kommen hier an; senden Sie Ihre Ergebnisdateien zurück, sie werden automatisch verglichen."))}
+      <div class="mail" data-tour="mail">${folders}${items}${reading}</div>${demoNote()}`;
+  }
+
+  /* ---------- Vendor home ---------- */
+  function vVendorHome() {
+    const v = vendorOf(S.vendorUser), w = work(v.id), pub = published(v.id), sc = scopeFor(v), n = k => sc.filter(x => x.why.includes(k)).length;
+    const st = Object.values(w), todo = pub ? st.filter(x => x.status === "todo").length : 0;
+    const msgDone = MSG_RULES.filter(r => ["pass", "fail"].includes(w[r].status)).length, fails = MSG_RULES.filter(r => w[r].status === "fail").length, passes = MSG_RULES.filter(r => w[r].status === "pass").length;
+    const entered = pub && !st.some(x => x.status === "todo"), sent = pub && msgDone === MSG_RULES.length, cert = !!mailbox().certs[v.id];
+    const steps = [[L("Package received", "Paket erhalten"), pub], [L("Cases entered", "Fälle eingegeben"), entered], [L("Results sent", "Ergebnisse gesendet"), sent], [L("ITSG review", "Prüfung durch ITSG"), cert], [L("Certificate 2027", "Zertifikat 2027"), cert]];
+    const cur = steps.findIndex(x => !x[1]);
+    const next = [
+      [L("Wait for ITSG's test package — it arrives in Messages.", "Auf das Testpaket von ITSG warten — es kommt unter Nachrichten an."), "mail", L("Open messages", "Nachrichten öffnen")],
+      [L("Enter the test cases in your software — or import them as JSON.", "Die Testfälle in Ihre Software eingeben — oder als JSON importieren."), "vwork", L("Open my test cases", "Meine Testfälle öffnen")],
+      [L("Send your result files to ITSG; they are compared automatically.", "Ergebnisdateien an ITSG senden; sie werden automatisch verglichen."), "vwork", L("Send results", "Ergebnisse senden")],
+      [fails ? L("A result failed: fix it and send the file again.", "Ein Ergebnis ist fehlgeschlagen: korrigieren und erneut senden.") : L("ITSG reviews your results and checks the criteria on site.", "ITSG prüft Ihre Ergebnisse und die Kriterien vor Ort."), fails ? "vwork" : "mail", fails ? L("Open my test cases", "Meine Testfälle öffnen") : L("Open messages", "Nachrichten öffnen")]
+    ][cur] || [L("Certified for 2027. Nothing left to do.", "Für 2027 zertifiziert. Nichts mehr zu tun."), "report", L("My results", "Meine Ergebnisse")];
+    const days = DEADLINE - today();
+    const recent = visibleThreads().flatMap(t => t.msgs.map(m => ({ t, m }))).sort((a, b) => b.m.at - a.m.at).slice(0, 3);
+    return `${head(`${esc(v.name)} · ${esc(v.productName)} ${esc(v.release)}`, `${L("Your system review for 2027", "Ihre Systemuntersuchung für 2027")} · ${L("product", "Produkt")} <span class="mono">${v.product}</span> · ${L("modification", "Modifikation")} <span class="mono">${v.modification}</span>`, `<button class="btn" data-act="go" data-screen="mail">${ic("inbox")} ${L("Messages", "Nachrichten")}${unreadCount() ? ` (${unreadCount()})` : ""}</button>`)}
+      <div class="vsteps" data-tour="vsteps">${steps.map(([t, done], i) => `<div class="vstep ${done ? "done" : i === cur ? "cur" : "todo"}"><span class="mono" style="font-size:11px">${String(i + 1).padStart(2, "0")}</span><span>${done ? "✓ " : ""}${t}</span></div>`).join("")}</div>
+      <section class="panel"><div class="panel-body"><div class="row between"><div class="stack" style="gap:2px"><span class="eyebrow">${L("Next step", "Nächster Schritt")}</span><b style="font-size:var(--fs-lg)">${next[0]}</b></div><button class="btn primary" data-act="go" data-screen="${next[1]}">${next[2]}</button></div></div></section>
+      <div class="grid-4">
+        <div class="panel kpi"><div class="kpi-value">${pub ? todo : "—"}</div><div class="kpi-label">${L("test cases still to enter", "Testfälle noch einzugeben")}</div></div>
+        <div class="panel kpi"><div class="kpi-value">${msgDone}/${MSG_RULES.length}</div><div class="kpi-label">${L("result files sent", "Ergebnisdateien gesendet")}</div><div>${passes ? pill(passes + " ✓", "ok") : ""} ${fails ? pill(fails + " ✕", "bad") : ""}</div></div>
+        <div class="panel kpi"><div class="kpi-value" style="color:${days < 14 ? "var(--bad)" : "var(--fg)"}">${days}</div><div class="kpi-label">${L("days until 31.12.2026 — certificate needed to transmit from 01.01.2027", "Tage bis 31.12.2026 — Zertifikat nötig, um ab 01.01.2027 zu übermitteln")}</div></div>
+        <div class="panel kpi"><div class="kpi-value">${unreadCount()}</div><div class="kpi-label">${L("unread messages", "ungelesene Nachrichten")}</div></div>
+      </div>
+      <div class="grid-2">
+        <section class="panel"><div class="panel-head"><h3>${L("What ITSG will check on site", "Was ITSG vor Ort prüft")}</h3>${pill(sc.length + " " + L("criteria", "Kriterien"), "")}</div>
+          <div class="panel-body"><dl class="kv"><dt>${L("Failed last year", "Vorjahr nicht bestanden")}</dt><dd>${n("failed")} ${v.prev.failed.map(id => `<span class="pill mono">${id}</span>`).join(" ")}</dd><dt>${L("Changed in v13.4", "In v13.4 geändert")}</dt><dd>${n("changed")}</dd><dt>${L("New in v13.4", "Neu in v13.4")}</dt><dd>${n("new")}</dd></dl>
+          <span class="muted" style="font-size:var(--fs-xs)">${L("Everything else stays certified from last year.", "Alles andere bleibt aus dem Vorjahr zertifiziert.")}</span></div></section>
+        <section class="panel"><div class="panel-head"><h3>${L("Latest messages", "Neueste Nachrichten")}</h3></div><div class="panel-body flush">${recent.map(({ t, m }) => `<button class="mail-item" data-act="openThread" data-id="${t.id}" data-go="1"><div class="row between"><b class="subj">${esc(txt(t.subject))}</b><span class="muted" style="font-size:11px">${fmtAt(m.at)}</span></div><span class="snip">${esc(txt(m.body) || attLabel(m.attach[0] || { type: "", ref: "" }))}</span></button>`).join("")}</div></section>
+      </div>${demoNote()}`;
+  }
+
+  /* ---------- Vendor: my test cases ---------- */
+  function vVendorWork() {
+    const v = vendorOf(S.vendorUser);
+    const sub = L(`Enter each case in ${v.productName} exactly as described, then send ITSG your result. Expected results stay with ITSG: your file is compared automatically when it arrives.`, `Jeden Fall genau wie beschrieben in ${v.productName} eingeben und das Ergebnis an ITSG senden. Erwartungswerte bleiben bei ITSG: Ihre Datei wird beim Eingang automatisch verglichen.`);
+    if (!published(v.id)) return `${head(L("My test cases", "Meine Testfälle"), sub)}<section class="panel"><div class="empty">${L("No test package yet. ITSG sends it through Messages once the rules are approved.", "Noch kein Testpaket. ITSG schickt es über Nachrichten, sobald die Regeln freigegeben sind.")}</div></section>${demoNote()}`;
+    const w = work(v.id);
+    return `${head(L("My test cases", "Meine Testfälle"), sub, `<button class="btn primary" data-act="vImportAll">${ic("upload")} ${L("Import all (JSON)", "Alle importieren (JSON)")}</button>`)}
+      ${C.RULES.filter(r => S.rules[r.id].status !== "rejected").map(r => {
+        const rc = ruleCase(r.id), st = w[r.id], msg = MSG_RULES.includes(r.id);
+        const stPill = { todo: pill(L("to enter", "einzugeben"), "warn"), entered: pill(msg ? L("entered — send your result", "eingegeben — Ergebnis senden") : L("ready for the on-site check", "bereit für die Vor-Ort-Prüfung"), "info"), pass: pill("✓ " + L("passed", "bestanden"), "ok"), fail: pill("✕ " + L("failed — fix and resend", "nicht bestanden — korrigieren und erneut senden"), "bad") }[st.status];
+        const acts = [st.status === "todo" ? `<button class="btn sm primary" data-act="vEnter" data-rule="${r.id}">${ic("check")} ${L("Mark as entered", "Als eingegeben markieren")}</button>` : "",
+          msg && st.status !== "todo" && r.id === "R-3.12-A" ? `<button class="btn sm primary" data-act="vNoMsg" data-rule="${r.id}">${L("Confirm: no message created", "Bestätigen: keine Meldung erzeugt")}</button>` : "",
+          msg && st.status !== "todo" ? `<button class="btn sm ${r.id === "R-3.12-A" ? "" : "primary"}" data-act="vUpload" data-rule="${r.id}">${ic("upload")} ${L("Send result file", "Ergebnisdatei senden")}</button>` : "",
+          `<button class="btn sm ghost" data-act="vAsk" data-rule="${r.id}">${ic("inbox")} ${L("Ask ITSG", "ITSG fragen")}</button>`].join("");
+        return `<section class="panel" id="vcase-${r.id}"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${rc.id} · §${r.sec}</span><h3>${esc(rc.title)}</h3></div>${stPill}</div>
+          <div class="panel-body"><div class="grid-2"><div class="stack" style="gap:6px"><span class="field-label">${L("Test setup — enter this in your software", "Testkonstellation — so in Ihrer Software eingeben")}</span>${rc.desc}</div>
+            <div class="stack" style="gap:6px"><span class="field-label">${L("Rule being tested", "Geprüfte Regel")}</span><span style="font-size:var(--fs-sm)">${esc(ruleText(r))}</span><button class="btn sm ghost" style="justify-self:start" data-act="mailOpen" data-type="rule" data-ref="${r.id}" data-th="">${L("Spec text", "Spezifikationstext")} §${r.sec}</button>
+              <span class="muted" style="font-size:var(--fs-xs)">${msg ? L("Expected result: held by ITSG — your file is compared automatically.", "Erwartetes Ergebnis: liegt bei ITSG — Ihre Datei wird automatisch verglichen.") : L("Checked by the ITSG examiner during the on-site audit.", "Wird vom ITSG-Prüfer bei der Vor-Ort-Prüfung kontrolliert.")}</span></div></div>
+            ${st.result ? `<div class="att ${st.result.ok ? "ok" : "bad"}" style="max-width:none"><b>${st.result.ok ? "✓ " + L("Passed", "Bestanden") : "✕ " + L("Failed", "Nicht bestanden")} · ${esc(st.file || "")}</b>${st.result.ok ? "" : st.result.words.map(x => `<span>• ${esc(T(x))}</span>`).join("")}</div>` : ""}
+            <div class="actions">${acts}</div></div></section>`;
+      }).join("")}${demoNote()}`;
+  }
+
+  const RENDER = { overview: vOverview, ingest: vIngest, baseline: vBaseline, specs: vSpecs, mail: vMail, vhome: vVendorHome, vwork: vVendorWork, changes: vChanges, extract: vExtract, functions: vFunctions, tests: vTests, inbox: vInbox, validate: vValidate, audit: vAudit, report: vReport, coverage: vCoverage, log: vLog };
 
   /* ===================================================================================
      SHELL RENDERING
@@ -2176,17 +2442,19 @@ const APP = (() => {
     if (S.theme === "system") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", S.theme);
     $("#brandName").textContent = PRODUCT_NAME;
     $("#brandSub").textContent = L("AI-assisted system review · DTA EEL", "KI-gestützte Systemuntersuchung · DTA EEL");
-    $("#roleSeg").innerHTML = `<button aria-pressed="${S.role === "itsg"}" data-act="role" data-v="itsg">ITSG</button><button aria-pressed="${S.role === "vendor"}" data-act="role" data-v="vendor">${L("Vendor", "Hersteller")}</button>`;
+    $("#roleSeg").innerHTML = `<button aria-pressed="${S.role === "itsg"}" data-act="role" data-v="itsg">ITSG</button><button aria-pressed="${S.role === "vendor"}" data-act="role" data-v="vendor">${L("Vendor", "Hersteller")}</button>${S.role === "vendor" ? `<button aria-pressed="false" data-act="signInModal" title="${esc(L("Switch company", "Firma wechseln"))}">${L("as", "als")} <b>${esc(vendorOf(S.vendorUser).name)}</b> ▾</button>` : ""}`;
     $("#langSeg").innerHTML = `<button aria-pressed="${S.lang === "en"}" data-act="lang" data-v="en">EN</button><button aria-pressed="${S.lang === "de"}" data-act="lang" data-v="de">DE</button>`;
     $("#themeBtn").innerHTML = `${ic("sun")}<span class="sr">${L("Theme", "Design")}</span>`;
     $("#themeBtn").title = L("Switch light / dark", "Hell / dunkel wechseln");
     $("#aiBtn").innerHTML = `${ic("gear")} ${S.ai.mode === "live" ? "Live" : L("Recorded AI", "Aufgezeichnete KI")}`;
     $("#demoBtn").innerHTML = `${ic("play")} ${L("Demo", "Demo")}`;
+    const vendor = S.role === "vendor", VORDER = ["vhome", "mail", "vwork", "validate", "report", "specs"];
     const visible = SCREENS.filter(s => s.roles.includes(S.role));
-    if (!visible.some(s => s.id === S.screen)) S.screen = "overview";
-    const groups = {};
-    visible.forEach(s => (groups[s.group] = groups[s.group] || []).push(s));
-    $("#rail").innerHTML = Object.entries(groups).map(([g, list]) => `<div class="rail-group">${GROUPS[g]() ? `<div class="rail-label eyebrow">${GROUPS[g]()}</div>` : ""}${list.map(s => { const b = s.badge && s.badge(); return `<button class="nav-btn" data-act="go" data-screen="${s.id}" ${S.screen === s.id ? 'aria-current="page"' : ""}><span class="nav-step">${s.step || `<svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="${ICON[s.icon]}"/></svg>`}</span><span>${s.t()}</span>${b ? `<span class="nav-badge ${b.hot ? "hot" : ""}">${b.n}</span>` : ""}</button>`; }).join("")}</div>`).join("");
+    if (vendor) visible.sort((a, b) => VORDER.indexOf(a.id) - VORDER.indexOf(b.id));
+    if (!visible.some(s => s.id === S.screen)) S.screen = vendor ? "vhome" : "overview";
+    const groups = {}, gOf = s => typeof s.group === "function" ? s.group() : s.group;
+    visible.forEach(s => (groups[gOf(s)] = groups[gOf(s)] || []).push(s));
+    $("#rail").innerHTML = Object.entries(groups).map(([g, list]) => `<div class="rail-group">${GROUPS[g]() ? `<div class="rail-label eyebrow">${GROUPS[g]()}</div>` : ""}${list.map(s => { const b = s.badge && s.badge(); return `<button class="nav-btn" data-act="go" data-screen="${s.id}" ${S.screen === s.id ? 'aria-current="page"' : ""}><span class="nav-step">${(vendor ? s.vstep : s.step) || `<svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="${ICON[s.icon]}"/></svg>`}</span><span>${s.t()}</span>${b ? `<span class="nav-badge ${b.hot ? "hot" : ""}">${b.n}</span>` : ""}</button>`; }).join("")}</div>`).join("");
   }
   function render() {
     renderShell();
@@ -2310,7 +2578,10 @@ const APP = (() => {
 
   const ACT = {
     go: el => go(el.dataset.screen),
-    role: el => { S.role = el.dataset.v; store.set("role", S.role); if (S.role === "vendor") S.sample = S.sample || "teel0"; render(); },
+    role: el => { const was = S.role; S.role = el.dataset.v; store.set("role", S.role); S.compose = null; S.attachMenu = false; S.selThread = null; if (S.role === "vendor" && was !== "vendor") { S.screen = "vhome"; render(); ACT.signInModal(); } else render(); },
+    signInModal: () => modal(L("Sign in as", "Anmelden als"), `<p class="muted" style="font-size:var(--fs-sm)">${L("Pick the vendor whose side you want to see. Each vendor only sees its own package, results and messages.", "Hersteller wählen, dessen Sicht Sie sehen möchten. Jeder Hersteller sieht nur sein eigenes Paket, seine Ergebnisse und Nachrichten.")}</p>
+      <div class="signin">${C.VENDORS.map(v => `<button data-act="signIn" data-v="${v.id}" aria-pressed="${S.vendorUser === v.id}"><b style="font-size:var(--fs-lg)">${esc(v.name)}</b><span>${esc(v.productName)} ${esc(v.release)}</span><span class="muted" style="font-size:var(--fs-xs)">${T(v.size)}</span></button>`).join("")}</div>${demoNote()}`),
+    signIn: el => { S.vendorUser = el.dataset.v; S.role = "vendor"; S.selThread = null; S.compose = null; $("#modalHost").innerHTML = ""; log("vendor", L("Signed in", "Angemeldet"), vendorOf(S.vendorUser).name); go(S.screen === "vhome" || !S.screen ? "vhome" : S.screen); },
     lang: el => { S.lang = el.dataset.v; store.set("lang", S.lang); render(); if (window.TOUR) TOUR.refresh(); },
     tour: () => window.TOUR && TOUR.start(),
     prov: el => openProv(el.dataset.key),
@@ -2362,11 +2633,10 @@ const APP = (() => {
     expandRule: el => { S.expandRule = S.expandRule === el.dataset.rule ? null : el.dataset.rule; render(); },
     caseJson: el => { const rc = ruleCase(el.dataset.rule); downloadOrCopy(`${rc.id}.json`, JSON.stringify(rc.json, null, 2), "application/json"); log("examiner", L("Test input exported", "Testeingabe exportiert"), rc.id); },
     packageJson: () => { const p = packageJSON(); downloadOrCopy("eel-2027-01-testinput.json", JSON.stringify(p, null, 2), "application/json"); log("examiner", L("Test package exported as JSON", "Testpaket als JSON exportiert"), `${p.cases.length} ${L("cases", "Fälle")}`); },
-    importPkg: () => { S.imported = true; const n = packageJSON().cases.length; log("vendor", L("Test package imported", "Testpaket importiert"), `LohnWerk 2027.1 · ${n} ${L("cases", "Fälle")} (${L("simulated", "simuliert")})`); toast(`${n} ${L("cases imported instead of typed", "Fälle importiert statt getippt")}`); render(); },
     valTab: el => { S.valTab = el.dataset.tab; render(); },
     seqHi: el => { S.seqHi = S.seqHi === el.dataset.id ? null : el.dataset.id; render(); },
     exportBaseline: () => downloadOrCopy("eel-baseline-check-v13.4.csv", baselineCSV(), "text/csv"),
-    reportJson: () => { const v = C.VENDORS.find(x => x.id === S.vendor), d = reportData(v); downloadOrCopy(`report-${v.id}-2027.json`, JSON.stringify(Object.assign({ seal_sha256: C.sha256(JSON.stringify(d)) }, d), null, 2), "application/json"); },
+    reportJson: () => { const v = vendorOf(S.role === "vendor" ? S.vendorUser : S.vendor), d = reportData(v); downloadOrCopy(`report-${v.id}-2027.json`, JSON.stringify(Object.assign({ seal_sha256: C.sha256(JSON.stringify(d)) }, d), null, 2), "application/json"); },
     resolve: el => { const id = el.dataset.rule; S.rules[id].live = { run: C.RULES.find(r => r.id === id).runA, model: L("examiner: run A adopted", "Prüfer: Lauf A übernommen") }; log("examiner", L("Conflict resolved", "Konflikt gelöst"), `${id} → run A`); render(); },
     reopen: el => { S.rules[el.dataset.rule].status = "pending"; log("examiner", L("Rule reopened", "Regel wieder geöffnet"), el.dataset.rule); render(); },
     rerunTests: () => { TESTS = C.selfTest(S.params); log("system", L("Unit tests run", "Unit-Tests ausgeführt"), `${TESTS.filter(t => t.ok).length}/${TESTS.length}`); toast(`${TESTS.filter(t => t.ok).length}/${TESTS.length} ${L("passing", "bestanden")}`); render(); },
@@ -2379,7 +2649,91 @@ const APP = (() => {
     pickDta: () => { const fi = $("#fileInput"); fi.accept = ""; fi.onchange = () => { if (fi.files[0]) readDta(fi.files[0]); fi.value = ""; }; fi.click(); },
     sample: () => { },
     field: el => { S.selField = el.dataset.name + el.dataset.from; render(); },
-    publish: () => { S.published = true; const n = C.VENDORS.filter(v => { const cb = document.getElementById("pub-" + v.id); return !cb || cb.checked; }).length; log("examiner", L("Test package published", "Testpaket veröffentlicht"), `EEL 2027-01 → ${n} ${L("vendors", "Hersteller")}`); toast(L("Published to ", "Veröffentlicht an ") + n + L(" vendors", " Hersteller")); render(); },
+    publish: () => {
+      const ids = C.VENDORS.filter(v => { const cb = document.getElementById("pub-" + v.id); return !cb || cb.checked; }).map(v => v.id), n = packageJSON().cases.length;
+      S.published = true; S.publishedTo = ids;
+      ids.forEach(id => post(certThread(id), "itsg", { en: `The test package EEL 2027-01 is ready: ${n} test cases, described in words, plus the same cases as JSON test input.\n\nPlease enter them in your software (or import the JSON) and send us your result files in this thread. Expected results stay with ITSG; every file you send is compared automatically.`, de: `Das Testpaket EEL 2027-01 ist fertig: ${n} Testfälle in Worten, dazu dieselben Fälle als JSON-Testeingabe.\n\nBitte in Ihrer Software eingeben (oder das JSON importieren) und die Ergebnisdateien in diesem Verlauf zurückschicken. Erwartungswerte bleiben bei ITSG; jede Datei wird automatisch verglichen.` }, [{ type: "package", ref: "EEL 2027-01" }]));
+      log("examiner", L("Test package published", "Testpaket veröffentlicht"), `EEL 2027-01 → ${ids.map(id => vendorOf(id).name).join(", ")}`); toast(L("Sent through Messages to ", "Über Nachrichten verschickt an ") + ids.map(id => vendorOf(id).name).join(", ")); render();
+    },
+    /* ---------- messages ---------- */
+    mailFolder: el => { S.mailFolder = el.dataset.v; render(); },
+    mailFilter: el => { S.mailFilter = el.dataset.v; S.selThread = null; S.compose = null; render(); },
+    openThread: el => { S.selThread = el.dataset.id; S.attachMenu = false; if (S.compose && S.compose.thread !== el.dataset.id) S.compose = null; const th = mailbox().threads.find(t => t.id === el.dataset.id); if (th) th.read[side()] = th.msgs.length; if (el.dataset.go) go("mail"); else render(); },
+    mailNew: () => { S.compose = { thread: null, to: S.role === "itsg" ? (S.mailFilter !== "all" ? S.mailFilter : C.VENDORS[0].id) : S.vendorUser, subject: "", body: "", attach: [] }; S.attachMenu = false; render(); },
+    mailCancel: () => { S.compose = null; S.attachMenu = false; render(); },
+    mailAttachMenu: () => { S.attachMenu = !S.attachMenu; render(); },
+    attachAdd: el => {
+      const c = S.compose || (S.compose = { thread: S.selThread, body: "", attach: [] }), type = el.dataset.type, ref = el.dataset.ref;
+      S.attachMenu = false;
+      if (type === "dta-disk") { const fi = $("#fileInput"); fi.accept = ""; fi.onchange = () => { const f = fi.files[0]; fi.value = ""; if (f) readLatin1(f, file => { c.attach.push({ type: "dta-new", ref: "disk", file }); render(); }); }; fi.click(); render(); return; }
+      c.attach.push({ type, ref }); render();
+    },
+    attachDel: el => { if (S.compose) S.compose.attach.splice(Number(el.dataset.i), 1); render(); },
+    mailSend: () => {
+      const c = S.compose || { thread: S.selThread, body: "", attach: [] }, body = String(c.body || "").trim();
+      if (!body && !c.attach.length) { toast(L("Write a message or attach something", "Nachricht schreiben oder etwas anhängen")); return; }
+      let th = c.thread ? mailbox().threads.find(t => t.id === c.thread) : null;
+      if (!th) th = newThread(S.role === "itsg" ? c.to : S.vendorUser, (c.subject || "").trim() || L("(no subject)", "(kein Betreff)"));
+      const verdicts = [], att = c.attach.map(a => { if (a.type !== "dta-new") return a; const r = storeResult(th.vendor, "R-3.12-B", a.ref === "disk" ? a.file : demoFile(a.ref, th.vendor)); verdicts.push(r.verdict); return r.att; });
+      post(th, S.role === "itsg" ? "itsg" : th.vendor, body, att);
+      verdicts.forEach(v => post(th, "system", verdictBody, [v]));
+      log(S.role === "itsg" ? "examiner" : "vendor", L("Message sent", "Nachricht gesendet"), `${vendorOf(th.vendor).name} · ${txt(th.subject)}${att.length ? ` · ${att.length} ${L("attachment(s)", "Anhang/Anhänge")}` : ""}`);
+      S.compose = null; S.attachMenu = false; S.selThread = th.id; S.mailFolder = "all"; render();
+    },
+    mailOpen: el => {
+      const type = el.dataset.type, ref = el.dataset.ref, th = mailbox().threads.find(t => t.id === el.dataset.th), vend = S.role === "vendor";
+      if (type === "package") return go(vend ? "vwork" : "inbox");
+      if (type === "dta") { const f = mailbox().files[ref]; S.customFile = { name: f.name, text: f.text }; S.sample = "custom"; S.selField = null; VAL_CACHE = null; return go("validate"); }
+      if (type === "report") { if (!vend) S.vendor = ref || (th && th.vendor); return go("report"); }
+      if (type === "rule") {
+        const r = C.RULES.find(x => x.id === ref);
+        if (!vend) { S.selRule = ref; return go("extract"); }
+        return modal(`${r.id} · ${T(r.label)}`, `<div class="stack"><span class="field-label">${L("Rule in plain language", "Regel in Klartext")}</span><p class="rule-text">${esc(ruleText(r))}</p><span class="field-label">${L("From the specification", "Aus der Spezifikation")} · §${r.sec}</span>${[...new Set(Object.values(r.runA.quotes))].map(q => `<span class="de-quote">„${esc(q)}“</span>`).join("")}</div>`, null, `<button class="btn" data-act="closeModal">${L("Close", "Schließen")}</button><button class="btn primary" data-act="goSecModal" data-sec="${r.sec}">${L("Open in specification", "In der Spezifikation öffnen")}</button>`);
+      }
+      if (type === "case") {
+        if (!vend) { S.testTab = "rules"; S.expandRule = null; go("tests"); const n = document.getElementById("case-" + ref); if (n) n.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
+        go("vwork"); const n = document.getElementById("vcase-" + ref); if (n) n.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+    },
+    goSecModal: el => { $("#modalHost").innerHTML = ""; ACT.goSec(el); },
+    itsgSendReport: el => { const v = vendorOf(el.dataset.v), th = certThread(v.id), d = reportData(v); post(th, "itsg", { en: `Please find the current test report attached: ${reportSummary(d)}.`, de: `Anbei der aktuelle Prüfbericht: ${reportSummary(d)}.` }, [{ type: "report", ref: v.id }]); S.selThread = th.id; log("examiner", L("Report sent", "Bericht gesendet"), v.name); render(); },
+    itsgRequestFix: el => {
+      const v = vendorOf(el.dataset.v), th = certThread(v.id), d = reportData(v), w = work(v.id), fails = MSG_RULES.filter(r => w[r].status === "fail");
+      const lines = [...d.failed.map(id => `• ${id} — ${T(C.CATALOGUE.find(c => c.id === id).title)}`), ...fails.map(r => `• ${ruleCase(r).id} — ${ruleCase(r).title}`)];
+      S.selThread = th.id; S.attachMenu = false;
+      S.compose = { thread: th.id, attach: [...d.failed.map(id => ({ type: "crit", ref: id })), ...fails.map(r => ({ type: "case", ref: r }))],
+        body: L(`Thank you for your results. These items do not pass yet:\n${lines.join("\n")}\n\nPlease fix them and send the corrected result files in this thread.`, `Danke für Ihre Ergebnisse. Diese Punkte sind noch nicht bestanden:\n${lines.join("\n")}\n\nBitte korrigieren und die neuen Ergebnisdateien in diesem Verlauf schicken.`) };
+      render();
+    },
+    itsgCert: el => {
+      const v = vendorOf(el.dataset.v), th = certThread(v.id);
+      if (!certifiable(v.id)) { toast(L("Only when nothing failed", "Nur wenn nichts fehlgeschlagen ist")); return; }
+      mailbox().certs[v.id] = { seal: C.sha256(JSON.stringify(reportData(v)) + v.product + v.modification) };
+      post(th, "itsg", { en: `${v.productName} ${v.release} passed the system review for 2027. Your certificate is attached.`, de: `${v.productName} ${v.release} hat die Systemuntersuchung für 2027 bestanden. Ihr Zertifikat liegt bei.` }, [{ type: "certificate", ref: v.id }, { type: "report", ref: v.id }]);
+      S.selThread = th.id; log("examiner", L("Certificate issued", "Zertifikat erteilt"), `${v.name} · ${v.product}/${v.modification}`); toast(L("Certificate sent to ", "Zertifikat gesendet an ") + v.name); render();
+    },
+    /* ---------- vendor work ---------- */
+    vEnter: el => { const w = work(S.vendorUser)[el.dataset.rule]; if (w.status === "todo") w.status = "entered"; log("vendor", L("Test case entered", "Testfall eingegeben"), `${vendorOf(S.vendorUser).name} · ${ruleCase(el.dataset.rule).id}`); render(); },
+    vImportAll: () => { const w = work(S.vendorUser), n = Object.values(w).filter(x => x.status === "todo").length; Object.values(w).forEach(x => { if (x.status === "todo") x.status = "entered"; }); log("vendor", L("Test package imported", "Testpaket importiert"), `${vendorOf(S.vendorUser).name} · ${n} ${L("cases", "Fälle")} (${L("simulated", "simuliert")})`); toast(n ? `${n} ${L("cases imported instead of typed", "Fälle importiert statt getippt")}` : L("Everything is already entered", "Alles ist bereits eingegeben")); if (S.screen === "mail") go("vwork"); else render(); },
+    vNoMsg: el => {
+      const vid = S.vendorUser, rid = el.dataset.rule, th = certThread(vid), id = ruleCase(rid).id, res = { ok: true, passed: 1, total: 1, words: [] };
+      Object.assign(work(vid)[rid], { status: "pass", result: res, file: L("no message created", "keine Meldung erzeugt") });
+      post(th, vid, { en: `${id}: our software created no message 41 for this case.`, de: `${id}: Unsere Software hat für diesen Fall keine Meldung 41 erzeugt.` });
+      post(th, "system", verdictBody, [{ type: "verdict", ref: Object.assign({ file: L("no message created", "keine Meldung erzeugt"), caseId: id }, res) }]);
+      log(vid, L("Result confirmed", "Ergebnis bestätigt"), `${vendorOf(vid).name} · ${id} → pass`); toast(`${id}: ${L("PASS", "BESTANDEN")}`); render();
+    },
+    vUpload: el => { const rid = el.dataset.rule, id = ruleCase(rid).id; modal(`${L("Send a result file", "Ergebnisdatei senden")} · ${id}`, `<p style="font-size:var(--fs-sm)">${L("In a real run this is the DTA file your software produced for this case. For the demo, pick one:", "Im echten Ablauf ist das die DTA-Datei, die Ihre Software für diesen Fall erzeugt hat. Für die Demo eine wählen:")}</p>
+      <div class="stack"><button class="btn" data-act="vUploadPick" data-rule="${rid}" data-f="teel0">${L("The real ITSG sample file (TEEL0-Test1-DBVO)", "Die echte ITSG-Beispieldatei (TEEL0-Test1-DBVO)")}</button><button class="btn" data-act="vUploadPick" data-rule="${rid}" data-f="gap">${L("A broken version: one extra period from Nov 2024", "Eine fehlerhafte Fassung: ein Zusatzzeitraum aus Nov. 2024")}</button><button class="btn" data-act="vUploadPick" data-rule="${rid}" data-f="disk">${ic("upload")} ${L("Choose a file from disk…", "Datei von der Festplatte wählen…")}</button></div>
+      <p class="muted" style="font-size:var(--fs-xs)">${L("The file is sent to ITSG in Messages and compared at once against the expected result, which stays with ITSG.", "Die Datei geht über Nachrichten an ITSG und wird sofort mit dem Erwartungswert verglichen, der bei ITSG bleibt.")}</p>`); },
+    vUploadPick: el => {
+      const rid = el.dataset.rule, f = el.dataset.f, vid = S.vendorUser;
+      $("#modalHost").innerHTML = "";
+      const send = file => { const r = vendorSendFile(vid, rid, file); toast(`${ruleCase(rid).id}: ${r.ok ? L("PASS", "BESTANDEN") : L("FAIL", "NICHT BESTANDEN")} · ${L("sent to ITSG", "an ITSG gesendet")}`); render(); };
+      if (f === "disk") { const fi = $("#fileInput"); fi.accept = ""; fi.onchange = () => { const x = fi.files[0]; fi.value = ""; if (x) readLatin1(x, send); }; fi.click(); return; }
+      send(demoFile(f, vid));
+    },
+    vAsk: el => { const rid = el.dataset.rule, th = certThread(S.vendorUser); S.selThread = th.id; S.attachMenu = false; S.compose = { thread: th.id, body: L(`Question about ${ruleCase(rid).id}: `, `Frage zu ${ruleCase(rid).id}: `), attach: [{ type: "case", ref: rid }, { type: "rule", ref: rid }] }; go("mail"); },
+    sendFileToItsg: () => { const vid = S.vendorUser, r = vendorSendFile(vid, "R-3.12-B", { name: S.sample === "custom" && S.customFile ? S.customFile.name : demoFile(S.sample === "gap" ? "gap" : "teel0", vid).name, text: sampleText() }); S.selThread = certThread(vid).id; toast(`${L("Sent to ITSG", "An ITSG gesendet")} · ${r.ok ? L("PASS", "BESTANDEN") : L("FAIL", "NICHT BESTANDEN")}`); go("mail"); },
     vendor: el => { S.vendor = el.dataset.v; render(); },
     auditSet: el => { const vendor = C.VENDORS.find(v => v.id === S.vendor); auditState(vendor)[el.dataset.id].res = el.dataset.r; auditState(vendor)[el.dataset.id].auto = false; log("examiner", L("Audit result", "Prüfergebnis"), `${vendor.name} · ${el.dataset.id} → ${el.dataset.r}`); render(); },
     copyReport: () => { const d = reportData(C.VENDORS.find(v => v.id === S.vendor)); copyText(JSON.stringify(Object.assign({ seal_sha256: C.sha256(JSON.stringify(d)) }, d), null, 2), L("Report JSON copied", "Bericht-JSON kopiert")); },
@@ -2394,9 +2748,14 @@ const APP = (() => {
     if (IS_PRESENTER) return;
     document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (!el || el.tagName === "SELECT") return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
     document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-act][role=button], .prov")) { e.preventDefault(); e.target.click(); } if (e.key === "Escape") { closeDrawer(); $("#modalHost").innerHTML = ""; } });
-    document.addEventListener("change", e => { if (e.target.id === "sampleSel") { S.sample = e.target.value; S.selField = null; render(); } });
+    document.addEventListener("change", e => { if (e.target.id === "sampleSel") { S.sample = e.target.value; S.selField = null; render(); } if (e.target.id === "mailTo" && S.compose) S.compose.to = e.target.value; });
     // Keep the examiner's wording across re-renders; it is only committed (and logged) on approval.
-    document.addEventListener("input", e => { const id = e.target.dataset && e.target.dataset.ruleText; if (id) { const r = C.RULES.find(x => x.id === id), v = e.target.value; S.rules[id].text = v.trim() !== T(r.text).trim() ? v : null; } });
+    document.addEventListener("input", e => {
+      const d = e.target.dataset || {}, id = d.ruleText;
+      if (id) { const r = C.RULES.find(x => x.id === id), v = e.target.value; S.rules[id].text = v.trim() !== T(r.text).trim() ? v : null; }
+      // Message drafts survive re-renders; typing in a thread's reply box starts a reply to that thread.
+      if (d.compose) { if (!S.compose || (d.thread && S.compose.thread !== d.thread)) S.compose = { thread: d.thread || null, body: "", attach: [] }; S.compose[d.compose] = e.target.value; }
+    });
     document.addEventListener("toggle", e => { if (e.target.matches && e.target.matches("details.tech")) S.techOpen = e.target.open; }, true);
     ["dragover", "dragleave", "drop"].forEach(ev => document.addEventListener(ev, e => {
       const zone = e.target.closest && e.target.closest(".drop");
@@ -2415,7 +2774,7 @@ const APP = (() => {
     render();
   }
 
-  return { S, C, render, go, openProv, closeDrawer, ACT, L, T, log, init, IS_PRESENTER, FRAMED, animateExtraction, toast };
+  return { S, C, render, go, openProv, closeDrawer, ACT, L, T, log, init, IS_PRESENTER, FRAMED, animateExtraction, toast, vendorDemo };
 })();
 
 /* ===================================================================================
@@ -2477,22 +2836,30 @@ const TOUR = (() => {
       title: { en: "Publish — and stop typing test cases", de: "Veröffentlichen — und keine Testfälle mehr abtippen" },
       body: { en: "The package goes to the vendors. Our proposal: the same cases as JSON that the payroll software imports, while the output stays the standard DTA file. It needs a spec change, so start with SAP. Below, the employer ⇄ insurer dialogue: the insurer's replies are given input the vendor's software must handle.", de: "Das Paket geht an die Hersteller. Unser Vorschlag: dieselben Fälle als JSON, das die Abrechnungssoftware importiert; die Ausgabe bleibt die Standard-DTA-Datei. Das braucht eine Spezifikationsänderung, also mit SAP beginnen. Darunter der Dialog Arbeitgeber ⇄ Krankenkasse: Die Antworten der Kasse sind vorgegebene Eingaben, die die Software verarbeiten muss." },
       notes: { en: ["ITSG's steer: “work on the idea of how to do the input automatically.”", "“Start with SAP — many of our customers use it.”", "Click a REF-ID in the dialogue to show it repeats the employer's DSID."], de: ["Hinweis von ITSG: „Arbeitet an der Idee, wie man die Eingabe automatisiert.“", "„Fangt mit SAP an — viele unserer Kunden nutzen es.“", "Im Dialog eine REF-ID anklicken: Sie wiederholt die DSID des Arbeitgebers."] } },
-    { screen: "validate", sel: "[data-tour=verdict]", before: () => { S.sample = "teel0"; S.selField = null; },
+    { screen: "vhome", sel: "[data-tour=vsteps]", noZoom: true, before: () => { A.vendorDemo("sap", false); },
+      title: { en: "The vendor's side: SAP signs in", de: "Die Herstellersicht: SAP meldet sich an" },
+      body: { en: "Same tool, other role. SAP sees only its own certification: where it stands, the next step, the days left until 31.12.2026, and what ITSG will check on site. The package has just arrived in Messages.", de: "Dasselbe Werkzeug, andere Rolle. SAP sieht nur die eigene Zertifizierung: Stand, nächster Schritt, Tage bis 31.12.2026 und was ITSG vor Ort prüft. Das Paket ist gerade unter Nachrichten angekommen." },
+      notes: { en: ["SAP and Lexware are illustrative — all results are imagined (the label says so on every results screen).", "My test cases: each case in words, “mark as entered” or import the JSON, then send the result file.", "Expected results are never shown to vendors — nothing to fit answers to."], de: ["SAP und Lexware sind illustrativ — alle Ergebnisse sind erfunden (das steht auf jeder Ergebnisseite).", "Meine Testfälle: jeder Fall in Worten, „als eingegeben markieren“ oder JSON importieren, dann Ergebnisdatei senden.", "Erwartungswerte sieht der Hersteller nie — es gibt nichts, woran er Antworten anpassen könnte."] } },
+    { screen: "mail", sel: "[data-tour=thread]", noZoom: true, before: () => { A.vendorDemo("sap", true); },
+      title: { en: "Messages: package in, result out, verdict back", de: "Nachrichten: Paket rein, Ergebnis raus, Urteil zurück" },
+      body: { en: "Like e-mail, but every attachment is live. ITSG's package arrived here; SAP sent its result file back, and the comparison posted the verdict in words at once. ITSG answers in the same thread — request a fix, send the report, or issue the certificate.", de: "Wie E-Mail, aber jeder Anhang ist lebendig. Das Paket von ITSG kam hier an; SAP hat die Ergebnisdatei zurückgeschickt, und der Vergleich hat das Urteil sofort in Worten gepostet. ITSG antwortet im selben Verlauf — Korrektur anfordern, Bericht senden oder Zertifikat erteilen." },
+      notes: { en: ["Attach rules, test cases, result files or reports — the other side opens them with one click.", "Switch to ITSG: “Issue certificate” only unlocks when nothing failed (try Lexware).", "“Ask ITSG” on any test case opens a message with that case attached."], de: ["Regeln, Testfälle, Ergebnisdateien oder Berichte anhängen — die andere Seite öffnet sie mit einem Klick.", "Zu ITSG wechseln: „Zertifikat erteilen“ geht nur, wenn nichts fehlgeschlagen ist (Lexware ausprobieren).", "„ITSG fragen“ an jedem Testfall öffnet eine Nachricht mit diesem Fall im Anhang."] } },
+    { screen: "validate", sel: "[data-tour=verdict]", before: () => { S.role = "itsg"; S.sample = "teel0"; S.selField = null; },
       title: { en: "The real ITSG file passes", de: "Die echte ITSG-Datei besteht" },
       body: { en: "This is TEEL0-Test1-DBVO, the file ITSG gave us. Parsed with the field offsets from the spec, every check passes and the DBVO block equals the oracle's expected block byte for byte.", de: "Das ist TEEL0-Test1-DBVO, die Datei von ITSG. Mit den Feldpositionen aus der Spezifikation gelesen, bestehen alle Prüfungen und der DBVO-Baustein gleicht dem Erwartungswert Byte für Byte." },
       notes: { en: ["Product and modification ID come straight from the file — the result attaches to that exact version.", "Our expected file uses the same format, so it can feed ITSG's existing comparator."], de: ["Produkt- und Modifikations-ID kommen direkt aus der Datei — das Ergebnis gilt für genau diese Version.", "Unsere Erwartungsdatei hat dasselbe Format und kann den bestehenden ITSG-Vergleicher speisen."] } },
-    { screen: "validate", sel: "[data-tour=words]", before: () => { S.sample = "gap"; S.selField = null; S.valTab = "words"; },
+    { screen: "validate", sel: "[data-tour=words]", before: () => { S.role = "itsg"; S.sample = "gap"; S.selField = null; S.valTab = "words"; },
       title: { en: "A broken file, explained in words", de: "Eine fehlerhafte Datei, in Worten erklärt" },
       body: { en: "Same file with one extra period from November 2024. Instead of red bytes to decode by hand: “this period should not be in the request — more than 6 months lie before the next one”, and “ANZAHL-AU expected 04, got 05”, each with its §. The bytes are still one tab away.", de: "Dieselbe Datei mit einem zusätzlichen Zeitraum aus November 2024. Statt roter Bytes zum Nachschlagen: „Dieser Zeitraum gehört nicht in die Anfrage — davor liegen mehr als 6 Monate“ und „ANZAHL-AU erwartet 04, geliefert 05“, jeweils mit §. Die Bytes sind einen Reiter entfernt." },
       notes: { en: ["ITSG: reading a difference today means looking up each field in the dictionary — “so technical someone needs to go deep in it.”", "“It could be very helpful, but there mustn't be any errors” — the explanations are computed, not generated.", "Zero tolerance: one wrong field and the release is blocked."], de: ["ITSG: Heute heißt eine Abweichung lesen, jedes Feld im Verzeichnis nachzuschlagen — „so technisch, dass man tief einsteigen muss.“", "„Es könnte sehr hilfreich sein, aber es darf keine Fehler geben“ — die Erklärungen sind berechnet, nicht generiert.", "Null Toleranz: ein falsches Feld und die Version wird gesperrt."] } },
-    { screen: "audit", sel: "[data-tour=checklist]", before: () => { S.vendor = "lw"; },
+    { screen: "audit", sel: "[data-tour=checklist]", before: () => { S.role = "itsg"; S.vendor = "sap"; },
       title: { en: "On-site audit: only what matters", de: "Vor-Ort-Prüfung: nur was zählt" },
-      body: { en: "The scope is computed: criteria that failed last year, criteria touched by a change, and new criteria. Message checks are pre-filled from the compared file. A brand-new product gets the full catalogue.", de: "Der Umfang wird berechnet: letztes Jahr nicht bestandene Kriterien, von Änderungen betroffene und neue Kriterien. Meldungsprüfungen sind aus der geprüften Datei vorbelegt. Ein neues Produkt bekommt den ganzen Katalog." },
-      notes: { en: ["From the ITSG meeting: “we want to see the two again and everything changed or new.”", "Switch vendor to KleinLohn to show a first certification."], de: ["Aus dem ITSG-Gespräch: „Wir wollen die zwei wiedersehen und alles Geänderte oder Neue.“", "Hersteller auf KleinLohn wechseln, um eine Erstzertifizierung zu zeigen."] } },
-    { screen: "report", sel: "[data-tour=allvendors]", before: () => { S.vendor = "lw"; },
+      body: { en: "The scope is computed: criteria that failed last year, criteria touched by a change, and new criteria. Message checks are pre-filled from the compared file. A brand-new product would get the full catalogue.", de: "Der Umfang wird berechnet: letztes Jahr nicht bestandene Kriterien, von Änderungen betroffene und neue Kriterien. Meldungsprüfungen sind aus der geprüften Datei vorbelegt. Ein neues Produkt bekäme den ganzen Katalog." },
+      notes: { en: ["From the ITSG meeting: “we want to see the two again and everything changed or new.”", "Switch to Lexware: it failed one criterion last year and passes this year."], de: ["Aus dem ITSG-Gespräch: „Wir wollen die zwei wiedersehen und alles Geänderte oder Neue.“", "Zu Lexware wechseln: letztes Jahr ein Kriterium nicht bestanden, dieses Jahr bestanden."] } },
+    { screen: "report", sel: "[data-tour=allvendors]", before: () => { S.role = "itsg"; S.vendor = "sap"; },
       title: { en: "Pass/fail per vendor — printable and as JSON", de: "Bestanden/nicht bestanden je Hersteller — druckbar und als JSON" },
       body: { en: "Every vendor at a glance: how many passed, how many failed, and in words — “everything passes except EEL-3.20-002”. Each report prints, downloads as JSON per customer, carries a SHA-256 seal, and feeds the next audit scope: failed + changed + new.", de: "Alle Hersteller auf einen Blick: wie viele bestanden, wie viele nicht, und in Worten — „alles besteht außer EEL-3.20-002“. Jeder Bericht ist druckbar, als JSON je Kunde ladbar, mit SHA-256-Siegel, und speist den nächsten Prüfumfang: nicht bestanden + geändert + neu." },
-      notes: { en: ["LohnWerk is “Not certified” on purpose: one new 13.4 criterion failed (cancellation must repeat the names). Zero tolerance — one fail blocks the release.", "ITSG asked for exactly this: “how many passed, how many failed, every test case — print it or give it as JSON for each customer.”", "Close: the AI drafts, code calculates, examiners decide — and every value is traceable.", "Ask: the previous spec PDF, the real test scenarios, and whether ITSG would back a JSON input interface."], de: ["LohnWerk ist absichtlich „Nicht zertifiziert“: Ein neues 13.4-Kriterium schlug fehl (Stornierung muss die Namen wiederholen). Null Toleranz — ein Fehler sperrt die Version.", "Genau das hat ITSG gefragt: „wie viele bestanden, wie viele nicht, jeder Testfall — drucken oder als JSON für jeden Kunden.“", "Abschluss: Die KI formuliert, Code rechnet, Prüfer entscheiden — und jeder Wert ist nachvollziehbar.", "Bitte: das Vorjahres-PDF, die echten Testszenarien und ob ITSG eine JSON-Eingabeschnittstelle unterstützen würde."] } }
+      notes: { en: ["SAP is “Not certified” in this imagined run on purpose: one new 13.4 criterion failed (cancellation must repeat the names). Zero tolerance — one fail blocks the release.", "ITSG asked for exactly this: “how many passed, how many failed, every test case — print it or give it as JSON for each customer.”", "Close: the AI drafts, code calculates, examiners decide — and every value is traceable.", "Ask: the previous spec PDF, the real test scenarios, and whether ITSG would back a JSON input interface."], de: ["SAP ist in diesem erfundenen Durchlauf absichtlich „Nicht zertifiziert“: Ein neues 13.4-Kriterium schlug fehl (Stornierung muss die Namen wiederholen). Null Toleranz — ein Fehler sperrt die Version.", "Genau das hat ITSG gefragt: „wie viele bestanden, wie viele nicht, jeder Testfall — drucken oder als JSON für jeden Kunden.“", "Abschluss: Die KI formuliert, Code rechnet, Prüfer entscheiden — und jeder Wert ist nachvollziehbar.", "Bitte: das Vorjahres-PDF, die echten Testszenarien und ob ITSG eine JSON-Eingabeschnittstelle unterstützen würde."] } }
   ];
 
   let idx = -1, presenter = null, chan = null;
@@ -2537,13 +2904,14 @@ const TOUR = (() => {
     const s = STEPS[idx];
     $("#main").style.transform = "";
     if (s.screen !== "overview" || !s.after || s.sel !== "#drawer") A.closeDrawer();
+    S.role = "itsg"; // vendor steps switch to the vendor role in their own `before`
     if (s.before) s.before();
     A.go(s.screen);
     card();
     setTimeout(() => { if (s.after) s.after(); spot(); }, 120);
     send(state());
   }
-  function start() { if (idx < 0) A.log("system", L("Guided demo started", "Geführte Demo gestartet"), ""); document.body.classList.add("touring"); show(0); }
+  function start() { if (idx < 0) A.log("system", L("Guided demo started", "Geführte Demo gestartet"), ""); S.role = "itsg"; document.body.classList.add("touring"); show(0); }
   function end() { idx = -1; host().innerHTML = ""; $("#main").style.transform = ""; document.body.classList.remove("touring"); send(state()); }
   function refresh() { if (idx >= 0) { card(); spot(); send(state()); } }
   function openPresenter() {

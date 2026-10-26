@@ -17,7 +17,7 @@ Optional extras that need the internet:
 
 | Key | What it does |
 |---|---|
-| **D** or the **Demo** button | Start the guided demo (16 steps with spotlight and zoom) |
+| **D** or the **Demo** button | Start the guided demo (18 steps with spotlight and zoom, including the vendor side and Messages) |
 | **→** / **Space** · **←** | Next / previous step |
 | **N** | Show or hide the speaker notes in the demo bar at the bottom |
 | **P** | Open the presenter window: speaker notes, timer, next step, synced with the main window |
@@ -44,17 +44,31 @@ Reworked after ITSG's review on 26.10.2026 ([docs/11-demo-feedback-itsg.md](../d
 | 2 Change impact | Change log + section diff, reconciled |
 | 3 Rules (criteria) | Spec quote → rule in plain language → its test case; approve, edit or decline. Function, five checks and both AI runs sit in a collapsed "Technical details" fold |
 | 4 Test cases | **Per rule** (default): one case per rule in human words, expected result, JSON download, expandable boundary set. Also: catalogue, fresh variants, ITSG reference case |
-| 5 Publish & inbox | Publish the package; **automatic input proposal** (JSON import, SAP pilot); the AG ⇄ KK dialogue as ITSG's table. Vendor role: import the package |
+| 5 Publish | Publish the package (sent through Messages); **automatic input proposal** (JSON import, SAP pilot); the AG ⇄ KK dialogue as ITSG's table |
 | 6 Compare output | Differences **in words** (field, expected vs actual, §), checks; bytes in a second tab. Uploading a file runs the comparison |
 | 7 On-site audit · Report | Audit checklist; all vendors at a glance, summary in words, print and JSON per vendor |
+| Messages | E-mail-like inbox: folders, one thread per vendor and topic, reply box with attachments (test package, result files, reports, certificate, rules, test cases). Result files are compared on arrival and the verdict is posted in words. ITSG quick actions: send report, request fix & resend, issue certificate (only when nothing failed) |
 | Evidence | Function library, coverage, audit trail |
+
+**Vendor role.** Switching to *Vendor* asks which company you are (SAP or Lexware — illustrative
+examples; every result shown for them is imagined, and the screens say so). A vendor sees only
+its own data:
+
+| Screen | What it shows |
+|---|---|
+| Home | Progress (package → entered → results sent → ITSG review → certificate), next step, days left until 31.12.2026, what ITSG will check on site, latest messages |
+| Messages | Its own threads with ITSG |
+| 1 My test cases | Each case in words; mark as entered or import all (JSON); send a result file (demo picker: real or broken file, or from disk); "Ask ITSG". Expected results are never shown |
+| 2 Upload & compare | Compare any file, then send it to ITSG |
+| 3 My results | Own result files and own audit report only |
+| Specification | The public spec |
 
 ## What's real and what's simulated
 
 | Real | Simulated or illustrative |
 |---|---|
 | Spec excerpts, page numbers and change log of the Verfahrensbeschreibung v13.4 | The v13.3 wording (reconstructed from the change log; labelled in the UI) |
-| ITSG's reference case (Peter Mustermann), its 4 criteria and UUIDs, the message chain | The test catalogue (46-row EEL subset), the three historic ALT-… rows in the baseline check, and vendors (fictional) |
+| ITSG's reference case (Peter Mustermann), its 4 criteria and UUIDs, the message chain | The test catalogue (46-row EEL subset), the three historic ALT-… rows in the baseline check, and all vendor results (SAP and Lexware are illustrative; results imagined) |
 | ITSG's negative example from the review (earlier illness > 6 months back → no 41) | The JSON test-input format (a proposal; no vendor imports it yet) |
 | The sample file `TEEL0-Test1-DBVO`, parsed with the spec's field offsets | The broken file variants (derived from the real file) |
 | Rule functions, guards, diff, parser, difference explainer, baseline check, SHA-256: all running code with 31 unit tests | AI extraction runs and rule wording (recorded; live mode makes real calls) |

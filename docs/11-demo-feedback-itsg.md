@@ -144,27 +144,29 @@ is on the jury.
 
 ## Changes to make in the demo
 
-Ordered by how directly ITSG asked for them.
+Ordered by how directly ITSG asked for them. **Status (26.10.2026, night):** built in
+`demo/index.html`, except the two items left open below. See
+[09-demo-design.md](09-demo-design.md) and [`demo/README.md`](../demo/README.md).
 
 ### 1. Readable rules between spec and test cases (rule extraction)
 
-- [ ] Make the **rule text in plain language** the main content of each rule (DE and EN), e.g.
+- [x] Make the **rule text in plain language** the main content of each rule (DE and EN), e.g.
       *"The employer may only send request 41 if the gap between the end of the last certified AU
       and the start of the current one is not more than 6 months."*
-- [ ] Show **spec quote → readable rule → its test case(s)** as one visible chain, so the examiner
+- [x] Show **spec quote → readable rule → its test case(s)** as one visible chain, so the examiner
       can "explain to the software what it should do".
-- [ ] Examiner actions on the **text itself**: **approve, edit, decline**. The current approve/reject
+- [x] Examiner actions on the **text itself**: **approve, edit, decline**. The current approve/reject
       only works on numeric parameters.
-- [ ] Move function ID, SHA-256, the guard list and run A / run B into a collapsed
+- [x] Move function ID, SHA-256, the guard list and run A / run B into a collapsed
       **"Technical details / why you can trust this"** section. They stay available for the jury's
       trust story, but they aren't the first thing an examiner reads.
-- [ ] Use ITSG's words in labels: "rule (criterion)", or "Prüfkriterium".
+- [x] Use ITSG's words in labels: "rule (criterion)", or "Prüfkriterium".
 
 ### 2. Function library out of the main pipeline
 
-- [ ] Remove "4 · Function library" from the numbered pipeline steps. ITSG doesn't have one and
+- [x] Remove "4 · Function library" from the numbered pipeline steps. ITSG doesn't have one and
       doesn't think in these terms.
-- [ ] Keep it reachable under **Evidence** (next to Coverage and Audit trail) as proof that
+- [x] Keep it reachable under **Evidence** (next to Coverage and Audit trail) as proof that
       expected values are computed, not generated.
 - **Open:** our trust architecture still relies on pre-written functions (see
   [09-demo-design.md](09-demo-design.md)). Hiding them in the UI is fine; dropping them from the
@@ -173,68 +175,69 @@ Ordered by how directly ITSG asked for them.
 
 ### 3. One test case per rule by default (test cases)
 
-- [ ] Default: **one representative test case per rule**, with a control to **expand to the full
+- [x] Default: **one representative test case per rule**, with a control to **expand to the full
       boundary set** (positive, negative, edges). Label it with ITSG's reasoning: *manual entry
       today → few cases; automatic input → as many as you like.*
-- [ ] Show each test case like ITSG's own: a **description in human words** ("The following AU
+- [x] Show each test case like ITSG's own: a **description in human words** ("The following AU
       periods are stored… the current AU starts…"), plus the expected dataset next to it.
-- [ ] Every test case links to **its rule text and spec quote**, which closes the "how do we know
+- [x] Every test case links to **its rule text and spec quote**, which closes the "how do we know
       the test case fits the spec?" gap ITSG admitted to.
-- [ ] Add the §3.12 **"> 6 months → no message created"** case as an explicit negative example. It
+- [x] Add the §3.12 **"> 6 months → no message created"** case as an explicit negative example. It
       is the exact example ITSG used.
 - [ ] Optional scenario details that change expected values (salary, number of children) should
-      be visible on the case.
+      be visible on the case. *Not yet: none of the demo's EEL rules depends on them.*
 
 ### 4. Automatic test input: make it the headline idea
 
-- [ ] Add a step or panel **"Automatic input (proposal)"**: export each test case as a **JSON
+- [x] Add a step or panel **"Automatic input (proposal)"**: export each test case as a **JSON
       input file** the vendor's software imports. The output stays the standard DTA file.
-- [ ] Frame it honestly: it **requires a specification change** (vendors must offer an import
+- [x] Frame it honestly: it **requires a specification change** (vendors must offer an import
       interface). **Pilot with SAP first.**
-- [ ] On the vendor side, show "import test package" next to "enter manually", to make the time
+- [x] On the vendor side, show "import test package" next to "enter manually", to make the time
       saved visible.
 
 ### 5. Explain differences instead of showing bytes (compare output)
 
-- [ ] For every red difference, add a **plain-language line**: record, field name, position,
+- [x] For every red difference, add a **plain-language line**: record, field name, position,
       expected vs actual, and the § it comes from. In the screenshot from this session, the DBVO
       block has a different period count and an extra period 01.11.2024–05.11.2024. That should
       read like *"ANZAHL-AU: expected 4, got 5 — the period 01.11.2024–05.11.2024 should not be
       included because the gap is more than 6 months (§3.12)."*
 - [ ] Decode fields using the **GKV data dictionary** (name, position, type, mandatory), so nobody
-      has to look them up by hand.
-- [ ] Keep the byte view, but as a secondary tab.
-- [ ] Vendor uploads its DTA → **comparison starts automatically** (no extra click).
+      has to look them up by hand. *Partly: meanings and types come from the record tables we
+      have; the GKV dictionary (with mandatory flags) still needs to be downloaded.*
+- [x] Keep the byte view, but as a secondary tab.
+- [x] Vendor uploads its DTA → **comparison starts automatically** (no extra click).
 
 ### 6. Report: pass/fail per vendor (report & next scope)
 
-- [ ] Summary per vendor: **N passed, M failed**, and the failing test cases listed by name and
+- [x] Summary per vendor: **N passed, M failed**, and the failing test cases listed by name and
       rule ("everything passes except EEL-3.12-007").
-- [ ] Full list of every test case with its result.
-- [ ] **Print view** and **JSON export, per customer/vendor**.
-- [ ] Keep the "next audit scope = failed + changed + new" logic from the earlier meeting.
+- [x] Full list of every test case with its result.
+- [x] **Print view** and **JSON export, per customer/vendor**.
+- [x] Keep the "next audit scope = failed + changed + new" logic from the earlier meeting.
 
 ### 7. Start from the original government PDF (inputs & archive)
 
-- [ ] Make it obvious that the input is the **raw government PDF** (Verfahrensbeschreibung, from
+- [x] Make it obvious that the input is the **raw government PDF** (Verfahrensbeschreibung, from
       GKV-Datenaustausch), not ITSG's prepared document. They asked this directly.
-- [ ] Mention that the GKV site holds more documents (data dictionary, record descriptions) that we
+- [x] Mention that the GKV site holds more documents (data dictionary, record descriptions) that we
       can pull in.
 
 ### 8. New feature: baseline check of the existing catalogue
 
-- [ ] Add a view (or a mode in Coverage): **check the existing test catalogue against the current
+- [x] Add a view (or a mode in Coverage): **check the existing test catalogue against the current
       spec**.
   - **Obsolete:** the test cites a rule that no longer exists in the spec.
   - **Missing:** a rule in the spec with no test.
   - **OK:** the test maps to a current rule.
-- [ ] Demo with our 46-row subset, plus one or two deliberately obsolete rows.
+- [x] Demo with our 46-row subset, plus one or two deliberately obsolete rows.
 
 ### 9. AG ⇄ KK dialogue (inbox)
 
-- [ ] Show the message exchange the way ITSG's table does: **AG 41 → KK 61** (REF-ID = AG's DSID,
+- [x] Show the message exchange the way ITSG's table does: **AG 41 → KK 61** (REF-ID = AG's DSID,
       Beginn 12-Monatsfrist), then 01, cancellation 88, and KK 62.
-- [ ] Label the KK replies as **given input the vendor's software must handle**, not something it
+- [x] Label the KK replies as **given input the vendor's software must handle**, not something it
       produces. Our simulated insurer already plays this role; make the REF-ID → DSID link visible.
 
 ---
@@ -249,6 +252,8 @@ Ordered by how directly ITSG asked for them.
 - [ ] Which field and record was ITSG pointing at when decoding the example? The transcript
       garbles it ("LB", "GD = 41"); it is probably the submission reason (Abgabegrund) 41 in the
       DSLW/DBVO record.
-- [ ] How do we explain the function library in one sentence (see change 2), or do we drop it?
+- [x] How do we explain the function library in one sentence (see change 2), or do we drop it?
+      → Kept, under Evidence: *"Every expected result is calculated by tested code, not written by
+      the AI."*
 - [ ] Would ITSG back a **spec change for a JSON input interface**? Who decides that, and could SAP
       be a pilot?

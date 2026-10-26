@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Demo: AI-assisted system review for income replacement benefits (DTA EEL), built for the ITSG challenge at Futury Build Days 2026.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <style>
 /* Layout: sticky top bar · left pipeline rail (the nav IS the pipeline) · working canvas · right provenance drawer.
    Design tokens below are the single source of truth (Claude Design friendly: tokens → components). */
@@ -129,6 +129,7 @@ a { color: var(--accent); }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .panel-body { padding: var(--s-4); display: grid; gap: var(--s-3); min-width: 0; }
 .panel-body.flush { padding: 0; }
+.panel-body > * { min-width: 0; } /* grid children default to min-content: a long file name would widen the whole panel */
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-4); }
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-4); }
 .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s-3); }
@@ -178,7 +179,7 @@ a { color: var(--accent); }
 .tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
 .empty { padding: var(--s-6); text-align: center; color: var(--muted); font-size: var(--fs-sm); }
 .toast-host { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 90; display: grid; gap: 8px; }
-.toast { background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: var(--r-md); font-size: var(--fs-sm); box-shadow: var(--shadow); max-width: 360px; animation: toast-in .25s ease-out; }
+.toast { background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: var(--r-md); font-size: var(--fs-sm); box-shadow: var(--shadow); max-width: min(360px, calc(100vw - 32px)); overflow-wrap: anywhere; animation: toast-in .25s ease-out; }
 @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
 
 /* ---------- pipeline map ---------- */
@@ -325,7 +326,7 @@ mark.hl.flash { animation: flash 1.2s ease-out 2; }
 .test-btn small { font-weight: 400; font-size: var(--fs-xs); opacity: .85; max-width: 18ch; }
 .doc-list { display: grid; gap: 4px; font-size: var(--fs-sm); }
 .doc-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
-.doc-row .name { overflow-wrap: anywhere; }
+.doc-row .name, #pdfStatus, .plan, .test-btn small { overflow-wrap: anywhere; }
 .plan { display: grid; gap: 6px; font-size: var(--fs-sm); }
 .plan-pair { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-weight: 600; }
 .cot { display: grid; gap: 10px; min-width: 0; }
@@ -1507,7 +1508,7 @@ const APP = (() => {
       { kind: L("Test catalogue", "Testkatalog"), name: "EEL catalogue (CSV)", ver: "2026", note: `${C.CATALOGUE.length} ${L("rows (simulated subset)", "Zeilen (simulierte Teilmenge)")}`, content: JSON.stringify(C.CATALOGUE), state: "previous" },
       ...C.VENDORS.filter(v => v.prev).map(v => ({ kind: L("Audit report", "Prüfbericht"), name: `${v.name} ${v.prev.year}`, ver: String(v.prev.year), note: v.prev.failed.length ? `${v.prev.failed.length} ${L("failed", "nicht bestanden")}: ${v.prev.failed.join(", ")}` : L("all passed", "alle bestanden"), content: JSON.stringify(v.prev), state: "previous" })),
       { kind: L("Vendor output", "Herstellerausgabe"), name: "TEEL0-Test1-DBVO", ver: "7654321 / 66666XXX", note: L("real ITSG sample file (DTA, ISO-8859-1)", "echte ITSG-Beispieldatei (DTA, ISO-8859-1)"), content: C.TEEL0, state: "current" },
-      ...S.ingested.map(x => ({ kind: L("Uploaded PDF", "Hochgeladenes PDF"), name: x.name, ver: x.version || "?", note: `${x.pages} ${L("pages", "Seiten")} · ${x.sections} § · ${fmtN(x.links)} ${L("links", "Links")}`, content: x.name + x.pages, state: "current" }))
+      ...S.ingested.map(x => ({ kind: L("Uploaded PDF", "Hochgeladenes PDF"), name: x.name, ver: x.version || "?", note: `${x.pages} ${L("pages", "Seiten")} · ${x.sections} § · ${x.links == null ? L("indexed by server", "vom Server indexiert") : `${fmtN(x.links)} ${L("links", "Links")}`}`, content: x.name + x.pages, state: "current" }))
     ];
     return items.map(i => Object.assign(i, { hash: C.sha256(i.content).slice(0, 12) }));
   }
@@ -1517,9 +1518,9 @@ const APP = (() => {
     const tok = n => Math.round(n / 4);
     return `${head(L("Inputs & archive", "Eingaben & Archiv"), L("The only external input is the yearly set of government PDFs. Everything else is our own archive: last year's spec, the test catalogue, last year's audit reports.", "Die einzige externe Eingabe sind die jährlichen PDFs. Alles andere ist unser eigenes Archiv: Vorjahresspezifikation, Testkatalog, Prüfberichte des Vorjahres."))}
       <div class="grid-2">
-        <section class="panel" data-tour="drop"><div class="panel-head"><h3>${L("Add new specification PDFs", "Neue Spezifikations-PDFs hinzufügen")}</h3>${pill(L("parsed in your browser", "im Browser verarbeitet"), "info")}</div>
-          <div class="panel-body"><div class="drop-row"><div class="drop" id="pdfDrop" data-act="pickPdf" role="button" tabindex="0">${ic("upload")}<b>${L("Drop a spec PDF here or click to choose", "Spezifikations-PDF hier ablegen oder klicken")}</b><span>${L("Builds the § index from numbered headings and counts internal links. Uses pdf.js from a CDN; the rest of the demo works offline.", "Baut den §-Index aus nummerierten Überschriften und zählt interne Links. Nutzt pdf.js vom CDN; der Rest der Demo funktioniert offline.")}</span></div>${window.PIPE ? PIPE.testButton() : ""}</div>
-          <div id="pdfStatus"></div>${window.PIPE ? PIPE.docsBlock() : ""}
+        <section class="panel" data-tour="drop"><div class="panel-head"><h3>${L("Add new specification PDFs", "Neue Spezifikations-PDFs hinzufügen")}</h3>${pill(L("PDF text extraction", "PDF-Texterkennung"), "info")}</div>
+          <div class="panel-body"><div class="drop-row"><div class="drop" id="pdfDrop" data-act="pickPdf" role="button" tabindex="0">${ic("upload")}<b>${L("Drop a spec PDF here or click to choose", "Spezifikations-PDF hier ablegen oder klicken")}</b><span>${L("Upload a text-based specification PDF to prepare test cases. Scanned PDFs need OCR first.", "Textbasierte Spezifikations-PDF hochladen, um Testfälle vorzubereiten. Gescannte PDFs benötigen zuerst OCR.")}</span></div>${window.PIPE ? PIPE.testButton() : ""}</div>
+          <div id="pdfStatus" role="status">${S.pdfStatus || ""}</div>${window.PIPE ? PIPE.docsBlock() : ""}
           <div class="callout"><b>${L("Why retrieval is error-free here", "Warum die Suche hier fehlerfrei ist")}</b>${L("The spec is a well-structured PDF: numbered sections (3.12.7 …), a table of contents with page numbers and 3,528 internal hyperlinks. The index is built from that structure — no fuzzy similarity search. A retrieved span must start with its expected heading, otherwise it is flagged.", "Die Spezifikation ist ein gut strukturiertes PDF: nummerierte Abschnitte (3.12.7 …), Inhaltsverzeichnis mit Seiten und 3.528 interne Links. Der Index entsteht aus dieser Struktur — keine unscharfe Ähnlichkeitssuche. Ein gefundener Abschnitt muss mit der erwarteten Überschrift beginnen, sonst wird er markiert.")}</div></div></section>
         <section class="panel" data-tour="context"><div class="panel-head"><h3>${L("Context discipline", "Kontextdisziplin")}</h3>${pill(L("anti-hallucination", "gegen Halluzination"), "ok")}</div>
           <div class="panel-body"><p class="muted" style="font-size:var(--fs-sm)">${L("The archive is never sent to the model in bulk. One call gets one § section, its directly linked sections, and the old version of that section — nothing else.", "Das Archiv geht nie komplett an das Modell. Ein Aufruf erhält einen §-Abschnitt, die direkt verlinkten Abschnitte und die alte Fassung dieses Abschnitts — sonst nichts.")}</p>
@@ -1924,7 +1925,7 @@ const APP = (() => {
   }
   function modal(title, html, node, foot) {
     const host = $("#modalHost");
-    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}" onclick="event.stopPropagation()"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
+    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
     if (node) host.querySelector(".modal-body").appendChild(node);
   }
   function aiSettings() {
@@ -1968,11 +1969,22 @@ const APP = (() => {
     });
   }
   async function ingestPdf(file) {
-    if (window.PIPE) PIPE.upload(file); // the pipeline server keeps its own copy for diffing and test generation
-    const status = $("#pdfStatus");
-    const say = h => { if (status) status.innerHTML = h; };
-    say(`<div class="callout">${L("Loading pdf.js…", "Lade pdf.js…")}</div>`);
+    if (S.pdfBusy) return;
+    S.pdfBusy = true;
+    const say = h => { S.pdfStatus = h; const status = $("#pdfStatus"); if (status) status.innerHTML = h; };
+    say(`<div class="callout">${L("Reading PDF…", "Lese PDF…")}</div>`);
     try {
+      if (!/\.pdf$/i.test(file.name)) throw new Error(L("Choose a PDF file.", "Bitte eine PDF-Datei auswählen."));
+      // The server already extracts the text. Do not start a second, CDN-dependent
+      // reader that can fail independently or overwrite the upload feedback.
+      const stored = window.PIPE ? await PIPE.upload(file) : null;
+      if (stored) {
+        S.ingested = S.ingested.filter(d => d.name !== file.name);
+        S.ingested.push({ ...stored, links: null });
+        say(`<div class="callout ok"><b>${esc(file.name)}</b>${stored.pages} ${L("pages", "Seiten")} · ${stored.sections} § · ${L("Ready to generate test cases", "Bereit zum Erzeugen von Testfällen")}</div>`);
+        render();
+        return;
+      }
       const lib = await loadPdfJs();
       const doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
       let links = 0, text = "", version = null;
@@ -1989,12 +2001,15 @@ const APP = (() => {
       }
       const vm = text.match(/Version\s+(\d+\.\d+)/); version = vm ? vm[1] : null;
       const logRefs = (text.match(/(?:Änderungsübersicht|Änderungshistorie)[\s\S]{0,20000}/) || [""])[0].match(/\d+(?:\.\d+)+\s+[„"]/g) || [];
+      S.ingested = S.ingested.filter(d => d.name !== file.name);
       S.ingested.push({ name: file.name, pages: doc.numPages, sections: heads.size, links, version });
       log("system", L("PDF ingested", "PDF eingelesen"), `${file.name}: ${doc.numPages} p, ${heads.size} §, ${links} links`);
       render();
       say(`<div class="callout ok"><b>${esc(file.name)}</b>${doc.numPages} ${L("pages", "Seiten")} · ${heads.size} ${L("numbered headings", "nummerierte Überschriften")} · ${fmtN(links)} ${L("internal links", "interne Links")} · ${L("version", "Version")} ${version || "?"} · ${logRefs.length} ${L("§ references in the change log", "§-Verweise im Änderungsprotokoll")}<span class="muted mono" style="font-size:11px">${[...heads.entries()].slice(0, 12).map(([k, v]) => `${k} ${esc(v.title)} (p. ${v.page})`).join(" · ")}${heads.size > 12 ? " …" : ""}</span></div>`);
     } catch (e) {
-      say(`<div class="callout bad"><b>${L("Could not read the PDF here", "PDF konnte hier nicht gelesen werden")}</b>${esc(e.message)}. ${L("pdf.js needs the CDN. The pre-indexed v13.4 stays available.", "pdf.js braucht das CDN. Der vorindizierte Stand v13.4 bleibt verfügbar.")}</div>`);
+      say(`<div class="callout bad"><b>${L("Could not read the PDF here", "PDF konnte hier nicht gelesen werden")}</b>${esc(e.message)}</div>`);
+    } finally {
+      S.pdfBusy = false;
     }
   }
 
@@ -2080,7 +2095,7 @@ const APP = (() => {
     auditSet: el => { const vendor = C.VENDORS.find(v => v.id === S.vendor); auditState(vendor)[el.dataset.id].res = el.dataset.r; auditState(vendor)[el.dataset.id].auto = false; log("examiner", L("Audit result", "Prüfergebnis"), `${vendor.name} · ${el.dataset.id} → ${el.dataset.r}`); render(); },
     copyReport: () => { const d = reportData(C.VENDORS.find(v => v.id === S.vendor)); copyText(JSON.stringify(Object.assign({ seal_sha256: C.sha256(JSON.stringify(d)) }, d), null, 2), L("Report JSON copied", "Bericht-JSON kopiert")); },
     print: () => window.print(),
-    closeModal: () => { $("#modalHost").innerHTML = ""; },
+    closeModal: (el, e) => { if (el.classList.contains("modal-scrim") && e.target !== el) return; $("#modalHost").innerHTML = ""; },
     aiMode: el => { S.ai.mode = el.dataset.v; document.querySelectorAll('[data-act="aiMode"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === S.ai.mode))); },
     saveAi: () => { S.ai.base = $("#aiBase").value.trim() || S.ai.base; S.ai.model = $("#aiModel").value; store.set("ai", S.ai); store.set("aikey", $("#aiKey").value.trim()); $("#modalHost").innerHTML = ""; toast(L("AI settings saved in this browser", "KI-Einstellungen in diesem Browser gespeichert")); render(); }
   };
@@ -2346,23 +2361,27 @@ const PIPE = (() => {
     P.planBusy = false; paintDocs();
   }
   async function upload(file) {
-    if (!P.online) { A.toast(L("Pipeline server not running — the PDF was only read in the browser", "Pipeline-Server läuft nicht — das PDF wurde nur im Browser gelesen")); return; }
+    if (P.online == null) await connect();
+    if (!P.online) return null; // standalone demo: ingestPdf falls back to pdf.js
     P.uploading = file.name; paintDocs();
     try {
       const r = await api(`/api/upload?name=${encodeURIComponent(file.name)}&target=${P.uploadTarget}`, { body: await file.arrayBuffer() });
       A.toast(`${file.name}: ${r.pages} ${L("pages", "Seiten")} · ${r.sections} § ${L("sections", "Abschnitte")}${r.changelog_rows ? " · " + L("change log found", "Änderungsprotokoll gefunden") : ""}`);
-      if (r.kind === "upload") P.choice = { new: null, old: undefined };
+      if (r.kind === "upload") { P.choice = { new: { kind: r.kind, name: r.name }, old: undefined }; store.set("pipeChoice", P.choice); }
       A.log("system", L("PDF stored for the pipeline", "PDF für die Pipeline gespeichert"), `${file.name} → ${r.kind === "law_file" ? P.docs.law_dir : "uploads"}`);
-    } catch (e) { A.toast(L("Upload failed: ", "Hochladen fehlgeschlagen: ") + e.message); }
-    P.uploading = null;
-    await refreshDocs(); rerender();
+      await refreshDocs();
+      return r;
+    } finally {
+      P.uploading = null;
+      paintDocs();
+    }
   }
 
   /* ---------- the test button next to the PDF drop ---------- */
   function hasDocs() { return P.docs && (P.docs.law_files.length + P.docs.uploads.length) > 0; }
   function testButton() {
     const running = P.run && P.run.status === "running";
-    const ready = P.online && hasDocs() && !P.planBusy && !P.uploading;
+    const ready = P.online && hasDocs() && P.plan && !P.planErr && !P.planBusy && !P.uploading;
     const sub = !P.online ? L("start the pipeline server", "Pipeline-Server starten") : !hasDocs() ? L("drop a PDF first", "zuerst ein PDF ablegen") : running ? L("a run is in progress", "ein Lauf läuft") : P.plan ? (P.plan.mode === "diff" ? L("diff + AI", "Diff + KI") : `${P.plan.new.name} + ${L("AI", "KI")}`) : L("analysing…", "analysiere…");
     return `<button class="btn primary test-btn" id="pipeTestBtn" data-act="pipeStart" ${ready && !running ? "" : "disabled"} title="${esc(L("Diff the documents and let the AI create test cases and calculations", "Dokumente vergleichen und Testfälle samt Berechnungen von der KI erstellen lassen"))}">${ic("test")}<span>${L("Generate test cases", "Testfälle erzeugen")}</span><small>${esc(sub)}</small></button>`;
   }
@@ -2427,6 +2446,7 @@ const PIPE = (() => {
       }
       if (fresh.some(e => e.type === "item_done") || (wasStatus === "running" && r.status !== "running")) loadCases();
       if (onScreen("pipeline")) paintRun(fresh.length > 0);
+      paintDocs();
       A.renderShell();
     } catch (e) {
       if (/not found/.test(e.message)) { P.runId = null; store.set("pipeRun", null); }
@@ -2438,14 +2458,14 @@ const PIPE = (() => {
   const kindPill = k => { const [en, cls] = KIND[k] || [k, ""]; return pill(({ changed: L("changed", "geändert"), new: L("new", "neu"), removed: L("removed", "entfernt"), "change log": L("change log", "Protokoll"), rule: L("rule", "Regel") })[en] || en, cls); };
   const srcPill = s => s === "diff-only" ? pill(L("not in change log", "nicht im Protokoll"), "bad") : s === "log+diff" ? pill(L("log + diff", "Protokoll + Diff"), "ok") : pill(esc(s), "");
   const stIc = s => `<span class="st ${s}" title="${esc(s)}">${{ queued: "○", running: "◐", done: "✓", error: "✕", candidate: "+", skipped: "–", stopped: "■" }[s] || "·"}</span>`;
+  const stopAction = r => r && r.status === "running" ? `<button class="btn" data-act="pipeStop">■ ${L("Stop", "Stoppen")}</button>` : "";
 
   function vPipeline() {
     const r = P.run;
     if (P.online === false) return `${head(L("AI test pipeline", "KI-Testpipeline"), "")}${docsInner()}`;
     if (!P.runId) return `${head(L("AI test pipeline", "KI-Testpipeline"), L("Drop a new spec PDF, then press “Generate test cases”. The pipeline diffs it against the previous version in docs/law_file — or, without one, uses the document on its own — and the AI turns every change into a spec-change JSON and test cases.", "Neue Spezifikation ablegen, dann „Testfälle erzeugen“ drücken. Die Pipeline vergleicht sie mit der Vorfassung in docs/law_file — oder nutzt ohne Vorfassung das Dokument allein — und die KI macht aus jeder Änderung ein Änderungs-JSON und Testfälle."), `<button class="btn primary" data-act="go" data-screen="ingest">${ic("upload")} ${L("Go to the PDF drop", "Zur PDF-Ablage")}</button>`)}<div class="empty">${L("No run yet.", "Noch kein Lauf.")}</div>`;
-    const running = r && r.status === "running";
     return `${head(L("AI test pipeline", "KI-Testpipeline"), L("Every step the AI takes is shown and saved with the test case: its reasoning, each calculation in its terminal, the JSON it extracted, and the deterministic checks on its answer.", "Jeder Schritt der KI wird gezeigt und mit dem Testfall gespeichert: ihre Überlegungen, jede Berechnung im Terminal, das extrahierte JSON und die deterministischen Prüfungen ihrer Antwort."),
-      `${running ? `<button class="btn" data-act="pipeStop">■ ${L("Stop", "Stoppen")}</button>` : ""}<button class="btn" data-act="go" data-screen="ingest">${ic("upload")} ${L("New run", "Neuer Lauf")}</button><button class="btn primary" data-act="go" data-screen="review">${ic("check")} ${L("Review test cases", "Testfälle prüfen")}</button>`)}
+      `<span id="pipeStopAction">${stopAction(r)}</span><button class="btn" data-act="go" data-screen="ingest">${ic("upload")} ${L("New run", "Neuer Lauf")}</button><button class="btn primary" data-act="go" data-screen="review">${ic("check")} ${L("Review test cases", "Testfälle prüfen")}</button>`)}
       <section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${L("Run", "Lauf")} ${esc(P.runId)}${r ? " · " + esc(r.model) : ""}</span><h3 id="pipePlanTitle">${r ? planTitle(r.plan) : L("Loading…", "Lade…")}</h3></div><span id="pipeRunStatus">${r ? runStatusPill(r) : ""}</span></div>
         <div class="panel-body"><div class="cot" id="pipeStages"></div></div></section>
       <div class="split"><section class="panel"><div class="panel-head"><h4>${L("Sections", "Abschnitte")}</h4><span class="muted" style="font-size:var(--fs-xs)" id="pipeItemCount"></span></div><div class="panel-body flush" id="pipeItems" style="max-height:70vh;overflow:auto"></div></section>
@@ -2460,6 +2480,7 @@ const PIPE = (() => {
     if (!st) return;
     const pt = document.getElementById("pipePlanTitle"); if (pt) pt.innerHTML = planTitle(r.plan);
     const rs = document.getElementById("pipeRunStatus"); if (rs) rs.innerHTML = runStatusPill(r);
+    const stop = document.getElementById("pipeStopAction"); if (stop) stop.innerHTML = stopAction(r);
     st.innerHTML = P.events.filter(e => e.item == null).map(e => evHtml(e)).join("");
     const counts = r.items.reduce((m, i) => (m[i.status] = (m[i.status] || 0) + 1, m), {});
     document.getElementById("pipeItemCount").textContent = `${r.items.length} · ${counts.done || 0} ${L("done", "fertig")}${counts.running ? ` · ${counts.running} ${L("running", "laufen")}` : ""}`;
@@ -2474,7 +2495,7 @@ const PIPE = (() => {
     const hd = document.getElementById("pipeItemHead"), body = document.getElementById("pipeItemBody");
     if (!hd || !body) return;
     if (!it) { hd.innerHTML = ""; body.innerHTML = `<div class="empty">${L("Select a section.", "Abschnitt auswählen.")}</div>`; return; }
-    hd.innerHTML = `<div class="stack" style="gap:2px"><span class="eyebrow">§${esc(it.sec)} · ${L("page", "Seite")} ${it.page}${it.similarity != null ? ` · ${Math.round(it.similarity * 100)}% ${L("similar to the old text", "ähnlich zum alten Text")}` : ""}</span><h3>${esc(it.title)}</h3></div><div class="row">${kindPill(it.kind)}${srcPill(it.source)}${["candidate", "skipped", "stopped"].includes(it.status) ? `<button class="btn sm primary" data-act="pipeGen" data-sec="${esc(it.sec)}">${ic("play")} ${L("Generate test cases", "Testfälle erzeugen")}</button>` : ""}</div>`;
+    hd.innerHTML = `<div class="stack" style="gap:2px"><span class="eyebrow">§${esc(it.sec)} · ${L("page", "Seite")} ${it.page}${it.similarity != null ? ` · ${Math.round(it.similarity * 100)}% ${L("similar to the old text", "ähnlich zum alten Text")}` : ""}</span><h3>${esc(it.title)}</h3></div><div class="row">${kindPill(it.kind)}${srcPill(it.source)}${["candidate", "skipped", "stopped", "error", "done"].includes(it.status) ? `<button class="btn sm primary" data-act="pipeGen" data-sec="${esc(it.sec)}">${ic("play")} ${it.status === "done" ? L("Run tests again", "Tests erneut ausführen") : L("Generate test cases", "Testfälle erzeugen")}</button>` : ""}</div>`;
     const evs = P.events.filter(e => e.item === it.sec);
     const live = r.live && r.live[it.sec];
     const near = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;

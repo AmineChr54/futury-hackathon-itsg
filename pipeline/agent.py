@@ -249,6 +249,13 @@ NUMBER_WORDS = {"ein": 1, "eine": 1, "einen": 1, "einem": 1, "einer": 1, "zwei":
                 "dreißig": 30, "vierzig": 40, "fünfzig": 50, "hundert": 100}
 
 
+def _str_list(v):
+    """Quotes as a list of strings, also when the model sends a single string."""
+    if isinstance(v, str):
+        return [v] if v.strip() else []
+    return [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
+
+
 def _loose(s):
     # also join hyphenation whose line break the PDF text lost: "über- mittelt" = "übermittelt"
     return re.sub(r"(\w)- (?=[a-zäöüß])", r"\1", documents.normalize_text(s))
@@ -294,15 +301,16 @@ def number_in_quote(value, quote):
 def check_case(case, item, terminal_runs):
     """Run the five guards. Returns (guards, oracle_value)."""
     g = []
-    quotes = case.get("quotes") or []
+    quotes = _str_list(case.get("quotes"))
     bad = [q for q in quotes if not quote_in(q, item["new_text"], item["old_text"])]
     g.append({"id": "G1", "name": "quotes verbatim in the spec", "status": "fail" if (bad or not quotes) else "ok",
               "detail": ("not found: " + " | ".join(b[:80] for b in bad)) if bad else (f"{len(quotes)} quote(s) found" if quotes else "no quote given")})
-    fm = case.get("formula") or {}
+    fm = case.get("formula") if isinstance(case.get("formula"), dict) else {}
+    variables = [v for v in (fm.get("variables") or []) if isinstance(v, dict)] if isinstance(fm.get("variables"), list) else []
     oracle, types, values = None, {}, {}
     try:
         _, names = F.parse(fm.get("expression", ""))
-        for v in fm.get("variables") or []:
+        for v in variables:
             types[v["name"]] = v.get("type", "number")
             values[v["name"]] = v.get("value")
         missing = [n for n in names if n not in values]
@@ -312,8 +320,8 @@ def check_case(case, item, terminal_runs):
         oracle = F.evaluate(fm["expression"], values, types)
         g.append({"id": "G2", "name": "formula valid", "status": "warn" if unused else "ok",
                   "detail": f"{len(names)} variable(s)" + (f"; unused: {', '.join(unused)}" if unused else "")})
-    except (F.FormulaError, KeyError, TypeError) as e:
-        g.append({"id": "G2", "name": "formula valid", "status": "fail", "detail": str(e)})
+    except (F.FormulaError, KeyError, TypeError, ArithmeticError) as e:
+        g.append({"id": "G2", "name": "formula valid", "status": "fail", "detail": str(e) or type(e).__name__})
     ai_val = case.get("expected_value")
     if oracle is None:
         g.append({"id": "G3", "name": "oracle = AI value", "status": "fail", "detail": "formula could not be evaluated"})
@@ -322,13 +330,14 @@ def check_case(case, item, terminal_runs):
         g.append({"id": "G3", "name": "oracle = AI value", "status": "ok" if same else "fail",
                   "detail": f"oracle {oracle} · AI {ai_val}"})
     unsupported = []
-    for v in fm.get("variables") or []:
+    for v in variables:
         if v.get("source") == "spec" and v.get("type", "number") == "number":
             if not v.get("quote") or not quote_in(v["quote"], item["new_text"], item["old_text"]) or not number_in_quote(v.get("value"), v["quote"]):
                 unsupported.append(v["name"])
     g.append({"id": "G4", "name": "spec parameters in their quotes", "status": "warn" if unsupported else "ok",
               "detail": ("check: " + ", ".join(unsupported)) if unsupported else "every legal parameter is quoted"})
-    tried = any(fm.get("expression", "#") in r["code"] or "evaluate(" in r["code"] for r in terminal_runs if r["ok"])
+    expr = (fm.get("expression") or "").strip() if isinstance(fm.get("expression"), str) else ""
+    tried = any((expr and expr in r["code"]) or "evaluate(" in r["code"] for r in terminal_runs if r["ok"])
     g.append({"id": "G5", "name": "formula run in the terminal", "status": "ok" if tried else "warn",
               "detail": f"{sum(1 for r in terminal_runs if r['ok'])} successful terminal run(s)"})
     return g, oracle
@@ -373,7 +382,8 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
         call_cfg = dict(cfg, tool_choice={"type": "function", "function": {"name": force}}) if force else cfg
         if force:
             emit("retry", {"message": f"the model must now call {force}"})
-        for attempt in range(2):
+        failures = 0
+        while True:
             try:
                 resp = chat(call_cfg, messages, on_delta=lambda o: emit("live", {"reasoning": o["reasoning"], "content": o["content"],
                                                                               "tool": ", ".join(c["name"] for c in o["tool_calls"].values()) if isinstance(o["tool_calls"], dict) else ""}),
@@ -381,9 +391,11 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                 break
             except LLMError as e:
                 if "tool_choice" in str(e) and call_cfg.get("tool_choice") != "auto":
-                    cfg = call_cfg = dict(cfg, tool_choice="auto")  # gateway/model without "required"/named support
+                    # gateway/model without "required"/named support; doesn't count as a failure
+                    cfg = call_cfg = dict(cfg, tool_choice="auto")
                     continue
-                if attempt:
+                failures += 1
+                if failures >= 2:
                     emit("error", {"message": str(e)})
                     return {"spec_change": spec_change, "cases": cases, "summary": "stopped: " + str(e), "error": str(e)}
                 emit("retry", {"message": str(e)})
@@ -418,6 +430,8 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                 raise Stopped()
             try:
                 args = _parse_args(c["arguments"])
+                if not isinstance(args, dict):
+                    raise ValueError(f"expected a JSON object, got {type(args).__name__}")
             except (json.JSONDecodeError, ValueError) as e:
                 result = f"error: arguments are not valid JSON ({e}). Send the call again."
                 emit("tool_error", {"tool": c["name"], "message": result})
@@ -458,10 +472,10 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                     case = {"title": args.get("title") or "untitled", "kind": args.get("kind", "positive"),
                             "criterion": args.get("criterion", ""), "scenario": args.get("scenario") or {},
                             "preconditions": as_list(args.get("preconditions")), "steps": as_list(args.get("steps")),
-                            "formula": args.get("formula") or {}, "previous_expression": args.get("previous_expression") or "",
+                            "formula": args.get("formula") if isinstance(args.get("formula"), dict) else {}, "previous_expression": args.get("previous_expression") or "",
                             "formula_changed": bool(args.get("formula_changed")), "ai_expected_value": args.get("expected_value"),
                             "expected_value": oracle, "expected_outcome": args.get("expected_outcome", ""),
-                            "quotes": args.get("quotes") or [], "guards": guards, "replaces": args.get("replaces")}
+                            "quotes": _str_list(args.get("quotes")), "guards": guards, "replaces": args.get("replaces")}
                     prev = (case["previous_expression"] or "").strip()
                     if prev and F.normalize_expression(prev) != F.normalize_expression(case["formula"].get("expression", "")):
                         case["formula_changed"] = True

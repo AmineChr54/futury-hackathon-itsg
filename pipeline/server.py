@@ -19,6 +19,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import threading
 import time
 import traceback
@@ -107,6 +108,10 @@ def load_run(run_id):
             run = json.load(f)
         if run.get("status") in ("running", "queued"):
             run["status"] = "interrupted"
+        for it in run.get("items", []):  # the server restarted mid-run: these can be generated again
+            if it.get("status") in ("running", "queued"):
+                it["status"] = "error"
+                it["summary"] = "interrupted (server restarted)"
         RUNS[run_id] = run
         return run
     return None
@@ -307,8 +312,12 @@ def process_item(run, sec):
     with LOCK:
         cot_all = [e for e in run["events"] if e["item"] == sec and e["seq"] > start_seq]
         it["spec_change"] = res["spec_change"]
-        for n, case in enumerate(res["cases"], start=1):
-            tc_id = f"TC-{sec}-{run['id'][2:8]}{run['id'][-4:]}-{n}"
+        prefix = f"TC-{sec}-{run['id'][2:8]}{run['id'][-4:]}-"
+        # "Generate" again on the same section must not reuse the ids of the earlier attempt
+        n0 = max((int(t["id"][len(prefix):]) for t in STORE["testcases"]
+                  if t["id"].startswith(prefix) and t["id"][len(prefix):].isdigit()), default=0)
+        for n, case in enumerate(res["cases"], start=n0 + 1):
+            tc_id = f"{prefix}{n}"
             # the chain of thought up to this case's submission and the guard feedback on it
             upto = next((e["seq"] for e in cot_all if e["type"] == "test_case" and e["data"].get("local_id") == case["local_id"]), None)
             if upto is not None:
@@ -340,7 +349,7 @@ def recompute(tc):
         tc["expected_value"] = F.evaluate(fm.get("expression", ""), values, types)
         tc["formula_error"] = None
         tc["trace"] = F.trace(fm.get("expression", ""), values, types)
-    except (F.FormulaError, KeyError, TypeError) as e:
+    except (F.FormulaError, KeyError, TypeError, AttributeError) as e:
         tc["expected_value"] = None
         tc["formula_error"] = str(e)
         tc["trace"] = []
@@ -581,9 +590,29 @@ class Handler(BaseHTTPRequestHandler):
             raise ApiError(400, "this is not a PDF")
         target = (q.get("target") or ["upload"])[0]
         folder = LAW_DIR if target == "law_file" else UPLOADS
-        with open(os.path.join(folder, name), "wb") as f:
-            f.write(data)
-        doc = documents.load(os.path.join(folder, name), CACHE)
+        # Parse before replacing an existing document. A rejected upload must not
+        # remain in the archive and break every subsequent automatic plan.
+        staged = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=DATA, suffix=os.path.splitext(name)[1], delete=False) as f:
+                staged = f.name
+                f.write(data)
+            try:
+                doc = documents.load(staged, CACHE)
+            except (ValueError, UnicodeError) as e:
+                raise ApiError(400, f"could not read {name}: {e}")
+            except Exception as e:
+                from pypdf.errors import PyPdfError
+                if isinstance(e, PyPdfError):
+                    raise ApiError(400, f"could not read {name}: {e}")
+                raise
+            if not doc["chars"]:
+                raise ApiError(400, "PDF has no readable text. Upload a text-based PDF or run OCR first.")
+            os.replace(staged, os.path.join(folder, name))
+            doc["name"] = name
+        finally:
+            if staged and os.path.exists(staged):
+                os.remove(staged)
         self.send_json({"ok": True, "kind": "law_file" if target == "law_file" else "upload", **documents.summary(doc)})
 
     def api_delete_upload(self, parts, q):
@@ -737,7 +766,7 @@ class Handler(BaseHTTPRequestHandler):
             unverified = [c["id"] for c in cases if c["status"] not in ("verified", "sent", "acknowledged")]
             if unverified:
                 raise ApiError(409, "verify these first: " + ", ".join(unverified))
-            pkg = {"id": "PKG-" + time.strftime("%Y%m%d-%H%M%S"), "t": now(), "by": self.user, "to": to, "ids": ids, "note": b.get("note", "")}
+            pkg = {"id": "PKG-" + time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4], "t": now(), "by": self.user, "to": to, "ids": ids, "note": b.get("note", "")}
             STORE["packages"].insert(0, pkg)
             for c in cases:
                 c["status"] = "sent"

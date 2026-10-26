@@ -165,5 +165,164 @@ class GuardTests(unittest.TestCase):
         self.assertEqual(next(x for x in g if x["id"] == "G4")["status"], "warn")
 
 
+class RobustnessTests(unittest.TestCase):
+    """Malformed model output, odd arithmetic and server restarts must not crash the pipeline."""
+    item = {"sec": "3.12", "title": "DBVO", "page": 1, "kind": "rule", "source": "test", "ops": [], "log": [],
+            "new_text": "Der Anspruch auf Entgeltfortzahlung besteht für sechs Wochen.", "old_text": ""}
+
+    def test_arithmetic_errors_are_formula_errors(self):
+        for expr, v in [("0/0", {}), ("x ** 50", {"x": "1e999999"}), ("round(x, 99)", {"x": 1}),
+                        ("add_days(d, 5)", {"d": "9999-12-31"})]:
+            with self.assertRaises(F.FormulaError, msg=expr):
+                F.evaluate(expr, v)
+
+    def test_guards_survive_malformed_cases(self):
+        for case in [{"formula": "add_days(a, 1)", "quotes": "für sechs Wochen", "expected_value": "x"},
+                     {"formula": {"expression": "a + 1", "variables": ["a"]}, "expected_value": 1},
+                     {"formula": {"expression": "a + 1", "variables": "a"}, "quotes": None}]:
+            g, oracle = agent.check_case(case, self.item, [])
+            self.assertEqual(next(x for x in g if x["id"] == "G2")["status"], "fail")
+            self.assertIsNone(oracle)
+        g, _ = agent.check_case({"quotes": "Entgeltfortzahlung besteht für sechs Wochen"}, self.item, [])
+        self.assertEqual(next(x for x in g if x["id"] == "G1")["status"], "ok")  # a single string counts as one quote
+
+    def test_empty_formula_was_not_run_in_the_terminal(self):
+        g, _ = agent.check_case({"formula": {"expression": ""}}, self.item, [{"code": "print(1)", "ok": True}])
+        self.assertEqual(next(x for x in g if x["id"] == "G5")["status"], "warn")
+
+    def _fake_chat(self, script):
+        calls = iter(script)
+
+        def chat(cfg, messages, on_delta=None, should_stop=lambda: False):
+            step = next(calls)
+            if isinstance(step, Exception):
+                raise step
+            return {"reasoning": "", "content": "", "finish_reason": "tool_calls",
+                    "tool_calls": [{"id": f"c{i}", "name": n, "arguments": a} for i, (n, a) in enumerate(step)]}
+        return chat
+
+    def _run(self, script):
+        real = agent.chat, agent.time.sleep
+        agent.chat, agent.time.sleep = self._fake_chat(script), lambda s: None
+        events = []
+        try:
+            res = agent.run_item({"model": "m", "key": "k", "base": "b"}, self.item, {"name": "n"}, None,
+                                 lambda t, d: events.append((t, d)))
+        finally:
+            agent.chat, agent.time.sleep = real
+        return res, events
+
+    editorial = [("record_spec_change", '{"change_type": "editorial", "summary": "wording"}'), ("finish", '{"summary": "done"}')]
+
+    def test_tool_choice_fallback_after_a_network_retry(self):
+        # previously the retry loop ran out after the fallback and reused a stale (or unbound) response
+        res, events = self._run([agent.LLMError("network: reset"), agent.LLMError("HTTP 400: tool_choice not supported"),
+                                 self.editorial])
+        self.assertEqual(res["summary"], "done")
+        self.assertEqual(res["spec_change"]["change_type"], "editorial")
+
+    def test_non_object_arguments_are_sent_back(self):
+        res, events = self._run([[("record_spec_change", "[1, 2]")], self.editorial])
+        self.assertTrue(any(t == "tool_error" and "JSON object" in d["message"] for t, d in events))
+        self.assertEqual(res["summary"], "done")
+
+
+class ChangelogDiffTests(unittest.TestCase):
+    def test_field_level_refs_mark_their_section_as_logged(self):
+        old = {"sections": D.split_sections([OLD])[0]}
+        new = {"sections": D.split_sections([NEW])[0]}
+        log = [{"version": "13.4", "date": "10.03.2026", "text": "3.12.7 „AU-Beginn“", "refs": ["3.12.7"]}]
+        ch = D.diff_documents(old, new, log)
+        self.assertEqual(ch[0]["sec"], "3.12")
+        self.assertEqual(ch[0]["source"], "log+diff")
+        self.assertEqual(ch[0]["log"], ["3.12.7 „AU-Beginn“"])
+
+
+class ServerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import tempfile
+        cls.tmp = tempfile.mkdtemp()
+        os.environ["PIPELINE_DATA"] = cls.tmp
+        os.environ["LAW_DIR"] = os.path.join(cls.tmp, "law")
+        import server
+        cls.S = server
+
+    def run_with(self, n_cases):
+        S = self.S
+        run = {"id": "20261026-120000-abcd", "model": "m", "lang": "en", "seq": 0, "events": [], "live": {}, "stop": False,
+               "status": "running", "plan": {"new": {"name": "n.pdf", "version": "1"}, "old": None},
+               "items": [{"sec": "3.12", "title": "DBVO", "page": 1, "kind": "rule", "source": "t", "status": "queued", "cases": []}]}
+        S.RUNS[run["id"]] = run
+        real = S.agent.run_item
+        S.agent.run_item = lambda *a, **k: {"spec_change": None, "summary": "", "cases": [
+            {"local_id": f"case-{i}", "title": "t", "formula": {"expression": "1 + 1", "variables": []}} for i in range(n_cases)]}
+        try:
+            S.process_item(run, "3.12")
+            S.item_of(run, "3.12")["status"] = "done"
+            S.process_item(run, "3.12")  # "Generate" again on the same section
+        finally:
+            S.agent.run_item = real
+        return [t["id"] for t in S.STORE["testcases"] if t["run"] == run["id"]]
+
+    def test_generate_again_does_not_reuse_test_case_ids(self):
+        ids = self.run_with(2)
+        self.assertEqual(len(ids), 4)
+        self.assertEqual(len(set(ids)), 4)
+
+    def test_interrupted_run_can_be_generated_again(self):
+        import json
+        S = self.S
+        os.makedirs(os.path.join(self.tmp, "runs"), exist_ok=True)
+        with open(os.path.join(self.tmp, "runs", "r1.json"), "w", encoding="utf-8") as f:
+            json.dump({"id": "r1", "status": "running", "items": [{"sec": "1", "status": "running"}, {"sec": "2", "status": "done"}]}, f)
+        run = S.load_run("r1")
+        self.assertEqual(run["status"], "interrupted")
+        self.assertEqual([i["status"] for i in run["items"]], ["error", "done"])
+
+    def test_bad_pdf_does_not_replace_a_valid_document_or_poison_planning(self):
+        import io
+        from unittest.mock import Mock
+        from pypdf import PdfWriter
+        S = self.S
+        path = os.path.join(S.UPLOADS, "keep.pdf")
+        writer = PdfWriter()
+        writer.add_blank_page(width=100, height=100)
+        buf = io.BytesIO()
+        writer.write(buf)
+        original = buf.getvalue()
+        with open(path, "wb") as f:
+            f.write(original)
+        handler = object.__new__(S.Handler)
+        handler.body = lambda: b"%PDF-1.7\nbroken"
+        handler.send_json = Mock()
+        with self.assertRaises(S.ApiError) as err:
+            handler.api_post_upload([], {"name": ["keep.pdf"]})
+        self.assertEqual(err.exception.status, 400)
+        with open(path, "rb") as f:
+            self.assertEqual(f.read(), original)
+        with self.assertRaises(S.ApiError):
+            handler.api_post_upload([], {"name": ["bad.pdf"]})
+        self.assertFalse(os.path.exists(os.path.join(S.UPLOADS, "bad.pdf")))
+
+    def test_pdf_without_text_is_rejected_without_leaving_an_upload(self):
+        import io
+        from unittest.mock import Mock
+        from pypdf import PdfWriter
+        S = self.S
+        writer = PdfWriter()
+        writer.add_blank_page(width=100, height=100)
+        buf = io.BytesIO()
+        writer.write(buf)
+        handler = object.__new__(S.Handler)
+        handler.body = buf.getvalue
+        handler.send_json = Mock()
+        with self.assertRaises(S.ApiError) as err:
+            handler.api_post_upload([], {"name": ["scan.pdf"]})
+        self.assertEqual(err.exception.status, 400)
+        self.assertIn("OCR", err.exception.message)
+        self.assertFalse(os.path.exists(os.path.join(S.UPLOADS, "scan.pdf")))
+
+
 if __name__ == "__main__":
     unittest.main()

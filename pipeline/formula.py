@@ -235,8 +235,10 @@ def _eval(node, env):
             if op is ast.Pow:
                 if abs(b) > 100: raise FormulaError("exponent too large")
                 return a ** b
-        except (ZeroDivisionError, InvalidOperation):
+        except ZeroDivisionError:
             raise FormulaError("division by zero")
+        except ArithmeticError as e:  # decimal overflow, invalid operation (e.g. 0/0, (-8) ** 0.5)
+            raise FormulaError(f"arithmetic error: {type(e).__name__}")
     if isinstance(node, ast.Compare):
         left = _eval(node.left, env)
         for op, comp in zip(node.ops, node.comparators):
@@ -262,6 +264,8 @@ def _eval(node, env):
             return FUNCS[node.func.id](*args)
         except TypeError as e:
             raise FormulaError(f"{node.func.id}: {e}")
+        except (ArithmeticError, OverflowError) as e:  # e.g. round(x, 50), a date past year 9999
+            raise FormulaError(f"{node.func.id}: {type(e).__name__}")
     raise FormulaError(f"cannot evaluate {type(node).__name__}")
 
 

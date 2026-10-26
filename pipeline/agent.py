@@ -249,6 +249,13 @@ NUMBER_WORDS = {"ein": 1, "eine": 1, "einen": 1, "einem": 1, "einer": 1, "zwei":
                 "dreißig": 30, "vierzig": 40, "fünfzig": 50, "hundert": 100}
 
 
+def _str_list(v):
+    """Quotes as a list of strings, also when the model sends a single string."""
+    if isinstance(v, str):
+        return [v] if v.strip() else []
+    return [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
+
+
 def _loose(s):
     # also join hyphenation whose line break the PDF text lost: "über- mittelt" = "übermittelt"
     return re.sub(r"(\w)- (?=[a-zäöüß])", r"\1", documents.normalize_text(s))
@@ -291,18 +298,25 @@ def number_in_quote(value, quote):
     return False
 
 
+def quote_checks(sc, item):
+    """G1 for a spec change: is each quote verbatim in its side of the section?"""
+    return [{"quote": q, "side": "new", "ok": quote_in(q, item["new_text"])} for q in sc.get("quotes_new") or []] + \
+           [{"quote": q, "side": "old", "ok": quote_in(q, item["old_text"])} for q in sc.get("quotes_old") or []]
+
+
 def check_case(case, item, terminal_runs):
     """Run the five guards. Returns (guards, oracle_value)."""
     g = []
-    quotes = case.get("quotes") or []
+    quotes = _str_list(case.get("quotes"))
     bad = [q for q in quotes if not quote_in(q, item["new_text"], item["old_text"])]
     g.append({"id": "G1", "name": "quotes verbatim in the spec", "status": "fail" if (bad or not quotes) else "ok",
               "detail": ("not found: " + " | ".join(b[:80] for b in bad)) if bad else (f"{len(quotes)} quote(s) found" if quotes else "no quote given")})
-    fm = case.get("formula") or {}
+    fm = case.get("formula") if isinstance(case.get("formula"), dict) else {}
+    variables = [v for v in (fm.get("variables") or []) if isinstance(v, dict)] if isinstance(fm.get("variables"), list) else []
     oracle, types, values = None, {}, {}
     try:
         _, names = F.parse(fm.get("expression", ""))
-        for v in fm.get("variables") or []:
+        for v in variables:
             types[v["name"]] = v.get("type", "number")
             values[v["name"]] = v.get("value")
         missing = [n for n in names if n not in values]
@@ -312,8 +326,8 @@ def check_case(case, item, terminal_runs):
         oracle = F.evaluate(fm["expression"], values, types)
         g.append({"id": "G2", "name": "formula valid", "status": "warn" if unused else "ok",
                   "detail": f"{len(names)} variable(s)" + (f"; unused: {', '.join(unused)}" if unused else "")})
-    except (F.FormulaError, KeyError, TypeError) as e:
-        g.append({"id": "G2", "name": "formula valid", "status": "fail", "detail": str(e)})
+    except (F.FormulaError, KeyError, TypeError, ArithmeticError) as e:
+        g.append({"id": "G2", "name": "formula valid", "status": "fail", "detail": str(e) or type(e).__name__})
     ai_val = case.get("expected_value")
     if oracle is None:
         g.append({"id": "G3", "name": "oracle = AI value", "status": "fail", "detail": "formula could not be evaluated"})
@@ -322,13 +336,14 @@ def check_case(case, item, terminal_runs):
         g.append({"id": "G3", "name": "oracle = AI value", "status": "ok" if same else "fail",
                   "detail": f"oracle {oracle} · AI {ai_val}"})
     unsupported = []
-    for v in fm.get("variables") or []:
+    for v in variables:
         if v.get("source") == "spec" and v.get("type", "number") == "number":
             if not v.get("quote") or not quote_in(v["quote"], item["new_text"], item["old_text"]) or not number_in_quote(v.get("value"), v["quote"]):
                 unsupported.append(v["name"])
     g.append({"id": "G4", "name": "spec parameters in their quotes", "status": "warn" if unsupported else "ok",
               "detail": ("check: " + ", ".join(unsupported)) if unsupported else "every legal parameter is quoted"})
-    tried = any(fm.get("expression", "#") in r["code"] or "evaluate(" in r["code"] for r in terminal_runs if r["ok"])
+    expr = (fm.get("expression") or "").strip() if isinstance(fm.get("expression"), str) else ""
+    tried = any((expr and expr in r["code"]) or "evaluate(" in r["code"] for r in terminal_runs if r["ok"])
     g.append({"id": "G5", "name": "formula run in the terminal", "status": "ok" if tried else "warn",
               "detail": f"{sum(1 for r in terminal_runs if r['ok'])} successful terminal run(s)"})
     return g, oracle
@@ -336,44 +351,65 @@ def check_case(case, item, terminal_runs):
 
 # ------------------------------------------------------------------ the loop
 
-def run_item(cfg, item, new_doc, old_doc, emit, lang="en", should_stop=lambda: False):
+# Fields of a spec change the examiner reviews and the model sees again in the "cases" step.
+SPEC_FIELDS = ("change_type", "summary", "old_rule", "new_rule", "quotes_new", "quotes_old", "parameters", "formula_changed")
+
+
+def run_item(cfg, item, new_doc, old_doc, emit, lang="en", should_stop=lambda: False, mode="full", approved=None):
     """Process one section. emit(type, data) streams the chain of thought. Returns
     {"spec_change": {...} | None, "cases": [...], "summary": str, "stopped": bool}.
+    mode: "extract" stops once the spec change is recorded, so the examiner can approve or edit it;
+    "cases" writes test cases for the `approved` spec change; "full" does both in one go.
     Stop is honoured mid-stream and between tool calls; test cases already submitted are kept."""
-    state = {"spec_change": None, "cases": []}
+    state = {"spec_change": approved if mode == "cases" else None, "cases": []}
     try:
-        return _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state)
+        return _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state, mode)
     except Stopped:
         emit("live", None)
         emit("stopped", {"kept": len(state["cases"])})
         return {"spec_change": state["spec_change"], "cases": state["cases"], "summary": "stopped by the examiner", "stopped": True}
 
 
-def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
+def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state, mode="full"):
+    prompt = user_prompt(item, new_doc, old_doc)
+    if mode == "extract":
+        prompt += ("\n\nTHIS STEP: only call record_spec_change. Do not write test cases yet: the examiner "
+                   "reviews your spec change first, and test cases are written in a later step.")
+    elif mode == "cases":
+        prompt += ("\n\nThe examiner reviewed this spec change and approved it (possibly after editing it). "
+                   "It is authoritative; do not call record_spec_change again. Write the test cases for it now "
+                   "(run_python, submit_test_case, finish):\n"
+                   + json.dumps({k: state["spec_change"].get(k) for k in SPEC_FIELDS}, ensure_ascii=False, indent=1))
     messages = [{"role": "system", "content": system_prompt(lang)},
-                {"role": "user", "content": user_prompt(item, new_doc, old_doc)}]
+                {"role": "user", "content": prompt}]
     emit("context", {"chars": sum(len(m["content"]) for m in messages),
-                     "sent": [item["sec"]], "old_version": bool(item["old_text"])})
-    spec_change, cases, summary, terminal_runs = None, [], "", []
+                     "sent": [item["sec"]], "old_version": bool(item["old_text"]), "mode": mode})
+    spec_change, cases, summary, terminal_runs = state["spec_change"], [], "", []
     nudges, refusals = 0, 0
     force = None  # name of the tool the next turn must call
 
     def needs_case():  # every testable section must end with at least one test case
+        if mode == "extract":
+            return False
         return not cases and not (spec_change and spec_change.get("change_type") == "editorial")
 
     def next_required():
         return "record_spec_change" if not spec_change else "submit_test_case"
 
+    def unfinished():
+        return needs_case() or (mode == "extract" and not spec_change)
+
     for turn in range(MAX_TURNS):
         state["spec_change"], state["cases"] = spec_change, cases
         if should_stop():
             raise Stopped()
-        if turn >= MAX_TURNS - 3 and needs_case():
+        if turn >= MAX_TURNS - 3 and unfinished():
             force = next_required()  # running out of turns: no more exploring, write the test case
         call_cfg = dict(cfg, tool_choice={"type": "function", "function": {"name": force}}) if force else cfg
         if force:
             emit("retry", {"message": f"the model must now call {force}"})
-        for attempt in range(2):
+        failures = 0
+        while True:
             try:
                 resp = chat(call_cfg, messages, on_delta=lambda o: emit("live", {"reasoning": o["reasoning"], "content": o["content"],
                                                                               "tool": ", ".join(c["name"] for c in o["tool_calls"].values()) if isinstance(o["tool_calls"], dict) else ""}),
@@ -381,9 +417,11 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                 break
             except LLMError as e:
                 if "tool_choice" in str(e) and call_cfg.get("tool_choice") != "auto":
-                    cfg = call_cfg = dict(cfg, tool_choice="auto")  # gateway/model without "required"/named support
+                    # gateway/model without "required"/named support; doesn't count as a failure
+                    cfg = call_cfg = dict(cfg, tool_choice="auto")
                     continue
-                if attempt:
+                failures += 1
+                if failures >= 2:
                     emit("error", {"message": str(e)})
                     return {"spec_change": spec_change, "cases": cases, "summary": "stopped: " + str(e), "error": str(e)}
                 emit("retry", {"message": str(e)})
@@ -396,7 +434,7 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
             emit("text", {"text": resp["content"].strip()})
         calls = resp["tool_calls"]
         if not calls:
-            if spec_change and not needs_case():
+            if spec_change and not unfinished():
                 break
             nudges += 1
             if nudges > 3:
@@ -418,6 +456,8 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                 raise Stopped()
             try:
                 args = _parse_args(c["arguments"])
+                if not isinstance(args, dict):
+                    raise ValueError(f"expected a JSON object, got {type(args).__name__}")
             except (json.JSONDecodeError, ValueError) as e:
                 result = f"error: arguments are not valid JSON ({e}). Send the call again."
                 emit("tool_error", {"tool": c["name"], "message": result})
@@ -433,14 +473,16 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                 emit("terminal", {"code": code, **r})
                 result = (r["stdout"] or "") + (("\n[stderr]\n" + r["stderr"]) if r["stderr"] else "")
                 result = result.strip() or "(no output: print your results)"
+            elif name == "record_spec_change" and mode == "cases":
+                result = "The spec change is already approved by the examiner and cannot be changed here. Continue with submit_test_case."
+            elif name == "submit_test_case" and mode == "extract":
+                result = "Not in this step: the examiner reviews the spec change first. Only call record_spec_change."
             elif name == "record_spec_change":
-                sc = {k: args.get(k) for k in ("change_type", "summary", "old_rule", "new_rule", "quotes_new", "quotes_old", "parameters", "formula_changed")}
+                sc = {k: args.get(k) for k in SPEC_FIELDS}
                 sc["quotes_new"] = [q for q in (sc.get("quotes_new") or []) if isinstance(q, str)]
                 sc["quotes_old"] = [q for q in (sc.get("quotes_old") or []) if isinstance(q, str)]
                 sc["parameters"] = [p for p in (sc.get("parameters") or []) if isinstance(p, dict)]
-                checks = [{"quote": q, "side": "new", "ok": quote_in(q, item["new_text"])} for q in sc["quotes_new"]] + \
-                         [{"quote": q, "side": "old", "ok": quote_in(q, item["old_text"])} for q in sc["quotes_old"]]
-                sc["quote_checks"] = checks
+                checks = sc["quote_checks"] = quote_checks(sc, item)
                 sc.update({"section": item["sec"], "title": item["title"], "page": item["page"], "detected_as": item["kind"],
                            "source": item["source"], "document": new_doc["name"], "previous_document": old_doc["name"] if old_doc else None})
                 spec_change = sc
@@ -458,10 +500,10 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                     case = {"title": args.get("title") or "untitled", "kind": args.get("kind", "positive"),
                             "criterion": args.get("criterion", ""), "scenario": args.get("scenario") or {},
                             "preconditions": as_list(args.get("preconditions")), "steps": as_list(args.get("steps")),
-                            "formula": args.get("formula") or {}, "previous_expression": args.get("previous_expression") or "",
+                            "formula": args.get("formula") if isinstance(args.get("formula"), dict) else {}, "previous_expression": args.get("previous_expression") or "",
                             "formula_changed": bool(args.get("formula_changed")), "ai_expected_value": args.get("expected_value"),
                             "expected_value": oracle, "expected_outcome": args.get("expected_outcome", ""),
-                            "quotes": args.get("quotes") or [], "guards": guards, "replaces": args.get("replaces")}
+                            "quotes": _str_list(args.get("quotes")), "guards": guards, "replaces": args.get("replaces")}
                     prev = (case["previous_expression"] or "").strip()
                     if prev and F.normalize_expression(prev) != F.normalize_expression(case["formula"].get("expression", "")):
                         case["formula_changed"] = True
@@ -494,7 +536,7 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                     if warns:
                         result += " Warnings: " + "; ".join(warns) + "."
             elif name == "finish":
-                if needs_case() and refusals < 3:
+                if unfinished() and refusals < 3:
                     refusals += 1
                     force = next_required()
                     result = ("not finished: " + ("record the spec change first. " if not spec_change else "")
@@ -510,10 +552,14 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
             messages.append({"role": "tool", "tool_call_id": c["id"], "content": result})
             if name != "run_python":
                 emit("tool_result", {"tool": name, "result": result})
-        if finished:
+        if finished or (mode == "extract" and spec_change):
             break
     else:
         emit("error", {"message": f"stopped after {MAX_TURNS} turns"})
+    if mode == "extract":
+        if not spec_change:
+            emit("error", {"message": "no spec change was extracted for this section; start it again with Generate"})
+        return {"spec_change": spec_change, "cases": [], "summary": "spec change extracted, waiting for the examiner" if spec_change else summary}
     if needs_case():
         emit("error", {"message": "no test case was produced for this section; start it again with Generate"})
     return {"spec_change": spec_change, "cases": cases, "summary": summary}

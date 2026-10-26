@@ -219,7 +219,12 @@ def diff_documents(old, new, changelog=None):
     log_refs = {}
     for row in (changelog or []):
         for r in row["refs"]:
-            log_refs.setdefault(r, []).append(row)
+            sec = r  # field-level refs (3.12.7) live inside their block's section (3.12)
+            while sec not in n and sec not in o and "." in sec:
+                sec = sec.rsplit(".", 1)[0]
+            rows = log_refs.setdefault(sec if (sec in n or sec in o) else r, [])
+            if row not in rows:
+                rows.append(row)
     changes = []
     for sec in sorted(set(o) | set(n), key=lambda x: [int(p) for p in x.split(".")]):
         so, sn = o.get(sec), n.get(sec)

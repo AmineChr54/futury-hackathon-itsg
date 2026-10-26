@@ -298,6 +298,12 @@ def number_in_quote(value, quote):
     return False
 
 
+def quote_checks(sc, item):
+    """G1 for a spec change: is each quote verbatim in its side of the section?"""
+    return [{"quote": q, "side": "new", "ok": quote_in(q, item["new_text"])} for q in sc.get("quotes_new") or []] + \
+           [{"quote": q, "side": "old", "ok": quote_in(q, item["old_text"])} for q in sc.get("quotes_old") or []]
+
+
 def check_case(case, item, terminal_runs):
     """Run the five guards. Returns (guards, oracle_value)."""
     g = []
@@ -345,39 +351,59 @@ def check_case(case, item, terminal_runs):
 
 # ------------------------------------------------------------------ the loop
 
-def run_item(cfg, item, new_doc, old_doc, emit, lang="en", should_stop=lambda: False):
+# Fields of a spec change the examiner reviews and the model sees again in the "cases" step.
+SPEC_FIELDS = ("change_type", "summary", "old_rule", "new_rule", "quotes_new", "quotes_old", "parameters", "formula_changed")
+
+
+def run_item(cfg, item, new_doc, old_doc, emit, lang="en", should_stop=lambda: False, mode="full", approved=None):
     """Process one section. emit(type, data) streams the chain of thought. Returns
     {"spec_change": {...} | None, "cases": [...], "summary": str, "stopped": bool}.
+    mode: "extract" stops once the spec change is recorded, so the examiner can approve or edit it;
+    "cases" writes test cases for the `approved` spec change; "full" does both in one go.
     Stop is honoured mid-stream and between tool calls; test cases already submitted are kept."""
-    state = {"spec_change": None, "cases": []}
+    state = {"spec_change": approved if mode == "cases" else None, "cases": []}
     try:
-        return _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state)
+        return _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state, mode)
     except Stopped:
         emit("live", None)
         emit("stopped", {"kept": len(state["cases"])})
         return {"spec_change": state["spec_change"], "cases": state["cases"], "summary": "stopped by the examiner", "stopped": True}
 
 
-def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
+def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state, mode="full"):
+    prompt = user_prompt(item, new_doc, old_doc)
+    if mode == "extract":
+        prompt += ("\n\nTHIS STEP: only call record_spec_change. Do not write test cases yet: the examiner "
+                   "reviews your spec change first, and test cases are written in a later step.")
+    elif mode == "cases":
+        prompt += ("\n\nThe examiner reviewed this spec change and approved it (possibly after editing it). "
+                   "It is authoritative; do not call record_spec_change again. Write the test cases for it now "
+                   "(run_python, submit_test_case, finish):\n"
+                   + json.dumps({k: state["spec_change"].get(k) for k in SPEC_FIELDS}, ensure_ascii=False, indent=1))
     messages = [{"role": "system", "content": system_prompt(lang)},
-                {"role": "user", "content": user_prompt(item, new_doc, old_doc)}]
+                {"role": "user", "content": prompt}]
     emit("context", {"chars": sum(len(m["content"]) for m in messages),
-                     "sent": [item["sec"]], "old_version": bool(item["old_text"])})
-    spec_change, cases, summary, terminal_runs = None, [], "", []
+                     "sent": [item["sec"]], "old_version": bool(item["old_text"]), "mode": mode})
+    spec_change, cases, summary, terminal_runs = state["spec_change"], [], "", []
     nudges, refusals = 0, 0
     force = None  # name of the tool the next turn must call
 
     def needs_case():  # every testable section must end with at least one test case
+        if mode == "extract":
+            return False
         return not cases and not (spec_change and spec_change.get("change_type") == "editorial")
 
     def next_required():
         return "record_spec_change" if not spec_change else "submit_test_case"
 
+    def unfinished():
+        return needs_case() or (mode == "extract" and not spec_change)
+
     for turn in range(MAX_TURNS):
         state["spec_change"], state["cases"] = spec_change, cases
         if should_stop():
             raise Stopped()
-        if turn >= MAX_TURNS - 3 and needs_case():
+        if turn >= MAX_TURNS - 3 and unfinished():
             force = next_required()  # running out of turns: no more exploring, write the test case
         call_cfg = dict(cfg, tool_choice={"type": "function", "function": {"name": force}}) if force else cfg
         if force:
@@ -408,7 +434,7 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
             emit("text", {"text": resp["content"].strip()})
         calls = resp["tool_calls"]
         if not calls:
-            if spec_change and not needs_case():
+            if spec_change and not unfinished():
                 break
             nudges += 1
             if nudges > 3:
@@ -447,14 +473,16 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                 emit("terminal", {"code": code, **r})
                 result = (r["stdout"] or "") + (("\n[stderr]\n" + r["stderr"]) if r["stderr"] else "")
                 result = result.strip() or "(no output: print your results)"
+            elif name == "record_spec_change" and mode == "cases":
+                result = "The spec change is already approved by the examiner and cannot be changed here. Continue with submit_test_case."
+            elif name == "submit_test_case" and mode == "extract":
+                result = "Not in this step: the examiner reviews the spec change first. Only call record_spec_change."
             elif name == "record_spec_change":
-                sc = {k: args.get(k) for k in ("change_type", "summary", "old_rule", "new_rule", "quotes_new", "quotes_old", "parameters", "formula_changed")}
+                sc = {k: args.get(k) for k in SPEC_FIELDS}
                 sc["quotes_new"] = [q for q in (sc.get("quotes_new") or []) if isinstance(q, str)]
                 sc["quotes_old"] = [q for q in (sc.get("quotes_old") or []) if isinstance(q, str)]
                 sc["parameters"] = [p for p in (sc.get("parameters") or []) if isinstance(p, dict)]
-                checks = [{"quote": q, "side": "new", "ok": quote_in(q, item["new_text"])} for q in sc["quotes_new"]] + \
-                         [{"quote": q, "side": "old", "ok": quote_in(q, item["old_text"])} for q in sc["quotes_old"]]
-                sc["quote_checks"] = checks
+                checks = sc["quote_checks"] = quote_checks(sc, item)
                 sc.update({"section": item["sec"], "title": item["title"], "page": item["page"], "detected_as": item["kind"],
                            "source": item["source"], "document": new_doc["name"], "previous_document": old_doc["name"] if old_doc else None})
                 spec_change = sc
@@ -508,7 +536,7 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
                     if warns:
                         result += " Warnings: " + "; ".join(warns) + "."
             elif name == "finish":
-                if needs_case() and refusals < 3:
+                if unfinished() and refusals < 3:
                     refusals += 1
                     force = next_required()
                     result = ("not finished: " + ("record the spec change first. " if not spec_change else "")
@@ -524,10 +552,14 @@ def _run_item(cfg, item, new_doc, old_doc, emit, lang, should_stop, state):
             messages.append({"role": "tool", "tool_call_id": c["id"], "content": result})
             if name != "run_python":
                 emit("tool_result", {"tool": name, "result": result})
-        if finished:
+        if finished or (mode == "extract" and spec_change):
             break
     else:
         emit("error", {"message": f"stopped after {MAX_TURNS} turns"})
+    if mode == "extract":
+        if not spec_change:
+            emit("error", {"message": "no spec change was extracted for this section; start it again with Generate"})
+        return {"spec_change": spec_change, "cases": [], "summary": "spec change extracted, waiting for the examiner" if spec_change else summary}
     if needs_case():
         emit("error", {"message": "no test case was produced for this section; start it again with Generate"})
     return {"spec_change": spec_change, "cases": cases, "summary": summary}

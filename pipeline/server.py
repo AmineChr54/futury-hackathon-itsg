@@ -277,40 +277,63 @@ def start_run(body, user):
 
 def finish_run_if_done(run):
     with LOCK:
-        if all(i["status"] in ("done", "error", "candidate", "skipped", "stopped") for i in run["items"]) and run["status"] == "running":
+        if all(i["status"] in ("done", "error", "candidate", "skipped", "stopped", "review") for i in run["items"]) and run["status"] == "running":
             run["status"] = "stopped" if run.get("stop") else "done"
             run["seq"] += 1
             n = sum(len(i["cases"]) for i in run["items"])
-            text = (f"Stopped: {n} test case(s) kept for review" if run.get("stop") else f"Finished: {n} test case(s) waiting for review")
+            waiting = sum(1 for i in run["items"] if i["status"] == "review" and not i.get("decision"))
+            text = (f"Stopped: {n} test case(s) kept for review" if run.get("stop")
+                    else f"Spec changes extracted: {waiting} waiting for your approval in “Review changes”" if waiting
+                    else f"Finished: {n} test case(s) waiting for review")
             run["events"].append({"seq": run["seq"], "t": now(), "item": None, "type": "stage",
                                   "data": {"step": "stop" if run.get("stop") else "done", "text": text}})
     if run["status"] in ("done", "stopped"):
         save_run(run)
 
 
-def process_item(run, sec):
+def process_item(run, sec, phase="extract"):
+    """phase "extract": the AI records the spec change, which then waits for the examiner (status "review").
+    phase "cases": the AI writes test cases for the approved spec change."""
     it = item_of(run, sec)
     if run.get("stop"):
-        it["status"] = "skipped"
+        it["status"] = "skipped" if phase == "extract" else "review"
         finish_run_if_done(run)
         return
     it["status"] = "running"
+    it["phase"] = phase
     run["status"] = "running"
     start_seq = run["seq"]
     plan_ = run["plan"]
     new_doc = {"name": plan_["new"]["name"], "version": plan_["new"]["version"]}
     old_doc = {"name": plan_["old"]["name"], "version": plan_["old"]["version"]} if plan_["old"] else None
-    emit(run, sec, "item_start", {"sec": sec, "title": it["title"], "kind": it["kind"], "source": it["source"], "model": run["model"]})
+    emit(run, sec, "item_start", {"sec": sec, "title": it["title"], "kind": it["kind"], "source": it["source"], "model": run["model"], "phase": phase})
+    approved = {k: v for k, v in (it.get("spec_change") or {}).items()} if phase == "cases" else None
     try:
         cfg = dict(CFG, model=run["model"])
         res = agent.run_item(cfg, it, new_doc, old_doc, lambda t, d: emit(run, sec, t, d), lang=run.get("lang", "en"),
-                             should_stop=lambda: run.get("stop"))
+                             should_stop=lambda: run.get("stop"), mode=phase, approved=approved)
     except Exception as e:  # keep the run alive; show the error in the chain of thought
         traceback.print_exc()
         emit(run, sec, "error", {"message": f"{type(e).__name__}: {e}"})
-        res = {"spec_change": None, "cases": [], "summary": "", "error": str(e)}
+        res = {"spec_change": approved, "cases": [], "summary": "", "error": str(e)}
+    if phase == "extract":
+        with LOCK:
+            it["spec_change"] = res["spec_change"]
+            it["decision"], it["decided_by"], it["change_edited"] = None, None, False
+            it["extract_seq"] = [start_seq, run["seq"]]  # its chain of thought, kept with the test cases later
+            it["status"] = ("stopped" if res.get("stopped") and not res["spec_change"]
+                            else "review" if res["spec_change"] else "error")
+            it["summary"] = res.get("summary", "")
+        emit(run, sec, "item_done", {"sec": sec, "cases": [], "summary": it["summary"], "status": it["status"], "phase": phase})
+        finish_run_if_done(run)
+        save_run(run)
+        return
     with LOCK:
-        cot_all = [e for e in run["events"] if e["item"] == sec and e["seq"] > start_seq]
+        lo, hi = it.get("extract_seq") or [start_seq, start_seq]
+        # the AI's extraction, then the examiner's edits and decisions on it, then this test-case run
+        extraction = [e for e in run["events"] if e["item"] == sec and (lo < e["seq"] <= hi
+                      or (hi < e["seq"] <= start_seq and e["type"] in ("change_edited", "decision")))]
+        cot_all = extraction + [e for e in run["events"] if e["item"] == sec and e["seq"] > start_seq]
         it["spec_change"] = res["spec_change"]
         prefix = f"TC-{sec}-{run['id'][2:8]}{run['id'][-4:]}-"
         # "Generate" again on the same section must not reuse the ids of the earlier attempt
@@ -332,11 +355,14 @@ def process_item(run, sec):
             recompute(tc)
             STORE["testcases"].insert(0, tc)
             it["cases"].append(tc_id)
-        it["status"] = "stopped" if res.get("stopped") else "error" if res.get("error") and not res["cases"] else "done"
+        # without test cases the approved change goes back to review, so it can be sent to the AI again
+        editorial = (res["spec_change"] or {}).get("change_type") == "editorial"
+        it["status"] = "done" if it["cases"] or editorial else "review"
         it["summary"] = res.get("summary", "")
         save_store()
-    emit(run, sec, "item_done", {"sec": sec, "cases": it["cases"], "summary": it.get("summary", ""), "status": it["status"]})
+    emit(run, sec, "item_done", {"sec": sec, "cases": it["cases"], "summary": it.get("summary", ""), "status": it["status"], "phase": phase})
     finish_run_if_done(run)
+    save_run(run)
 
 
 # ------------------------------------------------------------------ test cases
@@ -376,6 +402,41 @@ def export_case(tc):
         "chain_of_thought": [{"t": e["t"], "type": e["type"], **({"text": e["data"].get("text")} if isinstance(e["data"], dict) and "text" in e["data"] else {"data": e["data"]})} for e in tc.get("cot", [])],
         "history": tc.get("history", []),
     }
+
+
+def edit_spec_change(it, body):
+    """Apply the examiner's edits to an item's spec change. Returns (new spec change, list of changes)."""
+    old = it["spec_change"]
+    sc = dict(old)
+    text = lambda v: str(v).strip() if v is not None else ""
+    strings = lambda v: [s.strip() for s in v if isinstance(s, str) and s.strip()] if isinstance(v, list) else None
+    if "change_type" in body:
+        if body["change_type"] not in agent.CHANGE_TYPES:
+            raise ApiError(400, "unknown change type: " + str(body["change_type"]))
+        sc["change_type"] = body["change_type"]
+    for k in ("summary", "old_rule", "new_rule"):
+        if k in body:
+            sc[k] = text(body[k])
+    for k in ("quotes_new", "quotes_old"):
+        if k in body:
+            v = strings(body[k])
+            if v is None:
+                raise ApiError(400, k + " must be a list of strings")
+            sc[k] = v
+    if "parameters" in body:
+        if not isinstance(body["parameters"], list):
+            raise ApiError(400, "parameters must be a list")
+        params = []
+        for p in body["parameters"]:
+            if not isinstance(p, dict) or not text(p.get("name")):
+                continue  # an empty row in the editor
+            params.append({k: text(p.get(k)) for k in ("name", "old_value", "new_value", "unit", "quote") if text(p.get(k))})
+        sc["parameters"] = params
+    if "formula_changed" in body:
+        sc["formula_changed"] = bool(body["formula_changed"])
+    sc["quote_checks"] = agent.quote_checks(sc, it)
+    changes = [k for k in agent.SPEC_FIELDS if sc.get(k) != old.get(k)]
+    return sc, changes
 
 
 def edit_case(tc, body, user):
@@ -458,8 +519,12 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def body(self):
-        n = int(self.headers.get("Content-Length") or 0)
-        return self.rfile.read(n) if n else b""
+        # read once and keep it: route() drains it before any early error reply, otherwise Windows
+        # resets the connection and the browser sees a network error instead of the message
+        if not hasattr(self, "_raw"):
+            n = int(self.headers.get("Content-Length") or 0)
+            self._raw = self.rfile.read(n) if n else b""
+        return self._raw
 
     def json_body(self):
         raw = self.body()
@@ -502,6 +567,7 @@ class Handler(BaseHTTPRequestHandler):
     def route(self, method):
         url = urllib.parse.urlparse(self.path)
         path, q = url.path, urllib.parse.parse_qs(url.query)
+        self.body()
         try:
             if path.startswith("/v1/"):
                 return self.proxy(method)
@@ -636,10 +702,11 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(404, "section not in this run")
             if it["status"] in ("queued", "running"):
                 raise ApiError(409, "already in progress")
-            it["status"], it["cases"] = "queued", []
+            # extract the spec change again; it goes back to the examiner before any test case is written
+            it["status"], it["cases"], it["decision"] = "queued", [], None
             run["status"], run["stop"] = "running", False
             emit(run, None, "stage", {"step": "queue", "text": f"{self.user} started §{it['sec']} by hand"})
-            POOL.submit(process_item, run, it["sec"])
+            POOL.submit(process_item, run, it["sec"], "extract")
             return self.send_json({"ok": True})
         if parts and len(parts) == 2 and parts[1] == "stop":
             run = load_run(parts[0])
@@ -648,10 +715,78 @@ class Handler(BaseHTTPRequestHandler):
             run["stop"] = True
             for it in run["items"]:
                 if it["status"] == "queued":
-                    it["status"] = "skipped"
+                    it["status"] = "review" if it.get("phase") == "cases" else "skipped"
             emit(run, None, "stage", {"step": "stop", "text": f"{self.user} stopped the run"})
             finish_run_if_done(run)
             return self.send_json({"ok": True})
+        if parts and len(parts) == 2 and parts[1] == "decide":
+            run = self._run(parts[0])
+            b = self.json_body()
+            decision = b.get("decision")
+            if decision not in ("approved", "declined", None):
+                raise ApiError(400, "decision must be approved, declined or null")
+            with LOCK:
+                items = self._review_items(run, b.get("secs"))
+                for it in items:
+                    it["decision"], it["decided_by"], it["decided_at"] = decision, self.user if decision else None, now() if decision else None
+                    emit(run, it["sec"], "decision", {"decision": decision, "by": self.user})
+            save_run(run)
+            return self.send_json({"ok": True, "changed": [i["sec"] for i in items]})
+        if parts and len(parts) == 2 and parts[1] == "cases":
+            run = self._run(parts[0])
+            b = self.json_body()
+            with LOCK:
+                items = [i for i in self._review_items(run, b.get("secs")) if i.get("decision") == "approved"]
+                if not items:
+                    raise ApiError(409, "approve at least one spec change first")
+                for it in items:
+                    it["status"], it["cases"], it["phase"] = "queued", [], "cases"
+                run["status"], run["stop"] = "running", False
+            emit(run, None, "stage", {"step": "queue", "text": f"{self.user} approved {len(items)} spec change(s): the AI writes test cases for "
+                                      + ", ".join("§" + i["sec"] for i in items)})
+            for it in items:
+                POOL.submit(process_item, run, it["sec"], "cases")
+            return self.send_json({"ok": True, "queued": [i["sec"] for i in items]})
+        run = start_run(self.json_body(), self.user)
+        self.send_json({"id": run["id"]})
+
+    def _run(self, run_id):
+        run = load_run(run_id)
+        if not run:
+            raise ApiError(404, "run not found")
+        return run
+
+    @staticmethod
+    def _review_items(run, secs):
+        """The items waiting for the examiner, optionally limited to the given sections."""
+        items = [i for i in run["items"] if i["status"] == "review" and i.get("spec_change")]
+        if secs is not None:
+            if not isinstance(secs, list):
+                raise ApiError(400, "secs must be a list")
+            items = [i for i in items if i["sec"] in secs]
+        return items
+
+    def api_patch_runs(self, parts, q):
+        """The examiner edits an extracted spec change before approving it."""
+        self.need_examiner()
+        if len(parts) != 4 or parts[1] != "items" or parts[3] != "change":
+            raise ApiError(404, "no such route")
+        run = self._run(parts[0])
+        b = self.json_body()
+        with LOCK:
+            it = item_of(run, parts[2])
+            if not it or it["status"] != "review" or not it.get("spec_change"):
+                raise ApiError(409, "this spec change is not waiting for review")
+            sc, changes = edit_spec_change(it, b)
+            if changes:
+                it["spec_change"], it["change_edited"] = sc, True
+                it["decision"] = "approved" if b.get("approve") else None  # an edit needs a fresh approval
+                it["decided_by"] = self.user if b.get("approve") else None
+                emit(run, it["sec"], "change_edited", {"by": self.user, "changes": changes})
+            elif b.get("approve"):
+                it["decision"], it["decided_by"] = "approved", self.user
+        save_run(run)
+        self.send_json({"ok": True, "changes": changes, "spec_change": it["spec_change"], "decision": it.get("decision")})
         run = start_run(self.json_body(), self.user)
         self.send_json({"id": run["id"]})
 

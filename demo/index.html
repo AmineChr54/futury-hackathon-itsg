@@ -383,6 +383,46 @@ details.cot-more summary::marker { color: var(--accent); }
 .chk { display: inline-flex; align-items: center; }
 @media (max-width: 560px) { .drop-row { grid-template-columns: minmax(0, 1fr); } }
 
+/* ---------- spec-change review (between extraction and test cases) ---------- */
+.chg-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; justify-content: space-between; padding: var(--s-3) var(--s-4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-sm, none); }
+.chg-bar .row { gap: var(--s-2); }
+.chg-list { display: grid; gap: var(--s-3); }
+.chg-card { background: var(--surface); border: 1px solid var(--line); border-left: 5px solid var(--line-strong); border-radius: var(--r-lg); padding: var(--s-4); display: grid; gap: var(--s-3); min-width: 0; transition: border-color .15s; }
+.chg-card.approved { border-left-color: var(--ok); }
+.chg-card.declined { border-left-color: var(--bad); opacity: .72; }
+.chg-card.done { border-left-color: var(--info); }
+.chg-card.selected { box-shadow: 0 0 0 2px var(--accent-line); }
+.chg-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--s-3); align-items: start; }
+.chg-head h3 { margin: 2px 0 0; overflow-wrap: anywhere; }
+.chg-head input[type=checkbox] { width: 18px; height: 18px; margin-top: 4px; accent-color: var(--accent); }
+.chg-summary { font-size: var(--fs-md, 15px); line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
+.chg-rules { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--s-2); align-items: stretch; }
+.chg-rule { border-radius: var(--r-md); padding: 10px 12px; display: grid; gap: 4px; align-content: start; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.chg-rule.before { background: var(--surface-2); color: var(--fg-2); }
+.chg-rule.after { background: var(--ok-soft); color: var(--fg); }
+.chg-rule.only { grid-column: 1 / -1; background: var(--surface-2); }
+.chg-arrow { align-self: center; color: var(--muted); font-size: 20px; }
+.chg-params { display: grid; gap: 6px; }
+.chg-param { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--s-2); align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r-md); font-size: var(--fs-sm); }
+.chg-param .val { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: flex-end; }
+.chg-param .old { text-decoration: line-through; color: var(--muted); }
+.chg-param .new { font-weight: 700; background: var(--ok-soft); color: var(--ok); border-radius: 6px; padding: 1px 8px; }
+.chg-param .q { grid-column: 1 / -1; font-size: 12px; color: var(--muted); font-style: italic; overflow-wrap: anywhere; }
+.chg-quote { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.chg-actions { display: flex; flex-wrap: wrap; gap: var(--s-2); align-items: center; justify-content: space-between; border-top: 1px solid var(--line); padding-top: var(--s-3); }
+.chg-edit { display: grid; gap: var(--s-3); }
+.chg-edit .prow { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, .8fr) auto; gap: 6px; align-items: center; }
+.chg-edit .prow.headrow { font: 600 var(--fs-xs) var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.chg-edit textarea { font-family: var(--font-body); min-height: 64px; }
+.chg-pending { display: flex; gap: var(--s-3); align-items: center; padding: var(--s-3) var(--s-4); border: 1px dashed var(--line-strong); border-radius: var(--r-lg); font-size: var(--fs-sm); color: var(--muted); }
+.chg-banner { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; justify-content: space-between; }
+@media (max-width: 700px) {
+  .chg-rules { grid-template-columns: minmax(0, 1fr); }
+  .chg-arrow { transform: rotate(90deg); justify-self: center; }
+  .chg-edit .prow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .chg-edit .prow.headrow { display: none; }
+}
+
 /* ---------- modal ---------- */
 .modal-scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 80; display: grid; place-items: center; padding: 16px; }
 .modal { background: var(--surface); border-radius: var(--r-lg); width: min(560px, 100%); max-height: calc(100% - 32px); overflow: auto; box-shadow: var(--shadow); display: grid; }
@@ -2314,6 +2354,7 @@ const PIPE = (() => {
     model: store.get("pipeModel2", ""), uploadTarget: "upload", uploading: null,
     runId: store.get("pipeRun", null), run: null, events: [], after: 0, selItem: null, follow: true,
     cases: [], caseFilter: "all", selCase: null, caseDetail: null, sel: new Set(), draft: null, preview: null,
+    chSel: new Set(), chFilter: "all", chEdit: null, chDraft: null,
     users: [], user: store.get("user", ""), inbox: [], selInbox: null, inboxDetail: null, devVars: null, devPreview: null, seenInbox: store.get("seenInbox", [])
   };
   const fmtN = n => Number(n).toLocaleString(S.lang === "de" ? "de-DE" : "en-GB");
@@ -2448,6 +2489,9 @@ const PIPE = (() => {
       if (onScreen("pipeline")) paintRun(fresh.length > 0);
       paintDocs();
       A.renderShell();
+      if (fresh.length && onScreen("changes")) paintChanges();
+      if (wasStatus === "running" && r.status !== "running" && waiting().length && !onScreen("changes"))
+        A.toast(`${waiting().length} ${L("spec change(s) are ready for your review — open “Review changes”", "Änderung(en) warten auf Ihre Prüfung — „Änderungen prüfen“ öffnen")}`);
     } catch (e) {
       if (/not found/.test(e.message)) { P.runId = null; store.set("pipeRun", null); }
     }
@@ -2457,7 +2501,7 @@ const PIPE = (() => {
   const KIND = { changed: ["changed", "warn"], added: ["new", "accent"], removed: ["removed", "bad"], changelog: ["change log", "info"], rule: ["rule", ""] };
   const kindPill = k => { const [en, cls] = KIND[k] || [k, ""]; return pill(({ changed: L("changed", "geändert"), new: L("new", "neu"), removed: L("removed", "entfernt"), "change log": L("change log", "Protokoll"), rule: L("rule", "Regel") })[en] || en, cls); };
   const srcPill = s => s === "diff-only" ? pill(L("not in change log", "nicht im Protokoll"), "bad") : s === "log+diff" ? pill(L("log + diff", "Protokoll + Diff"), "ok") : pill(esc(s), "");
-  const stIc = s => `<span class="st ${s}" title="${esc(s)}">${{ queued: "○", running: "◐", done: "✓", error: "✕", candidate: "+", skipped: "–", stopped: "■" }[s] || "·"}</span>`;
+  const stIc = s => `<span class="st ${s}" title="${esc(s)}">${{ queued: "○", running: "◐", done: "✓", error: "✕", candidate: "+", skipped: "–", stopped: "■", review: "◇" }[s] || "·"}</span>`;
   const stopAction = r => r && r.status === "running" ? `<button class="btn" data-act="pipeStop">■ ${L("Stop", "Stoppen")}</button>` : "";
 
   function vPipeline() {
@@ -2465,11 +2509,18 @@ const PIPE = (() => {
     if (P.online === false) return `${head(L("AI test pipeline", "KI-Testpipeline"), "")}${docsInner()}`;
     if (!P.runId) return `${head(L("AI test pipeline", "KI-Testpipeline"), L("Drop a new spec PDF, then press “Generate test cases”. The pipeline diffs it against the previous version in docs/law_file — or, without one, uses the document on its own — and the AI turns every change into a spec-change JSON and test cases.", "Neue Spezifikation ablegen, dann „Testfälle erzeugen“ drücken. Die Pipeline vergleicht sie mit der Vorfassung in docs/law_file — oder nutzt ohne Vorfassung das Dokument allein — und die KI macht aus jeder Änderung ein Änderungs-JSON und Testfälle."), `<button class="btn primary" data-act="go" data-screen="ingest">${ic("upload")} ${L("Go to the PDF drop", "Zur PDF-Ablage")}</button>`)}<div class="empty">${L("No run yet.", "Noch kein Lauf.")}</div>`;
     return `${head(L("AI test pipeline", "KI-Testpipeline"), L("Every step the AI takes is shown and saved with the test case: its reasoning, each calculation in its terminal, the JSON it extracted, and the deterministic checks on its answer.", "Jeder Schritt der KI wird gezeigt und mit dem Testfall gespeichert: ihre Überlegungen, jede Berechnung im Terminal, das extrahierte JSON und die deterministischen Prüfungen ihrer Antwort."),
-      `<span id="pipeStopAction">${stopAction(r)}</span><button class="btn" data-act="go" data-screen="ingest">${ic("upload")} ${L("New run", "Neuer Lauf")}</button><button class="btn primary" data-act="go" data-screen="review">${ic("check")} ${L("Review test cases", "Testfälle prüfen")}</button>`)}
+      `<span id="pipeStopAction">${stopAction(r)}</span><button class="btn" data-act="go" data-screen="ingest">${ic("upload")} ${L("New run", "Neuer Lauf")}</button><button class="btn primary" data-act="go" data-screen="changes">${ic("check")} ${L("Review changes", "Änderungen prüfen")}</button><button class="btn" data-act="go" data-screen="review">${ic("test")} ${L("Review test cases", "Testfälle prüfen")}</button>`)}
+      <div id="pipeChgBanner">${chBanner()}</div>
       <section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${L("Run", "Lauf")} ${esc(P.runId)}${r ? " · " + esc(r.model) : ""}</span><h3 id="pipePlanTitle">${r ? planTitle(r.plan) : L("Loading…", "Lade…")}</h3></div><span id="pipeRunStatus">${r ? runStatusPill(r) : ""}</span></div>
         <div class="panel-body"><div class="cot" id="pipeStages"></div></div></section>
       <div class="split"><section class="panel"><div class="panel-head"><h4>${L("Sections", "Abschnitte")}</h4><span class="muted" style="font-size:var(--fs-xs)" id="pipeItemCount"></span></div><div class="panel-body flush" id="pipeItems" style="max-height:70vh;overflow:auto"></div></section>
         <section class="panel"><div class="panel-head" id="pipeItemHead"></div><div class="panel-body" id="pipeItemBody"></div></section></div>`;
+  }
+  // step 2 of 3: the extracted changes wait for the examiner before the AI writes test cases
+  function chBanner() {
+    const w = waiting().length, a = approvedReady().length;
+    if (!w && !a) return "";
+    return `<div class="callout accent chg-banner"><div><b>${w ? `${w} ${L("spec change(s) waiting for your review", "Änderung(en) warten auf Ihre Prüfung")}` : `${a} ${L("approved change(s) ready", "freigegebene Änderung(en) bereit")}`}</b><span>${L("The AI has read the sections. Check what it understood, then create test cases for the approved changes.", "Die KI hat die Abschnitte gelesen. Prüfen Sie, was sie verstanden hat, und erstellen Sie dann Testfälle für die freigegebenen Änderungen.")}</span></div><button class="btn primary" data-act="go" data-screen="changes">${ic("check")} ${L("Review changes", "Änderungen prüfen")}</button></div>`;
   }
   const planTitle = p => p.mode === "diff" ? `${esc(p.new.name)} <span class="muted">vs.</span> ${esc(p.old.name)}` : `${esc(p.new.name)} <span class="muted">· ${L("single document", "Einzeldokument")}</span>`;
   const runStatusPill = r => r.status === "running" ? pill(L("running", "läuft"), "info") : r.status === "done" ? pill("✓ " + L("finished", "fertig"), "ok") : pill(esc(r.status), "warn");
@@ -2481,6 +2532,7 @@ const PIPE = (() => {
     const pt = document.getElementById("pipePlanTitle"); if (pt) pt.innerHTML = planTitle(r.plan);
     const rs = document.getElementById("pipeRunStatus"); if (rs) rs.innerHTML = runStatusPill(r);
     const stop = document.getElementById("pipeStopAction"); if (stop) stop.innerHTML = stopAction(r);
+    const bn = document.getElementById("pipeChgBanner"); if (bn) bn.innerHTML = chBanner();
     st.innerHTML = P.events.filter(e => e.item == null).map(e => evHtml(e)).join("");
     const counts = r.items.reduce((m, i) => (m[i.status] = (m[i.status] || 0) + 1, m), {});
     document.getElementById("pipeItemCount").textContent = `${r.items.length} · ${counts.done || 0} ${L("done", "fertig")}${counts.running ? ` · ${counts.running} ${L("running", "laufen")}` : ""}`;
@@ -2495,7 +2547,7 @@ const PIPE = (() => {
     const hd = document.getElementById("pipeItemHead"), body = document.getElementById("pipeItemBody");
     if (!hd || !body) return;
     if (!it) { hd.innerHTML = ""; body.innerHTML = `<div class="empty">${L("Select a section.", "Abschnitt auswählen.")}</div>`; return; }
-    hd.innerHTML = `<div class="stack" style="gap:2px"><span class="eyebrow">§${esc(it.sec)} · ${L("page", "Seite")} ${it.page}${it.similarity != null ? ` · ${Math.round(it.similarity * 100)}% ${L("similar to the old text", "ähnlich zum alten Text")}` : ""}</span><h3>${esc(it.title)}</h3></div><div class="row">${kindPill(it.kind)}${srcPill(it.source)}${["candidate", "skipped", "stopped", "error", "done"].includes(it.status) ? `<button class="btn sm primary" data-act="pipeGen" data-sec="${esc(it.sec)}">${ic("play")} ${it.status === "done" ? L("Run tests again", "Tests erneut ausführen") : L("Generate test cases", "Testfälle erzeugen")}</button>` : ""}</div>`;
+    hd.innerHTML = `<div class="stack" style="gap:2px"><span class="eyebrow">§${esc(it.sec)} · ${L("page", "Seite")} ${it.page}${it.similarity != null ? ` · ${Math.round(it.similarity * 100)}% ${L("similar to the old text", "ähnlich zum alten Text")}` : ""}</span><h3>${esc(it.title)}</h3></div><div class="row">${kindPill(it.kind)}${srcPill(it.source)}${it.status === "review" ? `<button class="btn sm primary" data-act="go" data-screen="changes">${ic("check")} ${L("Review this change", "Änderung prüfen")}</button>` : ""}${["candidate", "skipped", "stopped", "error", "done", "review"].includes(it.status) ? `<button class="btn sm" data-act="pipeGen" data-sec="${esc(it.sec)}">${ic("play")} ${it.status === "candidate" ? L("Extract the change", "Änderung extrahieren") : L("Extract again", "Erneut extrahieren")}</button>` : ""}</div>`;
     const evs = P.events.filter(e => e.item === it.sec);
     const live = r.live && r.live[it.sec];
     const near = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
@@ -2534,7 +2586,9 @@ const PIPE = (() => {
     const d = e.data || {}, t = `<span class="mono" style="font-weight:400">${esc((e.t || "").slice(11, 19))}</span>`;
     switch (e.type) {
       case "stage": return stepHtml(d.step === "done" ? "ok" : "", d.step === "done" ? "✓" : "⚙", `${t} ${esc({ ingest: L("ingest", "Einlesen"), plan: L("plan", "Plan"), diff: L("diff", "Diff"), select: L("select", "Auswahl"), queue: L("queue", "Warteschlange"), done: L("done", "fertig"), stop: L("stopped", "gestoppt") }[d.step] || d.step)} · ${L("deterministic", "deterministisch")}`, `<div class="cot-text">${esc(d.text)}</div>`);
-      case "item_start": return stepHtml("", "▶", `${t} ${L("start", "Start")}`, `<div class="cot-text">§${esc(d.sec)} · ${esc(d.model)}</div>`);
+      case "item_start": return stepHtml("", "▶", `${t} ${d.phase === "cases" ? L("writing test cases", "Testfälle schreiben") : d.phase === "extract" ? L("extracting the change", "Änderung extrahieren") : L("start", "Start")}`, `<div class="cot-text">§${esc(d.sec)} · ${esc(d.model)}</div>`);
+      case "decision": return stepHtml(d.decision === "approved" ? "ok" : d.decision === "declined" ? "err" : "", "👤", `${t} ${d.decision === "approved" ? L("examiner approved the spec change", "Prüfer hat die Änderung freigegeben") : d.decision === "declined" ? L("examiner declined the spec change", "Prüfer hat die Änderung abgelehnt") : L("examiner undid the decision", "Prüfer hat die Entscheidung zurückgenommen")}`, `<div class="cot-text muted">${esc(d.by || "")}</div>`);
+      case "change_edited": return stepHtml("", "✎", `${t} ${L("examiner edited the spec change", "Prüfer hat die Änderung bearbeitet")}`, `<div class="cot-text muted">${esc(d.by || "")}: ${esc((d.changes || []).join(", "))}</div>`);
       case "context": return stepHtml("", "↗", `${t} ${L("sent to the model", "an das Modell gesendet")}`, `<div class="cot-text">~${fmtN(Math.round(d.chars / 4))} ${L("tokens", "Tokens")}: §${esc((d.sent || []).join(", §"))}${d.old_version ? " + " + L("old version + word diff", "alte Fassung + Wort-Diff") : ""} · ${L("nothing else from the archive", "sonst nichts aus dem Archiv")}</div>`);
       case "thought": return stepHtml("thought", "💭", `${t} ${d.source === "model reasoning" ? L("model reasoning", "Denkprozess des Modells") : L("why", "warum") + ": " + esc((TOOL_NAME[d.source] || (() => d.source))())}`, longText(d.text));
       case "text": return stepHtml("say", "AI", `${t} ${L("AI", "KI")}`, longText(d.text, true));
@@ -2778,18 +2832,168 @@ const PIPE = (() => {
     try { const j = await api(path); A.downloadOrCopy(name, JSON.stringify(j, null, 2), "application/json"); } catch (e) { A.toast(e.message); }
   }
 
+  /* ---------- spec-change review: the examiner approves, edits or declines what the AI extracted ---------- */
+  const CT = () => ({
+    parameter: [L("A limit or number changed", "Grenzwert oder Zahl geändert"), "warn"],
+    condition: [L("A condition changed", "Eine Bedingung hat sich geändert"), "warn"],
+    formula: [L("A calculation changed", "Eine Berechnung hat sich geändert"), "bad"],
+    new_rule: [L("New rule", "Neue Regel"), "accent"],
+    removed_rule: [L("Rule removed", "Regel entfallen"), "bad"],
+    format: [L("Data format changed", "Datenformat geändert"), "info"],
+    clarification: [L("Clarification", "Klarstellung"), "info"],
+    editorial: [L("Wording only — nothing to test", "Nur redaktionell — nichts zu testen"), ""]
+  });
+  const ctPill = t => { const [label, cls] = CT()[t] || [t || "?", ""]; return pill(esc(label), cls); };
+  const human = n => { const s = String(n || "").replace(/_/g, " ").trim(); return s ? s[0].toUpperCase() + s.slice(1) : ""; };
+  const reviewItems = () => (P.run ? P.run.items : []).filter(i => i.spec_change || (i.status === "running" || i.status === "queued"));
+  const waiting = () => (P.run ? P.run.items : []).filter(i => i.status === "review" && !i.decision);
+  const approvedReady = () => (P.run ? P.run.items : []).filter(i => i.status === "review" && i.decision === "approved");
+  const chState = i => i.status === "done" ? "done" : (i.status === "queued" || i.status === "running") ? "busy" : i.decision || "waiting";
+  const chStatePill = i => ({
+    done: i.cases.length ? pill(`✓ ${L("test cases created", "Testfälle erstellt")} (${i.cases.length})`, "info") : pill("✓ " + L("nothing to test", "nichts zu testen"), ""),
+    busy: pill(i.phase === "cases" ? "◐ " + L("AI is writing test cases…", "KI schreibt Testfälle…") : "◐ " + L("AI is reading the section…", "KI liest den Abschnitt…"), "info"),
+    approved: pill("✓ " + L("approved", "freigegeben"), "ok"),
+    declined: pill("✕ " + L("declined", "abgelehnt"), "bad"),
+    waiting: pill(L("waiting for you", "wartet auf Sie"), "warn")
+  })[chState(i)];
+
+  function vChanges() {
+    if (P.online === false) return `${head(L("Review changes", "Änderungen prüfen"), "")}${docsInner()}`;
+    const intro = L("Before any test case is written, check what the AI understood. Each card is one change it found in the specification. Approve what is right, fix what is almost right, decline what is wrong — then let the AI write test cases for the approved changes.",
+      "Bevor Testfälle entstehen, prüfen Sie, was die KI verstanden hat. Jede Karte ist eine Änderung, die sie in der Spezifikation gefunden hat. Richtiges freigeben, fast Richtiges korrigieren, Falsches ablehnen — dann schreibt die KI Testfälle für die freigegebenen Änderungen.");
+    if (!P.runId || !P.run) return `${head(L("Review changes", "Änderungen prüfen"), intro, `<button class="btn primary" data-act="go" data-screen="ingest">${ic("upload")} ${L("Go to the PDF drop", "Zur PDF-Ablage")}</button>`)}<div class="empty">${P.runId ? L("Loading…", "Lade…") : L("No run yet. Drop a PDF and press “Generate test cases”.", "Noch kein Lauf. PDF ablegen und „Testfälle erzeugen“ drücken.")}</div>`;
+    const all = reviewItems();
+    const f = P.chFilter;
+    const shown = all.filter(i => f === "all" || chState(i) === f);
+    const count = s => all.filter(i => chState(i) === s).length;
+    const selectable = shown.filter(i => i.status === "review");
+    const sel = selectable.filter(i => P.chSel.has(i.sec));
+    const allSel = selectable.length > 0 && sel.length === selectable.length;
+    const nApproved = approvedReady().length;
+    const pending = (P.run.items || []).filter(i => !i.spec_change && ["error", "stopped"].includes(i.status));
+    return `${head(L("Review changes", "Änderungen prüfen"), intro,
+      `<button class="btn" data-act="go" data-screen="pipeline">${ic("ai")} ${L("AI pipeline", "KI-Pipeline")}</button><button class="btn primary" data-act="chCreate" ${nApproved && !P.chEdit ? "" : "disabled"} title="${esc(L("The AI writes test cases for every approved change", "Die KI schreibt Testfälle für jede freigegebene Änderung"))}">${ic("test")} ${L("Create test cases", "Testfälle erstellen")}${nApproved ? ` (${nApproved})` : ""}</button>`)}
+      <div class="chg-bar" role="toolbar" aria-label="${esc(L("Bulk actions", "Sammelaktionen"))}">
+        <div class="row"><label class="row" style="gap:8px;font-weight:600"><input type="checkbox" id="chSelAll" ${allSel ? "checked" : ""} ${selectable.length ? "" : "disabled"} style="width:18px;height:18px;accent-color:var(--accent)"> ${L("Select all", "Alle auswählen")}</label>
+          <span class="muted" style="font-size:var(--fs-sm)">${sel.length ? `${sel.length} ${L("selected", "ausgewählt")}` : L("tick cards to act on several at once", "Karten anhaken, um mehrere auf einmal zu bearbeiten")}</span></div>
+        <div class="row"><button class="btn ok" data-act="chBulk" data-d="approved" ${sel.length ? "" : "disabled"}>✓ ${L("Approve selected", "Auswahl freigeben")}</button><button class="btn bad" data-act="chBulk" data-d="declined" ${sel.length ? "" : "disabled"}>✕ ${L("Decline selected", "Auswahl ablehnen")}</button><button class="btn ghost" data-act="chBulk" data-d="" ${sel.length ? "" : "disabled"}>↺ ${L("Undo decision", "Entscheidung zurücknehmen")}</button></div>
+      </div>
+      <div class="tabs" role="tablist">${[["all", L("All", "Alle"), all.length], ["waiting", L("Waiting for you", "Wartet auf Sie"), count("waiting")], ["approved", L("Approved", "Freigegeben"), count("approved")], ["declined", L("Declined", "Abgelehnt"), count("declined")], ["done", L("Test cases created", "Testfälle erstellt"), count("done")]].map(([k, t, n]) => `<button class="tab" role="tab" aria-selected="${f === k}" data-act="chFilter" data-f="${k}">${t} <span class="muted">${n}</span></button>`).join("")}</div>
+      <div class="chg-list">${shown.length ? shown.map(chCard).join("") : `<div class="empty">${all.length ? L("Nothing in this filter.", "Nichts in diesem Filter.") : P.run.status === "running" ? L("The AI is reading the sections. Changes appear here as soon as they are extracted.", "Die KI liest die Abschnitte. Änderungen erscheinen hier, sobald sie extrahiert sind.") : L("No changes were extracted in this run.", "In diesem Lauf wurden keine Änderungen extrahiert.")}</div>`}
+        ${pending.length && f === "all" ? pending.map(i => `<div class="chg-pending">✕ <div style="flex:1"><b>§${esc(i.sec)} ${esc(i.title)}</b><br>${L("The AI could not extract a change for this section.", "Die KI konnte für diesen Abschnitt keine Änderung extrahieren.")}</div><button class="btn sm" data-act="pipeGen" data-sec="${esc(i.sec)}">↻ ${L("Try again", "Erneut versuchen")}</button></div>`).join("") : ""}</div>`;
+  }
+
+  function chCard(i) {
+    const st = chState(i), sc = i.spec_change || {};
+    if (st === "busy" && !i.spec_change) return `<div class="chg-pending"><span class="st running">◐</span><div><b>§${esc(i.sec)} ${esc(i.title)}</b><br>${L("The AI is reading this section…", "Die KI liest diesen Abschnitt…")}</div></div>`;
+    if (P.chEdit === i.sec) return chEditCard(i);
+    const params = (sc.parameters || []).filter(p => p && p.name);
+    const checks = sc.quote_checks || [];
+    const bad = checks.filter(q => !q.ok).length;
+    const selected = P.chSel.has(i.sec) && i.status === "review";
+    return `<article class="chg-card ${st} ${selected ? "selected" : ""}" data-sec="${esc(i.sec)}">
+      <div class="chg-head">${i.status === "review" ? `<input type="checkbox" data-chsel="${esc(i.sec)}" ${selected ? "checked" : ""} aria-label="${esc(L("Select", "Auswählen") + " §" + i.sec)}">` : "<span></span>"}
+        <div style="min-width:0"><span class="eyebrow">§${esc(i.sec)} · ${L("page", "Seite")} ${esc(i.page)}${i.change_edited ? " · " + L("edited by you", "von Ihnen bearbeitet") : ""}</span><h3>${esc(i.title)}</h3></div>
+        <div>${chStatePill(i)}</div></div>
+      <div class="row" style="gap:6px">${ctPill(sc.change_type)}${sc.formula_changed ? `<span class="flag-formula">ƒ ${L("the calculation changes", "die Berechnung ändert sich")}</span>` : ""}${kindPill(i.kind)}</div>
+      ${sc.summary ? `<p class="chg-summary">${esc(sc.summary)}</p>` : ""}
+      ${sc.old_rule ? `<div class="chg-rules"><div class="chg-rule before"><span class="field-label">${L("Before", "Vorher")}</span><div>${esc(sc.old_rule)}</div></div><div class="chg-arrow" aria-hidden="true">→</div><div class="chg-rule after"><span class="field-label">${L("Now", "Jetzt")}</span><div>${esc(sc.new_rule || "")}</div></div></div>`
+        : sc.new_rule ? `<div class="chg-rules"><div class="chg-rule only"><span class="field-label">${L("The rule", "Die Regel")}</span><div>${esc(sc.new_rule)}</div></div></div>` : ""}
+      ${params.length ? `<div class="stack" style="gap:6px"><span class="field-label">${L("Numbers and limits", "Zahlen und Grenzwerte")}</span><div class="chg-params">${params.map(p => `<div class="chg-param"><b>${esc(human(p.name))}</b><span class="val">${p.old_value ? `<span class="old">${esc(p.old_value)}</span><span class="muted">→</span>` : ""}<span class="new">${esc(p.new_value || "—")}${p.unit ? " " + esc(p.unit) : ""}</span></span>${p.quote ? `<span class="q">„${esc(p.quote)}“</span>` : ""}</div>`).join("")}</div></div>` : ""}
+      ${checks.length ? `<details class="cot-more" ${bad ? "open" : ""}><summary><b>${L("Evidence from the specification", "Belege aus der Spezifikation")}</b> <span class="muted">· ${checks.length - bad}/${checks.length} ${L("found word for word", "wörtlich gefunden")}</span>${bad ? " " + pill(`${bad} ${L("not found — check", "nicht gefunden — prüfen")}`, "bad") : ""}</summary><div class="stack" style="gap:6px;margin-top:8px">${checks.map(q => `<div class="chg-quote"><span class="pill ${q.ok ? "ok" : "bad"}" title="${esc(q.ok ? L("found word for word in the spec", "wörtlich in der Spezifikation gefunden") : L("not found in the spec — the AI may have paraphrased", "nicht in der Spezifikation gefunden — die KI hat evtl. umformuliert"))}">${q.ok ? "✓" : "?"} ${q.side === "old" ? L("old text", "alter Text") : L("new text", "neuer Text")}</span><span class="de-quote">„${esc(q.quote)}“</span></div>`).join("")}</div></details>` : ""}
+      <div class="chg-actions"><div class="row">${i.status === "review"
+          ? (i.decision ? `<button class="btn ghost" data-act="chDecide" data-sec="${esc(i.sec)}" data-d="">↺ ${L("Undo", "Zurücknehmen")}</button>` : `<button class="btn ok primary" data-act="chDecide" data-sec="${esc(i.sec)}" data-d="approved">✓ ${L("Approve", "Freigeben")}</button>`)
+            + `<button class="btn" data-act="chEdit" data-sec="${esc(i.sec)}">✎ ${L("Edit", "Bearbeiten")}</button>`
+            + (i.decision === "declined" ? "" : `<button class="btn bad" data-act="chDecide" data-sec="${esc(i.sec)}" data-d="declined">✕ ${L("Decline", "Ablehnen")}</button>`)
+          : i.status === "done" ? `<button class="btn" data-act="go" data-screen="review">${ic("check")} ${L("Open the test cases", "Testfälle öffnen")}</button>` : ""}</div>
+        <details class="cot-more"><summary class="muted" style="font-size:var(--fs-xs)">${L("raw data (JSON)", "Rohdaten (JSON)")}</summary><pre class="json" style="margin-top:6px">${esc(JSON.stringify(Object.fromEntries(Object.entries(sc).filter(([k]) => !["quote_checks", "section", "title", "page", "detected_as", "source", "document", "previous_document"].includes(k))), null, 2))}</pre></details></div>
+    </article>`;
+  }
+
+  function chEditCard(i) {
+    const d = P.chDraft;
+    const prow = (p, n) => `<div class="prow"><input class="input" data-cp="${n}" data-k="name" value="${esc(p.name || "")}" placeholder="${esc(L("e.g. gap months", "z. B. Abstand Monate"))}" aria-label="${esc(L("Name", "Name"))}"><input class="input" data-cp="${n}" data-k="old_value" value="${esc(p.old_value || "")}" placeholder="${esc(L("before", "vorher"))}" aria-label="${esc(L("Before", "Vorher"))}"><input class="input" data-cp="${n}" data-k="new_value" value="${esc(p.new_value || "")}" placeholder="${esc(L("now", "jetzt"))}" aria-label="${esc(L("Now", "Jetzt"))}"><input class="input" data-cp="${n}" data-k="unit" value="${esc(p.unit || "")}" placeholder="${esc(L("unit", "Einheit"))}" aria-label="${esc(L("Unit", "Einheit"))}"><button class="btn ghost sm" data-act="chDelParam" data-n="${n}" title="${esc(L("Remove", "Entfernen"))}">✕</button></div>`;
+    return `<article class="chg-card selected" data-sec="${esc(i.sec)}">
+      <div class="chg-head"><span></span><div style="min-width:0"><span class="eyebrow">§${esc(i.sec)} · ${L("editing", "bearbeiten")}</span><h3>${esc(i.title)}</h3></div><div>${pill("✎ " + L("editing", "Bearbeitung"), "info")}</div></div>
+      <div class="chg-edit">
+        <label class="stack" style="gap:4px"><span class="field-label">${L("What kind of change is it?", "Welche Art von Änderung?")}</span><select class="select" id="chType">${Object.entries(CT()).map(([k, [label]]) => `<option value="${k}" ${d.change_type === k ? "selected" : ""}>${esc(label)}</option>`).join("")}</select></label>
+        <label class="stack" style="gap:4px"><span class="field-label">${L("In one or two sentences", "In ein, zwei Sätzen")}</span><textarea class="textarea" id="chSummary">${esc(d.summary || "")}</textarea></label>
+        <div class="grid-2"><label class="stack" style="gap:4px"><span class="field-label">${L("The rule before", "Die Regel vorher")}</span><textarea class="textarea" id="chOld">${esc(d.old_rule || "")}</textarea></label>
+          <label class="stack" style="gap:4px"><span class="field-label">${L("The rule now", "Die Regel jetzt")}</span><textarea class="textarea" id="chNew">${esc(d.new_rule || "")}</textarea></label></div>
+        <div class="stack" style="gap:6px"><span class="field-label">${L("Numbers and limits", "Zahlen und Grenzwerte")}</span>
+          <div class="prow headrow"><span>${L("Name", "Name")}</span><span>${L("Before", "Vorher")}</span><span>${L("Now", "Jetzt")}</span><span>${L("Unit", "Einheit")}</span><span></span></div>
+          <div id="chParams" class="stack" style="gap:6px">${d.parameters.map(prow).join("")}</div>
+          <div><button class="btn sm" data-act="chAddParam">+ ${L("Add a number", "Zahl hinzufügen")}</button></div></div>
+        <div class="grid-2"><label class="stack" style="gap:4px"><span class="field-label">${L("Evidence from the new text (one sentence per line, copied exactly)", "Belege aus dem neuen Text (ein Satz je Zeile, exakt kopiert)")}</span><textarea class="textarea" id="chQNew">${esc((d.quotes_new || []).join("\n"))}</textarea></label>
+          <label class="stack" style="gap:4px"><span class="field-label">${L("Evidence from the old text", "Belege aus dem alten Text")}</span><textarea class="textarea" id="chQOld">${esc((d.quotes_old || []).join("\n"))}</textarea></label></div>
+        <label class="row" style="gap:8px"><input type="checkbox" id="chFormula" ${d.formula_changed ? "checked" : ""}> ${L("The way a value is calculated changes", "Die Berechnung eines Wertes ändert sich")}</label>
+      </div>
+      <div class="chg-actions"><span class="muted" style="font-size:var(--fs-xs)">${L("Evidence is re-checked against the specification when you save.", "Belege werden beim Speichern erneut gegen die Spezifikation geprüft.")}</span>
+        <div class="row"><button class="btn ghost" data-act="chCancel">${L("Cancel", "Abbrechen")}</button><button class="btn" data-act="chSave">${L("Save", "Speichern")}</button><button class="btn ok primary" data-act="chSave" data-approve="1">✓ ${L("Save and approve", "Speichern und freigeben")}</button></div></div>
+    </article>`;
+  }
+  function readChDraft() {
+    const d = P.chDraft, g = id => document.getElementById(id);
+    if (!d) return;
+    d.change_type = g("chType").value; d.summary = g("chSummary").value; d.old_rule = g("chOld").value; d.new_rule = g("chNew").value;
+    const lines = id => g(id).value.split("\n").map(s => s.trim()).filter(Boolean);
+    d.quotes_new = lines("chQNew"); d.quotes_old = lines("chQOld"); d.formula_changed = g("chFormula").checked;
+    document.querySelectorAll("[data-cp]").forEach(inp => { d.parameters[Number(inp.dataset.cp)][inp.dataset.k] = inp.value; });
+  }
+  function paintChanges() { if (onScreen("changes") && !P.chEdit && !editing()) rerender(); else A.renderShell(); }
+  async function decide(secs, decision) {
+    try {
+      await api(`/api/runs/${encodeURIComponent(P.runId)}/decide`, { body: { secs, decision: decision || null } });
+      A.log("examiner", decision === "approved" ? L("Spec change approved", "Änderung freigegeben") : decision === "declined" ? L("Spec change declined", "Änderung abgelehnt") : L("Decision undone", "Entscheidung zurückgenommen"), secs.map(s => "§" + s).join(", "));
+      await pollRun(true); rerender();
+    } catch (e) { A.toast(e.message); }
+  }
+
   /* ---------- screens, actions, events ---------- */
   const at = id => A.SCREENS.findIndex(s => s.id === id);
   A.SCREENS.splice(at("ingest") + 1, 0, { id: "pipeline", group: "spec", step: null, icon: "ai", roles: ["itsg"], t: () => L("AI test pipeline", "KI-Testpipeline"),
     badge: () => P.run && P.run.status === "running" ? { n: "●", hot: true } : null });
+  A.SCREENS.splice(at("pipeline") + 1, 0, { id: "changes", group: "spec", step: null, icon: "check", roles: ["itsg"], t: () => L("Review changes", "Änderungen prüfen"),
+    badge: () => { const n = waiting().length; return n ? { n, hot: true } : null; } });
   A.SCREENS.splice(at("tests") + 1, 0, { id: "review", group: "tests", step: null, icon: "check", roles: ["itsg"], t: () => L("Test-case review", "Testfall-Prüfung"),
     badge: () => { const n = P.cases.filter(c => c.status === "draft").length; return n ? { n, hot: true } : null; } });
   A.SCREENS.push({ id: "devinbox", group: "dev", step: null, icon: "inbox", roles: ["dev"], t: () => L("Test cases from ITSG", "Testfälle von ITSG"),
     badge: () => { const n = P.inbox.filter(t => !P.seenInbox.includes(t.id)).length; return n ? { n, hot: true } : null; } });
   A.GROUPS.dev = () => L("Developer", "Entwicklung");
-  Object.assign(A.RENDER, { pipeline: vPipeline, review: vReview, devinbox: vDevInbox });
+  Object.assign(A.RENDER, { pipeline: vPipeline, changes: vChanges, review: vReview, devinbox: vDevInbox });
 
   Object.assign(A.ACT, {
+    chFilter: el => { P.chFilter = el.dataset.f; rerender(); },
+    chDecide: el => decide([el.dataset.sec], el.dataset.d),
+    chBulk: el => { const secs = [...P.chSel].filter(s => (P.run.items.find(i => i.sec === s) || {}).status === "review"); if (secs.length) decide(secs, el.dataset.d); },
+    chEdit: el => { const it = P.run.items.find(i => i.sec === el.dataset.sec); if (!it) return; const sc = it.spec_change || {};
+      P.chEdit = it.sec; P.chDraft = JSON.parse(JSON.stringify({ change_type: sc.change_type || "parameter", summary: sc.summary || "", old_rule: sc.old_rule || "", new_rule: sc.new_rule || "",
+        parameters: (sc.parameters || []).filter(p => p && typeof p === "object"), quotes_new: sc.quotes_new || [], quotes_old: sc.quotes_old || [], formula_changed: !!sc.formula_changed }));
+      rerender(); const t = document.getElementById("chSummary"); if (t) t.focus(); },
+    chCancel: () => { P.chEdit = null; P.chDraft = null; rerender(); },
+    chAddParam: () => { readChDraft(); P.chDraft.parameters.push({ name: "", old_value: "", new_value: "", unit: "" }); rerender(); },
+    chDelParam: el => { readChDraft(); P.chDraft.parameters.splice(Number(el.dataset.n), 1); rerender(); },
+    chSave: async el => {
+      readChDraft();
+      const sec = P.chEdit, approve = !!el.dataset.approve;
+      try {
+        const r = await api(`/api/runs/${encodeURIComponent(P.runId)}/items/${encodeURIComponent(sec)}/change`, { method: "PATCH", body: { ...P.chDraft, approve } });
+        const bad = (r.spec_change.quote_checks || []).filter(q => !q.ok).length;
+        A.toast((r.changes.length ? L("Saved", "Gespeichert") : L("No changes", "Keine Änderungen")) + (approve ? " · " + L("approved", "freigegeben") : "") + (bad ? ` · ${bad} ${L("quote(s) not found in the spec", "Zitat(e) nicht in der Spezifikation gefunden")}` : ""));
+        if (r.changes.length) A.log("examiner", L("Spec change edited", "Änderung bearbeitet"), `§${sec}: ${r.changes.join(", ")}`);
+        P.chEdit = null; P.chDraft = null; await pollRun(true); rerender();
+      } catch (e) { A.toast(e.message); }
+    },
+    chCreate: async () => {
+      const secs = approvedReady().map(i => i.sec);
+      if (!secs.length) return;
+      try {
+        const r = await api(`/api/runs/${encodeURIComponent(P.runId)}/cases`, { body: { secs } });
+        A.log("examiner", L("Test cases requested", "Testfälle angefordert"), r.queued.map(s => "§" + s).join(", "));
+        A.toast(`${L("The AI is writing test cases for", "Die KI schreibt Testfälle für")} ${r.queued.length} ${L("approved change(s)", "freigegebene Änderung(en)")}`);
+        P.chSel.clear(); if (P.run) P.run.status = "running"; await pollRun(true); rerender();
+      } catch (e) { A.toast(e.message); }
+    },
     pipeStart: () => startRun(),
     pipeStop: async () => { try { await api(`/api/runs/${encodeURIComponent(P.runId)}/stop`, { body: {} }); pollRun(true); } catch (e) { A.toast(e.message); } },
     pipeSelItem: (el, e) => { if (e && e.target.closest('[data-act="pipeGen"]')) return; P.selItem = el.dataset.sec; P.follow = false; paintRun(false); },
@@ -2849,7 +3053,9 @@ const PIPE = (() => {
   document.addEventListener("change", e => {
     const t = e.target;
     const parse = v => { if (!v) return null; const i = v.indexOf(":"); return { kind: v.slice(0, i), name: v.slice(i + 1) }; };
-    if (t.id === "pipeAsLaw") P.uploadTarget = t.checked ? "law_file" : "upload";
+    if (t.id === "chSelAll") { const f = P.chFilter; (P.run ? P.run.items : []).filter(i => i.status === "review" && (f === "all" || chState(i) === f)).forEach(i => t.checked ? P.chSel.add(i.sec) : P.chSel.delete(i.sec)); rerender(); }
+    else if (t.dataset && t.dataset.chsel) { if (t.checked) P.chSel.add(t.dataset.chsel); else P.chSel.delete(t.dataset.chsel); rerender(); }
+    else if (t.id === "pipeAsLaw") P.uploadTarget = t.checked ? "law_file" : "upload";
     else if (t.id === "pipeNew") { P.choice = { new: parse(t.value), old: undefined }; store.set("pipeChoice", P.choice); refreshPlan(); }
     else if (t.id === "pipeOld") { P.choice.old = t.value === "" ? undefined : t.value === "-" ? null : parse(t.value); store.set("pipeChoice", P.choice); refreshPlan(); }
     else if (t.id === "pipeMax") { P.maxItems = Math.max(1, Math.min(20, Number(t.value) || 4)); store.set("pipeMax", P.maxItems); }

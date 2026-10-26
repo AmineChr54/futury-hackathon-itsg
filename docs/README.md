@@ -28,5 +28,6 @@ A working prototype is optional but strongly encouraged.
 | [04-example-test-case-dbvo.md](04-example-test-case-dbvo.md) | The one fully worked reference test case (prior-illness request) |
 | [05-data-format.md](05-data-format.md) | The fixed-width DTA EEL file format, with an annotated sample file |
 | [06-solution-concept.md](06-solution-concept.md) | Proposed architecture, MVP scope, open questions |
+| [07-itsg-meeting-notes.md](07-itsg-meeting-notes.md) | What the ITSG team told us: how testing works today, constraints, what to focus on |
 
 Source files live in `hackathon-files/`.

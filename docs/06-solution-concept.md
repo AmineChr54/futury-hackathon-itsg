@@ -9,6 +9,19 @@ An auditor can't sign off on "the AI thinks it's fine." The assistant should use
 actual output files should then be **deterministic and reproducible**, with every verdict traceable
 back to a spec paragraph. This is what earns the jury's "more than a dashboard" and "depth" points.
 
+## What ITSG told us changes the focus
+
+See [07-itsg-meeting-notes.md](07-itsg-meeting-notes.md). In short:
+
+- **The pain is test-case creation and maintenance.** That's ~3,000 cases by hand, adapted every
+  half year to spec changes. Checking messages is already partly automated by their testing device.
+- **Zero failure tolerance.** One wrong cent fails the software.
+- **Vendors may fit their answers** to the known monthly test solutions.
+- **UI automation of 100 programs is not realistic.** Use the message channel instead.
+
+So the centre of gravity moves **left in the pipeline**, onto spec → criteria → test cases and
+spec change → affected test cases. Validation stays, but as a supporting piece.
+
 ## Pipeline
 
 ```
@@ -47,23 +60,53 @@ back to a spec paragraph. This is what earns the jury's "more than a dashboard" 
    actual → verdict → spec citation, plus the software's PRODUKT-IDENTIFIER and version. Exportable
    for the ITSG review.
 
+### Cross-cutting pieces (from the ITSG conversation)
+
+- **Spec change → impact.** Given a new spec version, diff it against the old one. Use the
+  Verfahrensbeschreibung's change log (*Änderungsübersicht*) plus a text diff per section to get:
+  changed sections → affected criteria → affected test cases → regenerated cases. A human reviews
+  only the delta.
+- **Zero-tolerance safeguards.**
+  - The LLM never computes expected values; deterministic code does.
+  - Run two independent extractions (e.g. two models or two prompts) of each rule, and send any
+    disagreement to a human.
+  - A human approves each rule once.
+  - Each generated test case is replayed through the oracle, so it is consistent by construction.
+- **Fresh variants against gaming.** Each criterion is a parameterised template. Every cycle (or
+  every vendor) gets new concrete data, e.g. other AU dates or other gap lengths, still at the
+  boundaries. The expected result is recomputed each time, so vendors can't fit outputs to answers
+  they've never seen.
+- **Coverage matrix.** Every spec clause is mapped to its criteria and their test cases, with
+  uncovered clauses flagged. This gives evidence for "100% covered".
+
 ## MVP for the hackathon (vertical slice)
 
 Build one complete slice end to end, using **DBVO / Abgabegrund 41**:
 
-- [ ] Parser for DSLW + DBVO (+ DBNA, DBID), with the sample file parsing correctly
-- [ ] The 4 DBVO criteria encoded as executable checks, linked to their UUIDs and §3.12
-- [ ] Test-case generator: positive, negative and boundary scenarios plus expected DBVO output
-- [ ] Synthetic "broken" files (wrong order, missing period, insurer field filled, gap > 6 months…)
-      to show the validator catching errors
-- [ ] LLM demo: feed §3.12 → produce criteria → compare with ITSG's 4 criteria (shows the extraction
-      generalises)
-- [ ] Report view (web UI) with pass/fail, field-level diff and spec citations
+In priority order, re-weighted after the ITSG conversation:
+
+- [ ] **LLM extraction:** feed §3.12 → produce criteria → compare with ITSG's 4 criteria (shows the
+      extraction generalises)
+- [ ] **The 4 DBVO criteria** encoded as executable checks, linked to their UUIDs and §3.12
+- [ ] **Test-case generator:** positive, negative and boundary scenarios plus expected DBVO output,
+      computed by the deterministic oracle
+- [ ] **Fresh-variant mode:** the same criteria regenerated with new data, to show the anti-gaming
+      idea
+- [ ] **Spec-change demo:** use the v13.4 change log (e.g. its §3.12 DBVO entry) to show "this
+      section changed → these criteria and test cases are affected → here are the updated cases"
+- [ ] **Parser and validator** for DSLW + DBVO (+ DBNA, DBID), with the sample file passing and
+      synthetic broken files failing (wrong order, missing period, insurer field filled,
+      gap > 6 months…)
+- [ ] **Report and coverage view** (web UI): clause → criteria → tests, pass/fail, field-level diff,
+      citations
 - [ ] Stretch: the message-sequence check (61 / 88 / 01 / 62 chain) and a second area (e.g.
       Abgabegrund 03, maternity benefit)
 
 ## Pitch angles (USP)
 
+- **From spec change to updated tests in hours, not weeks:** this directly addresses the
+  "specs in December, effective 1 January" crunch.
+- **Can't be gamed:** fresh variants each cycle mean vendors can't fit their outputs to known answers.
 - **Trustworthy:** deterministic verdicts and citations to the exact paragraph, so it's audit-grade.
 - **Spec-change resilient:** a new spec version means re-running the extraction and diffing the
   criteria catalogue, which shows which tests are affected.

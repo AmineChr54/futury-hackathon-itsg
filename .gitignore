@@ -7,3 +7,7 @@ hackathon-files/General - Futury/
 
 # Python
 __pycache__/
+
+# Pipeline secrets and local data
+.env
+pipeline/data/

@@ -318,6 +318,67 @@ mark.hl.flash { animation: flash 1.2s ease-out 2; }
 .drop { border: 2px dashed var(--line-strong); border-radius: var(--r-lg); padding: var(--s-5); display: grid; gap: 8px; place-items: center; text-align: center; color: var(--muted); font-size: var(--fs-sm); cursor: pointer; background: var(--surface-2); }
 .drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--fg); }
 
+/* ---------- AI test pipeline ---------- */
+.drop-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, auto); gap: var(--s-3); align-items: stretch; }
+.test-btn { flex-direction: column; justify-content: center; gap: 6px; padding: var(--s-3) var(--s-4); white-space: normal; text-align: center; min-height: 100%; }
+.test-btn .icon { width: 22px; height: 22px; }
+.test-btn small { font-weight: 400; font-size: var(--fs-xs); opacity: .85; max-width: 18ch; }
+.doc-list { display: grid; gap: 4px; font-size: var(--fs-sm); }
+.doc-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.doc-row .name { overflow-wrap: anywhere; }
+.plan { display: grid; gap: 6px; font-size: var(--fs-sm); }
+.plan-pair { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-weight: 600; }
+.cot { display: grid; gap: 10px; min-width: 0; }
+.cot-step { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 10px; align-items: start; font-size: var(--fs-sm); min-width: 0; }
+.cot-ic { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 700 11px/1 var(--font-mono); background: var(--surface-3); color: var(--fg-2); }
+.cot-step.thought .cot-ic { background: var(--info-soft); color: var(--info); }
+.cot-step.say .cot-ic { background: var(--info); color: var(--surface); }
+.cot-step.term .cot-ic { background: var(--fg); color: var(--surface); }
+.cot-step.spec .cot-ic, .cot-step.case .cot-ic { background: var(--accent); color: var(--accent-ink); }
+.cot-step.err .cot-ic { background: var(--bad); color: var(--surface); }
+.cot-step.ok .cot-ic { background: var(--ok); color: var(--surface); }
+.cot-body { display: grid; gap: 6px; min-width: 0; }
+.cot-title { font: 600 var(--fs-xs)/1.4 var(--font-body); color: var(--muted); text-transform: uppercase; letter-spacing: .04em; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.cot-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.55; }
+.cot-text.live { border: 1px dashed var(--info); border-radius: var(--r-md); padding: 8px 10px; background: var(--info-soft); max-height: 260px; overflow: auto; }
+details.cot-more summary { cursor: pointer; color: var(--fg-2); }
+details.cot-more summary::marker { color: var(--accent); }
+.term { background: #15171c; color: #e7e9ee; border-radius: var(--r-md); overflow: hidden; font: 400 12.5px/1.5 var(--font-mono); border: 1px solid #2a2e36; }
+.term-head { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; background: #20242b; color: #9aa3b2; font-size: 11.5px; }
+.term pre { margin: 0; padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 340px; overflow: auto; }
+.term .term-code { color: #b8d4ff; border-bottom: 1px solid #2a2e36; }
+.term .term-out { color: #c8f0d0; }
+.term .term-out.err { color: #ffb4ab; }
+.json { font: 400 12px/1.5 var(--font-mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 380px; overflow: auto; margin: 0; }
+.tc-card { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: var(--r-md); padding: 10px 12px; display: grid; gap: 6px; background: var(--surface); }
+.tc-card.changed { border-left-color: var(--warn); }
+.gmini { display: flex; gap: 4px; flex-wrap: wrap; }
+.gmini span { font: 600 10.5px/1.6 var(--font-mono); padding: 0 6px; border-radius: 4px; background: var(--surface-3); }
+.gmini .ok { background: var(--ok-soft); color: var(--ok); } .gmini .warn { background: var(--warn-soft); color: var(--warn); } .gmini .fail { background: var(--bad-soft); color: var(--bad); }
+.item-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.st { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font: 700 11px/1 var(--font-mono); background: var(--surface-3); color: var(--muted); }
+.st.running { background: var(--info); color: var(--surface); animation: pulse 1s infinite; }
+.st.done { background: var(--ok); color: var(--surface); } .st.error { background: var(--bad); color: var(--surface); }
+.flag-formula { display: inline-flex; gap: 4px; align-items: center; background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); border-radius: 999px; padding: 1px 8px; font: 700 11px/1.5 var(--font-body); }
+.formula-box { display: grid; gap: var(--s-3); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--s-4); background: var(--surface-2); }
+.formula-box.changed { border: 2px solid var(--warn); background: var(--warn-soft); }
+.formula-input { font: 500 14px/1.5 var(--font-mono); min-height: 64px; }
+.formula-view { font: 500 13.5px/1.9 var(--font-mono); overflow-wrap: anywhere; }
+.formula-view .v { background: var(--hl-param); border-bottom: 2px solid var(--hl-param-line); border-radius: 3px; padding: 0 3px; cursor: help; }
+.formula-view .f { color: var(--info); font-weight: 600; }
+.formula-old { font: 400 12.5px/1.6 var(--font-mono); color: var(--muted); text-decoration: line-through; overflow-wrap: anywhere; }
+.result-big { font: 700 var(--fs-xl)/1.1 var(--font-mono); }
+.var-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.var-table th { text-align: left; font: 600 var(--fs-xs)/1.3 var(--font-body); color: var(--muted); padding: 4px 6px; text-transform: uppercase; letter-spacing: .04em; }
+.var-table td { padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+.var-table input, .var-table select { width: 100%; border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--r-sm); padding: 5px 7px; font: 500 13px var(--font-mono); }
+.var-table select { min-width: 92px; }
+.var-table tr.spec-param td:first-child { border-left: 3px solid var(--hl-param-line); }
+.var-name { font: 600 13px var(--font-mono); }
+.trace { font: 400 12px/1.7 var(--font-mono); color: var(--fg-2); }
+.chk { display: inline-flex; align-items: center; }
+@media (max-width: 560px) { .drop-row { grid-template-columns: minmax(0, 1fr); } }
+
 /* ---------- modal ---------- */
 .modal-scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 80; display: grid; place-items: center; padding: 16px; }
 .modal { background: var(--surface); border-radius: var(--r-lg); width: min(560px, 100%); max-height: calc(100% - 32px); overflow: auto; box-shadow: var(--shadow); display: grid; }
@@ -395,6 +456,7 @@ mark.hl.flash { animation: flash 1.2s ease-out 2; }
     <div class="seg" role="group" aria-label="Role" id="roleSeg"></div>
     <div class="seg" role="group" aria-label="Language" id="langSeg"></div>
     <button class="btn ghost sm hide-sm" id="themeBtn" type="button"></button>
+    <button class="btn ghost sm" id="userBtn" type="button" data-act="pipeUser"></button>
     <button class="btn ghost sm hide-sm" id="aiBtn" type="button"></button>
     <button class="btn primary sm" id="demoBtn" type="button"></button>
   </div>
@@ -1453,8 +1515,8 @@ const APP = (() => {
     return `${head(L("Inputs & archive", "Eingaben & Archiv"), L("The only external input is the yearly set of government PDFs. Everything else is our own archive: last year's spec, the test catalogue, last year's audit reports.", "Die einzige externe Eingabe sind die jährlichen PDFs. Alles andere ist unser eigenes Archiv: Vorjahresspezifikation, Testkatalog, Prüfberichte des Vorjahres."))}
       <div class="grid-2">
         <section class="panel" data-tour="drop"><div class="panel-head"><h3>${L("Add new specification PDFs", "Neue Spezifikations-PDFs hinzufügen")}</h3>${pill(L("parsed in your browser", "im Browser verarbeitet"), "info")}</div>
-          <div class="panel-body"><div class="drop" id="pdfDrop" data-act="pickPdf" role="button" tabindex="0">${ic("upload")}<b>${L("Drop a spec PDF here or click to choose", "Spezifikations-PDF hier ablegen oder klicken")}</b><span>${L("Builds the § index from numbered headings and counts internal links. Uses pdf.js from a CDN; the rest of the demo works offline.", "Baut den §-Index aus nummerierten Überschriften und zählt interne Links. Nutzt pdf.js vom CDN; der Rest der Demo funktioniert offline.")}</span></div>
-          <div id="pdfStatus"></div>
+          <div class="panel-body"><div class="drop-row"><div class="drop" id="pdfDrop" data-act="pickPdf" role="button" tabindex="0">${ic("upload")}<b>${L("Drop a spec PDF here or click to choose", "Spezifikations-PDF hier ablegen oder klicken")}</b><span>${L("Builds the § index from numbered headings and counts internal links. Uses pdf.js from a CDN; the rest of the demo works offline.", "Baut den §-Index aus nummerierten Überschriften und zählt interne Links. Nutzt pdf.js vom CDN; der Rest der Demo funktioniert offline.")}</span></div>${window.PIPE ? PIPE.testButton() : ""}</div>
+          <div id="pdfStatus"></div>${window.PIPE ? PIPE.docsBlock() : ""}
           <div class="callout"><b>${L("Why retrieval is error-free here", "Warum die Suche hier fehlerfrei ist")}</b>${L("The spec is a well-structured PDF: numbered sections (3.12.7 …), a table of contents with page numbers and 3,528 internal hyperlinks. The index is built from that structure — no fuzzy similarity search. A retrieved span must start with its expected heading, otherwise it is flagged.", "Die Spezifikation ist ein gut strukturiertes PDF: nummerierte Abschnitte (3.12.7 …), Inhaltsverzeichnis mit Seiten und 3.528 interne Links. Der Index entsteht aus dieser Struktur — keine unscharfe Ähnlichkeitssuche. Ein gefundener Abschnitt muss mit der erwarteten Überschrift beginnen, sonst wird er markiert.")}</div></div></section>
         <section class="panel" data-tour="context"><div class="panel-head"><h3>${L("Context discipline", "Kontextdisziplin")}</h3>${pill(L("anti-hallucination", "gegen Halluzination"), "ok")}</div>
           <div class="panel-body"><p class="muted" style="font-size:var(--fs-sm)">${L("The archive is never sent to the model in bulk. One call gets one § section, its directly linked sections, and the old version of that section — nothing else.", "Das Archiv geht nie komplett an das Modell. Ein Aufruf erhält einen §-Abschnitt, die direkt verlinkten Abschnitte und die alte Fassung dieses Abschnitts — sonst nichts.")}</p>
@@ -1823,14 +1885,15 @@ const APP = (() => {
     if (S.theme === "system") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", S.theme);
     $("#brandName").textContent = PRODUCT_NAME;
     $("#brandSub").textContent = L("AI-assisted system review · DTA EEL", "KI-gestützte Systemuntersuchung · DTA EEL");
-    $("#roleSeg").innerHTML = `<button aria-pressed="${S.role === "itsg"}" data-act="role" data-v="itsg">ITSG</button><button aria-pressed="${S.role === "vendor"}" data-act="role" data-v="vendor">${L("Vendor", "Hersteller")}</button>`;
+    $("#roleSeg").innerHTML = `<button aria-pressed="${S.role === "itsg"}" data-act="role" data-v="itsg">ITSG</button><button aria-pressed="${S.role === "vendor"}" data-act="role" data-v="vendor">${L("Vendor", "Hersteller")}</button><button aria-pressed="${S.role === "dev"}" data-act="role" data-v="dev">${L("Developer", "Entwickler")}</button>`;
+    if (window.PIPE) PIPE.shell();
     $("#langSeg").innerHTML = `<button aria-pressed="${S.lang === "en"}" data-act="lang" data-v="en">EN</button><button aria-pressed="${S.lang === "de"}" data-act="lang" data-v="de">DE</button>`;
     $("#themeBtn").innerHTML = `${ic("sun")}<span class="sr">${L("Theme", "Design")}</span>`;
     $("#themeBtn").title = L("Switch light / dark", "Hell / dunkel wechseln");
     $("#aiBtn").innerHTML = `${ic("gear")} ${S.ai.mode === "live" ? "Live" : L("Recorded AI", "Aufgezeichnete KI")}`;
     $("#demoBtn").innerHTML = `${ic("play")} ${L("Demo", "Demo")}`;
     const visible = SCREENS.filter(s => s.roles.includes(S.role));
-    if (!visible.some(s => s.id === S.screen)) S.screen = "overview";
+    if (!visible.some(s => s.id === S.screen)) S.screen = visible[0].id;
     const groups = {};
     visible.forEach(s => (groups[s.group] = groups[s.group] || []).push(s));
     $("#rail").innerHTML = Object.entries(groups).map(([g, list]) => `<div class="rail-group">${GROUPS[g]() ? `<div class="rail-label eyebrow">${GROUPS[g]()}</div>` : ""}${list.map(s => { const b = s.badge && s.badge(); return `<button class="nav-btn" data-act="go" data-screen="${s.id}" ${S.screen === s.id ? 'aria-current="page"' : ""}><span class="nav-step">${s.step || `<svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="${ICON[s.icon]}"/></svg>`}</span><span>${s.t()}</span>${b ? `<span class="nav-badge ${b.hot ? "hot" : ""}">${b.n}</span>` : ""}</button>`; }).join("")}</div>`).join("");
@@ -1838,6 +1901,7 @@ const APP = (() => {
   function render() {
     renderShell();
     $("#view").innerHTML = RENDER[S.screen]();
+    if (window.PIPE) PIPE.afterRender();
     const f = document.getElementById("flashQuote");
     if (f) { f.scrollIntoView({ block: "center", behavior: "smooth" }); S.flashQuote = null; }
   }
@@ -1901,6 +1965,7 @@ const APP = (() => {
     });
   }
   async function ingestPdf(file) {
+    if (window.PIPE) PIPE.upload(file); // the pipeline server keeps its own copy for diffing and test generation
     const status = $("#pdfStatus");
     const say = h => { if (status) status.innerHTML = h; };
     say(`<div class="callout">${L("Loading pdf.js…", "Lade pdf.js…")}</div>`);
@@ -1950,7 +2015,7 @@ const APP = (() => {
 
   const ACT = {
     go: el => go(el.dataset.screen),
-    role: el => { S.role = el.dataset.v; store.set("role", S.role); if (S.role === "vendor") S.sample = S.sample || "teel0"; render(); },
+    role: el => { S.role = el.dataset.v; store.set("role", S.role); if (S.role === "vendor") S.sample = S.sample || "teel0"; render(); if (window.PIPE) PIPE.onRole(); },
     lang: el => { S.lang = el.dataset.v; store.set("lang", S.lang); render(); if (window.TOUR) TOUR.refresh(); },
     tour: () => window.TOUR && TOUR.start(),
     prov: el => openProv(el.dataset.key),
@@ -2040,7 +2105,8 @@ const APP = (() => {
     render();
   }
 
-  return { S, C, render, go, openProv, closeDrawer, ACT, L, T, log, init, IS_PRESENTER, FRAMED, animateExtraction, toast };
+  return { S, C, render, renderShell, go, openProv, closeDrawer, ACT, L, T, log, init, IS_PRESENTER, FRAMED, animateExtraction, toast,
+    SCREENS, RENDER, GROUPS, ICON, ic, esc, pill, head, modal, store, copyText, downloadOrCopy };
 })();
 
 /* ===================================================================================
@@ -2214,8 +2280,569 @@ const TOUR = (() => {
   }
   return { start, end, refresh, spot, init, STEPS };
 })();
+/* ===================================================================================
+   PIPELINE — AI test-case pipeline, examiner review and the developer inbox.
+   Talks to the local server (pipeline/server.py). Served by it: same origin.
+   Opened as a file: http://localhost:8787. Without the server these screens say so;
+   the rest of the demo keeps working offline.
+   =================================================================================== */
+const PIPE = (() => {
+  "use strict";
+  const A = APP, S = A.S, L = A.L, esc = A.esc, pill = A.pill, ic = A.ic, head = A.head, store = A.store;
+  const API = location.protocol.startsWith("http") ? "" : "http://localhost:8787";
+  const P = {
+    online: null, status: null, docs: null, plan: null, planErr: null, planBusy: false,
+    choice: store.get("pipeChoice", { new: null, old: undefined }), maxItems: store.get("pipeMax", 4),
+    model: store.get("pipeModel", ""), uploadTarget: "upload", uploading: null,
+    runId: store.get("pipeRun", null), run: null, events: [], after: 0, selItem: null, follow: true,
+    cases: [], caseFilter: "all", selCase: null, caseDetail: null, sel: new Set(), draft: null, preview: null,
+    users: [], user: store.get("user", ""), inbox: [], selInbox: null, inboxDetail: null, devVars: null, devPreview: null, seenInbox: store.get("seenInbox", [])
+  };
+  const fmtN = n => Number(n).toLocaleString(S.lang === "de" ? "de-DE" : "en-GB");
+
+  async function api(path, opt = {}) {
+    const headers = { "X-User": encodeURIComponent(P.user || (S.role === "itsg" ? "ITSG examiner" : "anonymous")), "X-Role": S.role };
+    let body = opt.body;
+    if (body != null && !(body instanceof ArrayBuffer) && !(body instanceof Blob)) { headers["Content-Type"] = "application/json"; body = JSON.stringify(body); }
+    const r = await fetch(API + path, { method: opt.method || (body != null ? "POST" : "GET"), headers, body, cache: "no-store" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+    return j;
+  }
+  const rerender = () => A.render();
+  const onScreen = (...ids) => ids.includes(S.screen);
+
+  /* ---------- connection, documents, plan ---------- */
+  async function connect() {
+    try {
+      P.status = await api("/api/status");
+      const was = P.online; P.online = true;
+      if (!P.model) P.model = P.status.model;
+      await refreshDocs();
+      if (!was) { if (P.runId) pollRun(true); loadCases(); if (S.role === "dev") loadInbox(); rerender(); }
+    } catch (e) {
+      const was = P.online; P.online = false;
+      if (was !== false) rerender();
+    }
+  }
+  async function refreshDocs() {
+    P.docs = await api("/api/documents");
+    const all = [...P.docs.law_files, ...P.docs.uploads];
+    if (P.choice.new && !all.some(d => d.name === P.choice.new.name && d.kind === P.choice.new.kind)) P.choice = { new: null, old: undefined };
+    await refreshPlan();
+  }
+  async function refreshPlan() {
+    if (!P.docs || !(P.docs.law_files.length + P.docs.uploads.length)) { P.plan = null; P.planErr = null; return; }
+    P.planBusy = true; paintDocs();
+    try {
+      const body = {};
+      if (P.choice.new) body.new = P.choice.new;
+      if (P.choice.new && P.choice.old !== undefined) body.old = P.choice.old || {};
+      P.plan = await api("/api/plan", { body }); P.planErr = null;
+    } catch (e) { P.plan = null; P.planErr = e.message; }
+    P.planBusy = false; paintDocs();
+  }
+  async function upload(file) {
+    if (!P.online) { A.toast(L("Pipeline server not running — the PDF was only read in the browser", "Pipeline-Server läuft nicht — das PDF wurde nur im Browser gelesen")); return; }
+    P.uploading = file.name; paintDocs();
+    try {
+      const r = await api(`/api/upload?name=${encodeURIComponent(file.name)}&target=${P.uploadTarget}`, { body: await file.arrayBuffer() });
+      A.toast(`${file.name}: ${r.pages} ${L("pages", "Seiten")} · ${r.sections} § ${L("sections", "Abschnitte")}${r.changelog_rows ? " · " + L("change log found", "Änderungsprotokoll gefunden") : ""}`);
+      if (r.kind === "upload") P.choice = { new: null, old: undefined };
+      A.log("system", L("PDF stored for the pipeline", "PDF für die Pipeline gespeichert"), `${file.name} → ${r.kind === "law_file" ? P.docs.law_dir : "uploads"}`);
+    } catch (e) { A.toast(L("Upload failed: ", "Hochladen fehlgeschlagen: ") + e.message); }
+    P.uploading = null;
+    await refreshDocs(); rerender();
+  }
+
+  /* ---------- the test button next to the PDF drop ---------- */
+  function hasDocs() { return P.docs && (P.docs.law_files.length + P.docs.uploads.length) > 0; }
+  function testButton() {
+    const running = P.run && P.run.status === "running";
+    const ready = P.online && hasDocs() && !P.planBusy && !P.uploading;
+    const sub = !P.online ? L("start the pipeline server", "Pipeline-Server starten") : !hasDocs() ? L("drop a PDF first", "zuerst ein PDF ablegen") : running ? L("a run is in progress", "ein Lauf läuft") : P.plan ? (P.plan.mode === "diff" ? L("diff + AI", "Diff + KI") : L("single document + AI", "Einzeldokument + KI")) : L("analysing…", "analysiere…");
+    return `<button class="btn primary test-btn" id="pipeTestBtn" data-act="pipeStart" ${ready && !running ? "" : "disabled"} title="${esc(L("Diff the documents and let the AI create test cases and calculations", "Dokumente vergleichen und Testfälle samt Berechnungen von der KI erstellen lassen"))}">${ic("test")}<span>${L("Generate test cases", "Testfälle erzeugen")}</span><small>${esc(sub)}</small></button>`;
+  }
+  function docsBlock() { return `<div id="pipeDocs">${docsInner()}</div>`; }
+  function docsInner() {
+    if (P.online === false) return `<div class="callout warn"><b>${L("AI pipeline offline", "KI-Pipeline offline")}</b>${L("Start the local server, then reload: <code>python pipeline/server.py</code> and open <code>http://localhost:8787</code>. It holds the API key, reads <code>docs/law_file/</code> and runs the AI's calculations.", "Lokalen Server starten, dann neu laden: <code>python pipeline/server.py</code> und <code>http://localhost:8787</code> öffnen. Er hält den API-Schlüssel, liest <code>docs/law_file/</code> und führt die Berechnungen der KI aus.")}</div>`;
+    if (P.online == null || !P.docs) return `<div class="muted" style="font-size:var(--fs-sm)">${L("Connecting to the pipeline…", "Verbinde mit der Pipeline…")}</div>`;
+    const all = [...P.docs.uploads, ...P.docs.law_files];
+    const key = d => d.kind + ":" + d.name;
+    const row = d => `<div class="doc-row">${pill(d.kind === "law_file" ? P.docs.law_dir : L("dropped", "abgelegt"), d.kind === "law_file" ? "" : "accent")}<span class="name">${esc(d.name)} <span class="muted mono" style="font-size:11px">${fmtN(Math.round(d.size / 1024))} KB</span></span>${d.kind === "upload" ? `<button class="btn ghost sm" data-act="pipeDelDoc" data-name="${esc(d.name)}" title="${esc(L("Remove", "Entfernen"))}">✕</button>` : "<span></span>"}</div>`;
+    const p = P.plan;
+    const planHtml = P.planBusy ? `<div class="muted">${L("Reading the documents (first time takes a few seconds per PDF)…", "Lese die Dokumente (beim ersten Mal einige Sekunden je PDF)…")}</div>`
+      : P.planErr ? `<div class="callout bad">${esc(P.planErr)}</div>`
+      : p ? `<div class="plan"><div class="plan-pair">${p.mode === "diff" ? `${pill(L("new", "neu"), "accent")} ${esc(p.new.name)} <span class="muted">${L("vs.", "vs.")}</span> ${pill(L("previous", "vorher"), "")} ${esc(p.old.name)}` : `${pill(L("single document", "Einzeldokument"), "warn")} ${esc(p.new.name)}`}</div>
+          <span class="muted">${esc(p.reason)}${p.new.version ? ` · ${L("version", "Version")} ${esc(p.new.version)}` : ""}${p.old && p.old.version ? ` ← ${esc(p.old.version)}` : ""}</span></div>` : "";
+    const opts = (sel, withAuto) => (withAuto ? `<option value="" ${sel === undefined ? "selected" : ""}>${L("automatic", "automatisch")}</option><option value="-" ${sel === null ? "selected" : ""}>${L("nothing (use the document on its own)", "nichts (Dokument allein verwenden)")}</option>` : `<option value="" ${!sel ? "selected" : ""}>${L("automatic (latest dropped)", "automatisch (zuletzt abgelegt)")}</option>`) + all.map(d => `<option value="${esc(key(d))}" ${sel && key(sel) === key(d) ? "selected" : ""}>${esc(d.name)}</option>`).join("");
+    return `<div class="stack" style="gap:var(--s-2)">
+      ${P.uploading ? `<div class="callout">${L("Storing", "Speichere")} ${esc(P.uploading)} ${L("for the pipeline…", "für die Pipeline…")}</div>` : ""}
+      <div class="row between"><span class="field-label">${L("Documents for the pipeline", "Dokumente für die Pipeline")}</span><label class="row" style="font-size:var(--fs-xs)"><input type="checkbox" id="pipeAsLaw" ${P.uploadTarget === "law_file" ? "checked" : ""}> ${L("next drop is a previous version → ", "nächstes PDF ist eine Vorversion → ")}<code>${esc(P.docs.law_dir)}</code></label></div>
+      ${all.length ? `<div class="doc-list">${all.map(row).join("")}</div>` : `<div class="muted" style="font-size:var(--fs-sm)">${L("No documents yet. Drop the new spec PDF above; put last year's version into", "Noch keine Dokumente. Neue Spezifikation oben ablegen; die Vorjahresfassung in")} <code>${esc(P.docs.law_dir)}</code>.</div>`}
+      ${planHtml}
+      ${all.length ? `<details><summary class="muted" style="font-size:var(--fs-xs);cursor:pointer">${L("Options", "Optionen")}</summary><div class="grid-2" style="margin-top:8px">
+        <label class="stack" style="gap:4px"><span class="field-label">${L("New version", "Neue Fassung")}</span><select class="select" id="pipeNew">${opts(P.choice.new, false)}</select></label>
+        <label class="stack" style="gap:4px"><span class="field-label">${L("Compare with", "Vergleichen mit")}</span><select class="select" id="pipeOld" ${P.choice.new ? "" : "disabled"}>${opts(P.choice.old, true)}</select></label>
+        <label class="stack" style="gap:4px"><span class="field-label">${L("Sections the AI processes right away", "Abschnitte, die die KI sofort bearbeitet")}</span><input class="input" type="number" min="1" max="20" id="pipeMax" value="${P.maxItems}"></label>
+        <label class="stack" style="gap:4px"><span class="field-label">${L("Model", "Modell")}</span><select class="select" id="pipeModel">${(P.status ? P.status.models : []).map(m => `<option ${m === P.model ? "selected" : ""}>${esc(m)}</option>`).join("")}</select></label>
+      </div></details>` : ""}</div>`;
+  }
+  function paintDocs() {
+    const el = document.getElementById("pipeDocs"); if (el) el.innerHTML = docsInner();
+    const b = document.getElementById("pipeTestBtn"); if (b) b.outerHTML = testButton();
+  }
+
+  /* ---------- runs ---------- */
+  async function startRun() {
+    try {
+      const body = { max_items: P.maxItems, model: P.model, lang: S.lang };
+      if (P.choice.new) body.new = P.choice.new;
+      if (P.choice.new && P.choice.old !== undefined) body.old = P.choice.old || {};
+      const r = await api("/api/runs", { body });
+      P.runId = r.id; store.set("pipeRun", r.id); P.run = null; P.events = []; P.after = 0; P.selItem = null; P.follow = true;
+      A.log("examiner", L("AI pipeline started", "KI-Pipeline gestartet"), r.id);
+      A.go("pipeline");
+      pollRun(true);
+    } catch (e) { A.toast(e.message); }
+  }
+  let polling = false;
+  async function pollRun(force) {
+    if (!P.runId || polling || !P.online) return;
+    if (!force && P.run && P.run.status !== "running") return;
+    polling = true;
+    try {
+      const r = await api(`/api/runs/${encodeURIComponent(P.runId)}?after=${P.after}`);
+      const fresh = r.events || [];
+      const wasStatus = P.run && P.run.status;
+      P.events.push(...fresh);
+      if (fresh.length) P.after = fresh[fresh.length - 1].seq;
+      P.run = r;
+      if (!P.selItem || P.follow) {
+        const running = r.items.find(i => i.status === "running");
+        if (running) P.selItem = running.sec; else if (!P.selItem && r.items.length) P.selItem = r.items[0].sec;
+      }
+      if (fresh.some(e => e.type === "item_done") || (wasStatus === "running" && r.status !== "running")) loadCases();
+      if (onScreen("pipeline")) paintRun(fresh.length > 0);
+      A.renderShell();
+    } catch (e) {
+      if (/not found/.test(e.message)) { P.runId = null; store.set("pipeRun", null); }
+    }
+    polling = false;
+  }
+
+  const KIND = { changed: ["changed", "warn"], added: ["new", "accent"], removed: ["removed", "bad"], changelog: ["change log", "info"], rule: ["rule", ""] };
+  const kindPill = k => { const [en, cls] = KIND[k] || [k, ""]; return pill(({ changed: L("changed", "geändert"), new: L("new", "neu"), removed: L("removed", "entfernt"), "change log": L("change log", "Protokoll"), rule: L("rule", "Regel") })[en] || en, cls); };
+  const srcPill = s => s === "diff-only" ? pill(L("not in change log", "nicht im Protokoll"), "bad") : s === "log+diff" ? pill(L("log + diff", "Protokoll + Diff"), "ok") : pill(esc(s), "");
+  const stIc = s => `<span class="st ${s}">${{ queued: "○", running: "◐", done: "✓", error: "✕", candidate: "+", skipped: "–" }[s] || "·"}</span>`;
+
+  function vPipeline() {
+    const r = P.run;
+    if (P.online === false) return `${head(L("AI test pipeline", "KI-Testpipeline"), "")}${docsInner()}`;
+    if (!P.runId) return `${head(L("AI test pipeline", "KI-Testpipeline"), L("Drop a new spec PDF, then press “Generate test cases”. The pipeline diffs it against the previous version in docs/law_file — or, without one, uses the document on its own — and the AI turns every change into a spec-change JSON and test cases.", "Neue Spezifikation ablegen, dann „Testfälle erzeugen“ drücken. Die Pipeline vergleicht sie mit der Vorfassung in docs/law_file — oder nutzt ohne Vorfassung das Dokument allein — und die KI macht aus jeder Änderung ein Änderungs-JSON und Testfälle."), `<button class="btn primary" data-act="go" data-screen="ingest">${ic("upload")} ${L("Go to the PDF drop", "Zur PDF-Ablage")}</button>`)}<div class="empty">${L("No run yet.", "Noch kein Lauf.")}</div>`;
+    const running = r && r.status === "running";
+    return `${head(L("AI test pipeline", "KI-Testpipeline"), L("Every step the AI takes is shown and saved with the test case: its reasoning, each calculation in its terminal, the JSON it extracted, and the deterministic checks on its answer.", "Jeder Schritt der KI wird gezeigt und mit dem Testfall gespeichert: ihre Überlegungen, jede Berechnung im Terminal, das extrahierte JSON und die deterministischen Prüfungen ihrer Antwort."),
+      `${running ? `<button class="btn" data-act="pipeStop">■ ${L("Stop", "Stoppen")}</button>` : ""}<button class="btn" data-act="go" data-screen="ingest">${ic("upload")} ${L("New run", "Neuer Lauf")}</button><button class="btn primary" data-act="go" data-screen="review">${ic("check")} ${L("Review test cases", "Testfälle prüfen")}</button>`)}
+      <section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${L("Run", "Lauf")} ${esc(P.runId)}${r ? " · " + esc(r.model) : ""}</span><h3 id="pipePlanTitle">${r ? planTitle(r.plan) : L("Loading…", "Lade…")}</h3></div><span id="pipeRunStatus">${r ? runStatusPill(r) : ""}</span></div>
+        <div class="panel-body"><div class="cot" id="pipeStages"></div></div></section>
+      <div class="split"><section class="panel"><div class="panel-head"><h4>${L("Sections", "Abschnitte")}</h4><span class="muted" style="font-size:var(--fs-xs)" id="pipeItemCount"></span></div><div class="panel-body flush" id="pipeItems" style="max-height:70vh;overflow:auto"></div></section>
+        <section class="panel"><div class="panel-head" id="pipeItemHead"></div><div class="panel-body" id="pipeItemBody"></div></section></div>`;
+  }
+  const planTitle = p => p.mode === "diff" ? `${esc(p.new.name)} <span class="muted">vs.</span> ${esc(p.old.name)}` : `${esc(p.new.name)} <span class="muted">· ${L("single document", "Einzeldokument")}</span>`;
+  const runStatusPill = r => r.status === "running" ? pill(L("running", "läuft"), "info") : r.status === "done" ? pill("✓ " + L("finished", "fertig"), "ok") : pill(esc(r.status), "warn");
+
+  function paintRun(changed) {
+    const r = P.run; if (!r) return;
+    const st = document.getElementById("pipeStages");
+    if (!st) return;
+    const pt = document.getElementById("pipePlanTitle"); if (pt) pt.innerHTML = planTitle(r.plan);
+    const rs = document.getElementById("pipeRunStatus"); if (rs) rs.innerHTML = runStatusPill(r);
+    st.innerHTML = P.events.filter(e => e.item == null).map(e => evHtml(e)).join("");
+    const counts = r.items.reduce((m, i) => (m[i.status] = (m[i.status] || 0) + 1, m), {});
+    document.getElementById("pipeItemCount").textContent = `${r.items.length} · ${counts.done || 0} ${L("done", "fertig")}${counts.running ? ` · ${counts.running} ${L("running", "laufen")}` : ""}`;
+    const list = document.getElementById("pipeItems");
+    const sc = list.scrollTop;
+    list.innerHTML = r.items.length ? r.items.map(i => `<button class="list-item" data-act="pipeSelItem" data-sec="${esc(i.sec)}" aria-selected="${i.sec === P.selItem}"><div class="item-row">${stIc(i.status)}<div class="stack" style="gap:2px"><b>§${esc(i.sec)} ${esc(i.title)}</b><div class="row" style="gap:4px">${kindPill(i.kind)}${srcPill(i.source)}${i.cases.length ? pill(`${i.cases.length} ${L("test cases", "Testfälle")}`, "ok") : ""}</div></div>${i.status === "candidate" || i.status === "skipped" || i.status === "error" ? `<span class="btn sm" data-act="pipeGen" data-sec="${esc(i.sec)}">${ic("play")} ${L("Generate", "Erzeugen")}</span>` : ""}</div></button>`).join("") : `<div class="empty">${L("No changed or testable sections found.", "Keine geänderten oder testbaren Abschnitte gefunden.")}</div>`;
+    list.scrollTop = sc;
+    paintItem(changed);
+  }
+  function paintItem(changed) {
+    const r = P.run, it = r && r.items.find(i => i.sec === P.selItem);
+    const hd = document.getElementById("pipeItemHead"), body = document.getElementById("pipeItemBody");
+    if (!hd || !body) return;
+    if (!it) { hd.innerHTML = ""; body.innerHTML = `<div class="empty">${L("Select a section.", "Abschnitt auswählen.")}</div>`; return; }
+    hd.innerHTML = `<div class="stack" style="gap:2px"><span class="eyebrow">§${esc(it.sec)} · ${L("page", "Seite")} ${it.page}${it.similarity != null ? ` · ${Math.round(it.similarity * 100)}% ${L("similar to the old text", "ähnlich zum alten Text")}` : ""}</span><h3>${esc(it.title)}</h3></div><div class="row">${kindPill(it.kind)}${srcPill(it.source)}${it.status === "candidate" ? `<button class="btn sm primary" data-act="pipeGen" data-sec="${esc(it.sec)}">${ic("play")} ${L("Generate test cases", "Testfälle erzeugen")}</button>` : ""}</div>`;
+    const evs = P.events.filter(e => e.item === it.sec);
+    const live = r.live && r.live[it.sec];
+    const near = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
+    const red = it.ops && it.ops.length && it.kind === "changed" ? `<details class="cot-more"><summary><b>${L("Word diff", "Wort-Diff")}</b> <span class="muted">(${it.changed_words} ${L("changed words", "geänderte Wörter")})</span></summary><div class="spec redline" style="margin-top:8px;font-size:var(--fs-sm)">${redline(it.ops)}</div></details>` : "";
+    const log = it.log && it.log.length ? `<div class="callout"><b>${L("Change log", "Änderungsprotokoll")}</b>${it.log.map(esc).join("<br>")}</div>` : "";
+    body.innerHTML = `${log}${red}<div class="cot">${evs.map(e => evHtml(e)).join("") || (it.status === "candidate" ? `<div class="muted" style="font-size:var(--fs-sm)">${L("Not processed yet. Start it with “Generate test cases”.", "Noch nicht bearbeitet. Mit „Testfälle erzeugen“ starten.")}</div>` : it.status === "queued" ? `<div class="muted">${L("Waiting for a free AI worker…", "Wartet auf einen freien KI-Worker…")}</div>` : "")}
+      ${live ? `<div class="cot-step thought"><span class="cot-ic">…</span><div class="cot-body"><div class="cot-title">${L("AI is thinking", "KI denkt nach")}${live.tool ? " · " + L("preparing", "bereitet vor") + " " + esc(live.tool) : ""}</div><div class="cot-text live typing" id="pipeLive">${esc((live.reasoning || "") + (live.content ? "\n\n" + live.content : "")) || "…"}</div></div></div>` : ""}</div>`;
+    const lv = document.getElementById("pipeLive"); if (lv) lv.scrollTop = lv.scrollHeight;
+    if (changed && P.follow && near && it.status === "running") window.scrollTo({ top: document.body.scrollHeight });
+  }
+  function redline(ops) {
+    return ops.map(([op, t]) => {
+      if (op === "=") { const w = t.split(" "); return esc(w.length > 40 ? w.slice(0, 15).join(" ") + " […] " + w.slice(-15).join(" ") : t); }
+      return op === "-" ? `<del>${esc(t)}</del>` : `<ins>${esc(t)}</ins>`;
+    }).join(" ");
+  }
+
+  /* ---------- chain-of-thought rendering (shared by pipeline, review and developer inbox) ---------- */
+  const TOOL_NAME = { run_python: () => L("terminal calculation", "Terminal-Berechnung"), record_spec_change: () => L("spec change", "Spezifikationsänderung"), submit_test_case: () => L("test case", "Testfall"), finish: () => L("finish", "Abschluss") };
+  function longText(t, open) {
+    t = String(t || "");
+    if (t.length <= 900 || open) return `<div class="cot-text">${esc(t)}</div>`;
+    return `<details class="cot-more"><summary class="cot-text">${esc(t.slice(0, 420))}… <b>${L("show all", "alles zeigen")}</b></summary><div class="cot-text">${esc(t)}</div></details>`;
+  }
+  const stepHtml = (cls, icon, title, body) => `<div class="cot-step ${cls}"><span class="cot-ic">${icon}</span><div class="cot-body"><div class="cot-title">${title}</div>${body}</div></div>`;
+  const gmini = gs => `<span class="gmini">${(gs || []).map(g => `<span class="${g.status}" title="${esc(g.name + ": " + g.detail)}">${g.id} ${g.status === "ok" ? "✓" : g.status === "warn" ? "!" : "✕"}</span>`).join("")}</span>`;
+  function evHtml(e) {
+    const d = e.data || {}, t = `<span class="mono" style="font-weight:400">${esc((e.t || "").slice(11, 19))}</span>`;
+    switch (e.type) {
+      case "stage": return stepHtml(d.step === "done" ? "ok" : "", d.step === "done" ? "✓" : "⚙", `${t} ${esc({ ingest: L("ingest", "Einlesen"), plan: L("plan", "Plan"), diff: L("diff", "Diff"), select: L("select", "Auswahl"), queue: L("queue", "Warteschlange"), done: L("done", "fertig"), stop: L("stopped", "gestoppt") }[d.step] || d.step)} · ${L("deterministic", "deterministisch")}`, `<div class="cot-text">${esc(d.text)}</div>`);
+      case "item_start": return stepHtml("", "▶", `${t} ${L("start", "Start")}`, `<div class="cot-text">§${esc(d.sec)} · ${esc(d.model)}</div>`);
+      case "context": return stepHtml("", "↗", `${t} ${L("sent to the model", "an das Modell gesendet")}`, `<div class="cot-text">~${fmtN(Math.round(d.chars / 4))} ${L("tokens", "Tokens")}: §${esc((d.sent || []).join(", §"))}${d.old_version ? " + " + L("old version + word diff", "alte Fassung + Wort-Diff") : ""} · ${L("nothing else from the archive", "sonst nichts aus dem Archiv")}</div>`);
+      case "thought": return stepHtml("thought", "💭", `${t} ${d.source === "model reasoning" ? L("model reasoning", "Denkprozess des Modells") : L("why", "warum") + ": " + esc((TOOL_NAME[d.source] || (() => d.source))())}`, longText(d.text));
+      case "text": return stepHtml("say", "AI", `${t} ${L("AI", "KI")}`, longText(d.text, true));
+      case "terminal": return stepHtml("term", "$", `${t} ${L("terminal", "Terminal")} ${d.refused ? pill(L("refused by sandbox", "von Sandbox abgelehnt"), "bad") : d.ok ? pill("exit 0", "ok") : pill(L("error", "Fehler"), "bad")}`,
+        `<div class="term"><div class="term-head"><span>$ python calc.py</span><span>${d.ms} ms</span></div><pre class="term-code">${esc(d.code)}</pre><pre class="term-out ${d.ok ? "" : "err"}">${esc(d.stdout || "")}${d.stderr ? (d.stdout ? "\n" : "") + esc(d.stderr) : ""}${!d.stdout && !d.stderr ? "(no output)" : ""}</pre></div>`);
+      case "spec_change": return stepHtml("spec", "{}", `${t} ${L("spec change extracted", "Änderung extrahiert")} ${pill(esc(d.change_type || "?"), "accent")}${d.formula_changed ? ` <span class="flag-formula">ƒ ${L("formula changed", "Formel geändert")}</span>` : ""}`,
+        `<div class="cot-text"><b>${esc(d.summary || "")}</b></div>${(d.quote_checks || []).map(q => `<div class="row" style="gap:6px;align-items:start"><span class="pill ${q.ok ? "ok" : "bad"}">${q.ok ? "✓" : "✕"} ${q.side === "old" ? L("old", "alt") : L("new", "neu")}</span><span class="de-quote" style="font-size:var(--fs-sm)">„${esc(q.quote)}“</span></div>`).join("")}
+        <details class="cot-more"><summary class="muted">JSON</summary><pre class="json">${esc(JSON.stringify(Object.fromEntries(Object.entries(d).filter(([k]) => k !== "quote_checks")), null, 2))}</pre></details>`);
+      case "test_case": return stepHtml("case", "TC", `${t} ${L("test case submitted", "Testfall eingereicht")} ${pill(esc(d.kind), "")} ${d.formula_changed ? `<span class="flag-formula">ƒ ${L("formula updated", "Formel aktualisiert")}</span>` : ""}`,
+        `<div class="tc-card ${d.formula_changed ? "changed" : ""}"><b>${esc(d.title)}</b><span class="muted" style="font-size:var(--fs-sm)">${esc(d.criterion)}</span><code class="formula-view">${esc((d.formula || {}).expression || "")}</code><div class="row between"><span>${L("Oracle result", "Orakel-Ergebnis")}: <b class="mono">${esc(d.expected_value == null ? "—" : d.expected_value)}</b> <span class="muted">(${L("AI", "KI")}: ${esc(d.ai_expected_value)})</span></span>${gmini(d.guards)}</div></div>`);
+      case "tool_result": return d.tool === "finish" ? "" : stepHtml(/GUARDS FAILED|NOT verbatim/.test(d.result) ? "err" : "", "↩", `${t} ${L("feedback to the AI", "Rückmeldung an die KI")}`, `<div class="cot-text muted">${esc(d.result)}</div>`);
+      case "tool_error": return stepHtml("err", "!", `${t} ${L("tool call rejected", "Tool-Aufruf abgelehnt")}`, `<div class="cot-text">${esc(d.message)}</div>`);
+      case "retry": return stepHtml("", "↻", `${t} ${L("retry", "Wiederholung")}`, `<div class="cot-text muted">${esc(d.message)}</div>`);
+      case "error": return stepHtml("err", "✕", `${t} ${L("error", "Fehler")}`, `<div class="cot-text">${esc(d.message)}</div>`);
+      case "stopped": return stepHtml("err", "■", `${t} ${L("stopped", "gestoppt")}`, "");
+      case "item_done": return stepHtml(d.status === "error" ? "err" : "ok", d.status === "error" ? "✕" : "✓", `${t} ${L("section done", "Abschnitt fertig")}`, `<div class="cot-text">${d.cases && d.cases.length ? `${d.cases.length} ${L("test case(s) waiting for review", "Testfall/-fälle warten auf Prüfung")}: ${d.cases.map(id => `<a href="#" data-act="pipeOpenCase" data-id="${esc(id)}">${esc(id)}</a>`).join(", ")}` : L("no test cases", "keine Testfälle")}${d.summary ? `<br><span class="muted">${esc(d.summary)}</span>` : ""}</div>`);
+      default: return "";
+    }
+  }
+
+  /* ---------- examiner review: formula, variables, verify, send ---------- */
+  async function loadCases() {
+    if (!P.online) return;
+    try { P.cases = await api("/api/testcases"); if (onScreen("review") && !editing()) rerender(); else A.renderShell(); } catch (e) { /* offline */ }
+  }
+  const editing = () => { const a = document.activeElement; return a && a.closest && a.closest("#view") && a.matches("input, textarea, select"); };
+  async function openCase(id) {
+    P.selCase = id;
+    try { P.caseDetail = await api(`/api/testcases/${encodeURIComponent(id)}`); } catch (e) { A.toast(e.message); return; }
+    P.draft = JSON.parse(JSON.stringify({ formula: P.caseDetail.formula || { expression: "", variables: [] }, scenario: P.caseDetail.scenario || {}, title: P.caseDetail.title, criterion: P.caseDetail.criterion, expected_outcome: P.caseDetail.expected_outcome }));
+    P.preview = { ok: !P.caseDetail.formula_error, value: P.caseDetail.expected_value, error: P.caseDetail.formula_error, trace: P.caseDetail.trace || [], names: [] };
+    if (S.screen !== "review") A.go("review"); else rerender();
+  }
+  const STATUS = { draft: ["draft", "warn"], verified: ["verified", "ok"], sent: ["sent to devs", "info"], acknowledged: ["acknowledged", "ok"], rejected: ["rejected", "bad"] };
+  const statusPill = s => { const [en, cls] = STATUS[s] || [s, ""]; return pill(({ draft: L("draft", "Entwurf"), verified: "✓ " + L("verified", "verifiziert"), "sent to devs": L("sent to devs", "an Entwickler"), acknowledged: "✓✓ " + L("acknowledged", "bestätigt"), rejected: L("rejected", "abgelehnt") })[en] || en, cls); };
+
+  function vReview() {
+    if (P.online === false) return `${head(L("Test-case review", "Testfall-Prüfung"), "")}${docsInner()}`;
+    const f = P.caseFilter, lst = P.cases.filter(c => f === "all" || c.status === f || (f === "changed" && c.formula_changed));
+    const cnt = s => P.cases.filter(c => s === "changed" ? c.formula_changed : c.status === s).length;
+    const selVerified = [...P.sel].filter(id => (P.cases.find(c => c.id === id) || {}).status === "verified");
+    return `${head(L("Test-case review", "Testfall-Prüfung"), L("Check what the AI produced. Flagged formulas changed with the law: read the formula, edit it if needed, set the variable values, and verify. Verified test cases go to the developers.", "Prüfen, was die KI erzeugt hat. Markierte Formeln haben sich mit dem Gesetz geändert: Formel lesen, bei Bedarf ändern, Variablenwerte setzen und verifizieren. Verifizierte Testfälle gehen an die Entwickler."),
+      `<button class="btn" data-act="pipeRefreshCases">↻ ${L("Refresh", "Aktualisieren")}</button><button class="btn primary" data-act="pipeSendOpen" ${selVerified.length ? "" : "disabled"}>${ic("inbox")} ${L("Send to developers", "An Entwickler senden")}${selVerified.length ? ` (${selVerified.length})` : ""}</button>`)}
+      <div class="split"><section class="panel"><div class="tabs" role="tablist">${[["all", L("All", "Alle"), P.cases.length], ["changed", "ƒ " + L("formula updated", "Formel neu"), cnt("changed")], ["draft", L("Draft", "Entwurf"), cnt("draft")], ["verified", L("Verified", "Verifiziert"), cnt("verified")], ["sent", L("Sent", "Gesendet"), cnt("sent") + cnt("acknowledged")]].map(([k, t, n]) => `<button class="tab" role="tab" aria-selected="${f === k}" data-act="pipeFilter" data-f="${k}">${t} <span class="muted">${n}</span></button>`).join("")}</div>
+        <div class="panel-body flush" style="max-height:72vh;overflow:auto">${lst.length ? lst.map(c => { const fails = (c.guards || []).filter(g => g.status === "fail").length; return `<div class="list-item" data-act="pipeOpenCase" data-id="${esc(c.id)}" aria-selected="${c.id === P.selCase}" role="button" tabindex="0"><div class="row between" style="flex-wrap:nowrap;align-items:start"><label class="chk" onclick="event.stopPropagation()"><input type="checkbox" data-sel="${esc(c.id)}" ${P.sel.has(c.id) ? "checked" : ""} ${c.status === "verified" ? "" : "disabled"} title="${esc(L("select verified cases to send", "verifizierte Fälle zum Senden auswählen"))}"></label><div class="stack" style="gap:3px;flex:1"><span class="mono muted" style="font-size:11px">${esc(c.id)}</span><b style="font-size:var(--fs-sm)">${esc(c.title)}</b><div class="row" style="gap:4px">${statusPill(c.status)}${pill("§" + esc(c.section), "mono")}${c.formula_changed ? `<span class="flag-formula">ƒ ${L("updated", "neu")}</span>` : ""}${c.formula_edited ? pill(L("edited", "bearbeitet"), "info") : ""}${fails ? pill(`${fails} ${L("check(s) failed", "Prüfung(en) fehlgeschlagen")}`, "bad") : ""}</div></div></div></div>`; }).join("") : `<div class="empty">${P.cases.length ? L("Nothing in this filter.", "Nichts in diesem Filter.") : L("No test cases yet. Run the pipeline first.", "Noch keine Testfälle. Zuerst die Pipeline laufen lassen.")}</div>`}</div></section>
+      <div class="stack" id="pipeCase">${caseDetailHtml()}</div></div>`;
+  }
+
+  function formulaView(expr, vars) {
+    const names = new Set((vars || []).map(v => v.name)), byName = Object.fromEntries((vars || []).map(v => [v.name, v]));
+    const fns = new Set(Object.keys((P.status && P.status.functions) || {}).map(k => k.split("(")[0]).concat(["date", "add_days", "add_weeks", "add_months", "days_between", "days_inclusive", "weekday", "min", "max", "abs", "round", "floor", "ceil", "percent"]));
+    return esc(expr || "").replace(/[A-Za-z_][A-Za-z0-9_]*/g, w => names.has(w) ? `<span class="v" title="${esc(w + " = " + byName[w].value + (byName[w].unit ? " " + byName[w].unit : "") + (byName[w].description ? " · " + byName[w].description : ""))}">${w}</span>` : fns.has(w) ? `<span class="f">${w}</span>` : w);
+  }
+  function varTable(vars, readonlyMeta) {
+    return `<table class="var-table"><thead><tr><th>${L("Variable", "Variable")}</th><th>${L("Value", "Wert")}</th><th>${L("Type", "Typ")}</th><th>${L("Source", "Quelle")}</th>${readonlyMeta ? "" : "<th></th>"}</tr></thead><tbody>
+      ${vars.map((v, i) => `<tr class="${v.source === "spec" ? "spec-param" : ""}"><td><span class="var-name">${esc(v.name)}</span>${v.unit ? ` <span class="muted">${esc(v.unit)}</span>` : ""}${v.description ? `<div class="muted" style="font-size:11px">${esc(v.description)}</div>` : ""}</td>
+        <td><input data-var="${i}" data-k="value" value="${esc(v.value == null ? "" : v.value)}" ${v.type === "date" ? 'placeholder="YYYY-MM-DD"' : ""} aria-label="${esc(v.name)}"></td>
+        <td>${readonlyMeta ? esc(v.type || "number") : `<select data-var="${i}" data-k="type">${["number", "date", "bool"].map(t => `<option ${t === (v.type || "number") ? "selected" : ""}>${t}</option>`).join("")}</select>`}</td>
+        <td>${v.source === "spec" ? `${pill(L("law", "Gesetz"), "warn")}${v.quote ? `<div class="de-quote muted" style="font-size:11px;max-width:32ch">„${esc(v.quote)}“</div>` : ""}` : pill(L("scenario", "Szenario"), "")}</td>
+        ${readonlyMeta ? "" : `<td><button class="btn ghost sm" data-act="pipeDelVar" data-i="${i}" title="${esc(L("Remove", "Entfernen"))}">✕</button></td>`}</tr>`).join("")}</tbody></table>`;
+  }
+  function previewHtml(pv, saved) {
+    if (!pv) return "";
+    if (!pv.ok) return `<div class="callout bad"><b>${L("Formula does not evaluate", "Formel nicht auswertbar")}</b>${esc(pv.error || "")}</div>`;
+    return `<div class="row between" style="align-items:end"><div class="stack" style="gap:2px"><span class="field-label">${L("Expected result (computed by the oracle)", "Erwartetes Ergebnis (vom Orakel berechnet)")}</span><span class="result-big">${esc(pv.value)}</span></div>${saved != null && saved !== pv.value ? pill(L("unsaved — was ", "nicht gespeichert — vorher ") + esc(saved), "warn") : ""}</div>
+      ${pv.trace && pv.trace.length ? `<details class="cot-more"><summary class="muted" style="font-size:var(--fs-xs)">${L("step by step", "Schritt für Schritt")}</summary><div class="trace">${pv.trace.map(([s, v]) => `${esc(s)} = <b>${esc(v)}</b>`).join("<br>")}</div></details>` : ""}`;
+  }
+  function caseDetailHtml() {
+    const c = P.caseDetail, d = P.draft;
+    if (!c || !d) return `<section class="panel"><div class="empty">${L("Select a test case.", "Testfall auswählen.")}</div></section>`;
+    const locked = c.status === "sent" || c.status === "acknowledged";
+    const fm = d.formula, names = new Set((P.preview && P.preview.names) || []), missing = [...names].filter(n => !fm.variables.some(v => v.name === n));
+    const sc = c.spec_change || {};
+    const dirty = JSON.stringify(d.formula) !== JSON.stringify(c.formula) || JSON.stringify(d.scenario) !== JSON.stringify(c.scenario || {}) || d.title !== c.title || d.criterion !== c.criterion || d.expected_outcome !== c.expected_outcome;
+    return `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${esc(c.id)} · §${esc(c.section)} ${esc(c.section_title)} · ${esc(c.document.name)}${c.previous_document ? " ← " + esc(c.previous_document.name) : ""}</span><h3>${esc(c.title)}</h3></div><div class="row">${statusPill(c.status)}${pill(esc(c.kind), "")}</div></div>
+      <div class="panel-body">
+        ${c.formula_changed ? `<div class="callout warn"><b>ƒ ${L("Formula updated by the law change — please check it", "Formel durch die Gesetzesänderung aktualisiert — bitte prüfen")}</b>${c.previous_expression ? `<span>${L("Before", "Vorher")}: <span class="formula-old">${esc(c.previous_expression)}</span></span>` : ""}<span>${L("Now", "Jetzt")}: <code>${esc(c.ai_expression || (c.formula || {}).expression || "")}</code>${c.formula_edited ? " → " + L("edited by the examiner", "vom Prüfer geändert") : ""}</span></div>` : ""}
+        <div class="formula-box ${c.formula_changed ? "changed" : ""}">
+          <div class="row between"><span class="field-label">${L("Formula", "Formel")}${fm.result_name ? ` → <b class="mono">${esc(fm.result_name)}</b>${fm.result_unit ? " (" + esc(fm.result_unit) + ")" : ""}` : ""}</span>${c.formula_changed ? `<span class="flag-formula">ƒ ${L("updated", "aktualisiert")}</span>` : ""}</div>
+          <div class="formula-view" id="pipeFormulaView">${formulaView(fm.expression, fm.variables)}</div>
+          <textarea class="textarea formula-input" id="pipeExpr" spellcheck="false" ${locked ? "readonly" : ""} aria-label="${esc(L("Formula", "Formel"))}">${esc(fm.expression)}</textarea>
+          <div id="pipeMissing">${missing.length ? `<div class="row">${L("Variables without a value", "Variablen ohne Wert")}: ${missing.map(n => `<button class="btn sm" data-act="pipeAddVar" data-name="${esc(n)}">+ ${esc(n)}</button>`).join("")}</div>` : ""}</div>
+          <div id="pipeVars">${varTable(fm.variables, false)}</div>
+          ${locked ? "" : `<div class="row"><button class="btn sm" data-act="pipeAddVar">+ ${L("Variable", "Variable")}</button><span class="muted" style="font-size:var(--fs-xs)">${L("Functions", "Funktionen")}: date, add_days, add_weeks, add_months, days_between, days_inclusive, weekday, min, max, round, floor, ceil, percent · <code>a if cond else b</code></span></div>`}
+          <div id="pipePreview">${previewHtml(P.preview, c.expected_value)}</div>
+          <span class="muted" style="font-size:var(--fs-xs)">${L("AI's own value from its terminal", "Eigener Wert der KI aus dem Terminal")}: <span class="mono">${esc(c.ai_expected_value)}</span></span>
+        </div>
+        <div class="grid-2"><label class="stack" style="gap:4px"><span class="field-label">${L("Title", "Titel")}</span><input class="input" id="pipeTitle" value="${esc(d.title)}" ${locked ? "readonly" : ""}></label><label class="stack" style="gap:4px"><span class="field-label">${L("Expected outcome", "Erwartetes Verhalten")}</span><input class="input" id="pipeOutcome" value="${esc(d.expected_outcome || "")}" ${locked ? "readonly" : ""}></label></div>
+        <label class="stack" style="gap:4px"><span class="field-label">${L("Criterion", "Kriterium")}</span><textarea class="textarea" id="pipeCrit" style="font-family:var(--font-body);min-height:56px" ${locked ? "readonly" : ""}>${esc(d.criterion || "")}</textarea></label>
+        <label class="stack" style="gap:4px"><span class="field-label">${L("Scenario (test data the tester enters, JSON)", "Szenario (Testdaten, die der Tester eingibt, JSON)")}</span><textarea class="textarea" id="pipeScenario" style="min-height:110px" ${locked ? "readonly" : ""}>${esc(JSON.stringify(d.scenario, null, 2))}</textarea></label>
+        <div class="row between"><div class="row">${locked ? `<span class="muted" style="font-size:var(--fs-sm)">${L("Sent to", "Gesendet an")} ${esc((c.sent_to || []).join(", "))}</span><button class="btn sm" data-act="pipeReopen">${L("Reopen", "Wieder öffnen")}</button>` : `<button class="btn" data-act="pipeSave" ${dirty ? "" : "disabled"} id="pipeSaveBtn">${L("Save changes", "Änderungen speichern")}</button><button class="btn ok primary" data-act="pipeVerify" ${c.status === "verified" ? "disabled" : ""}>✓ ${c.status === "verified" ? L("Verified", "Verifiziert") : L("Verify", "Verifizieren")}</button><button class="btn bad" data-act="pipeReject" ${c.status === "rejected" ? "disabled" : ""}>✕ ${L("Reject", "Ablehnen")}</button>`}</div>
+          <button class="btn ghost sm" data-act="pipeExport" data-id="${esc(c.id)}">${ic("download")} JSON</button></div>
+        ${c.verified_by ? `<span class="muted" style="font-size:var(--fs-xs)">${L("Verified by", "Verifiziert von")} ${esc(c.verified_by)} · ${esc(c.verified_at)}${c.override_reason ? " · " + L("override", "Ausnahme") + ": " + esc(c.override_reason) : ""}</span>` : ""}
+      </div></section>
+      <section class="panel"><div class="panel-head"><h4>${L("Deterministic checks", "Deterministische Prüfungen")}</h4>${gmini(c.guards)}</div><div class="panel-body">${(c.guards || []).map(g => `<div class="guard ${g.status === "ok" ? "ok" : g.status === "fail" ? "bad" : ""}"><span class="gi">${g.status === "ok" ? "✓" : g.status === "fail" ? "✕" : "!"}</span><div><b>${esc(g.id)} ${esc(g.name)}</b><div class="muted">${esc(g.detail)}</div></div></div>`).join("")}${c.formula_edited ? `<div class="callout">${L("The examiner edited the formula: G3 compared the AI's original value; the expected value now comes from the edited formula.", "Der Prüfer hat die Formel geändert: G3 verglich den ursprünglichen KI-Wert; der Erwartungswert kommt jetzt aus der geänderten Formel.")}</div>` : ""}</div></section>
+      <section class="panel"><div class="panel-head"><h4>${L("Spec change", "Spezifikationsänderung")} ${pill(esc(sc.change_type || "?"), "accent")}</h4></div><div class="panel-body"><div><b>${esc(sc.summary || "")}</b></div>
+        ${sc.old_rule ? `<div class="kv"><dt>${L("before", "vorher")}</dt><dd>${esc(sc.old_rule)}</dd><dt>${L("now", "jetzt")}</dt><dd>${esc(sc.new_rule || "")}</dd></div>` : `<div class="kv"><dt>${L("rule", "Regel")}</dt><dd>${esc(sc.new_rule || "")}</dd></div>`}
+        ${(c.quotes || []).map(q => `<div class="de-quote" style="font-size:var(--fs-sm)">„${esc(q)}“</div>`).join("")}
+        <details class="cot-more"><summary class="muted">JSON</summary><pre class="json">${esc(JSON.stringify(sc, null, 2))}</pre></details></div></section>
+      <section class="panel"><div class="panel-head"><h4>${L("Chain of thought (saved with this test case)", "Gedankengang (mit diesem Testfall gespeichert)")}</h4><span class="muted" style="font-size:var(--fs-xs)">${(c.cot || []).length} ${L("steps", "Schritte")} · ${esc(c.model)}</span></div><div class="panel-body"><div class="cot">${(c.cot || []).map(evHtml).join("")}</div></div></section>
+      <section class="panel"><div class="panel-head"><h4>${L("History", "Verlauf")}</h4></div><div class="panel-body flush">${(c.history || []).slice().reverse().map(h => `<div class="log-item"><span class="log-time">${esc((h.t || "").slice(5, 16).replace("T", " "))}</span><span>${h.who && h.who.startsWith("AI") ? "AI" : "👤"}</span><div><b>${esc(h.action)}</b> · ${esc(h.who)}<div class="muted">${esc(h.detail || "")}</div></div></div>`).join("")}</div></section>`;
+  }
+  let evalTimer = null;
+  function scheduleEval() {
+    clearTimeout(evalTimer);
+    evalTimer = setTimeout(async () => {
+      const fm = P.draft && P.draft.formula; if (!fm) return;
+      try { P.preview = await api("/api/evaluate", { body: { expression: fm.expression, variables: fm.variables } }); } catch (e) { P.preview = { ok: false, error: e.message }; }
+      paintFormula();
+    }, 250);
+  }
+  function paintFormula() {
+    const c = P.caseDetail, d = P.draft; if (!c || !d) return;
+    const fv = document.getElementById("pipeFormulaView"); if (fv) fv.innerHTML = formulaView(d.formula.expression, d.formula.variables);
+    const pv = document.getElementById("pipePreview"); if (pv) pv.innerHTML = previewHtml(P.preview, c.expected_value);
+    const names = (P.preview && P.preview.names) || [], missing = names.filter(n => !d.formula.variables.some(v => v.name === n));
+    const ms = document.getElementById("pipeMissing"); if (ms) ms.innerHTML = missing.length ? `<div class="row">${L("Variables without a value", "Variablen ohne Wert")}: ${missing.map(n => `<button class="btn sm" data-act="pipeAddVar" data-name="${esc(n)}">+ ${esc(n)}</button>`).join("")}</div>` : "";
+    const sb = document.getElementById("pipeSaveBtn"); if (sb) sb.disabled = false;
+  }
+  function readDraftFields() {
+    const d = P.draft; if (!d) return true;
+    const g = id => document.getElementById(id);
+    if (g("pipeTitle")) d.title = g("pipeTitle").value;
+    if (g("pipeOutcome")) d.expected_outcome = g("pipeOutcome").value;
+    if (g("pipeCrit")) d.criterion = g("pipeCrit").value;
+    if (g("pipeScenario")) { try { d.scenario = JSON.parse(g("pipeScenario").value || "{}"); } catch (e) { A.toast(L("Scenario is not valid JSON", "Szenario ist kein gültiges JSON")); return false; } }
+    return true;
+  }
+  async function saveCase() {
+    if (!readDraftFields()) return false;
+    try {
+      const r = await api(`/api/testcases/${encodeURIComponent(P.selCase)}`, { method: "PATCH", body: P.draft });
+      A.toast(r.changes.length ? L("Saved: ", "Gespeichert: ") + r.changes.length + L(" change(s), expected value recomputed", " Änderung(en), Erwartungswert neu berechnet") : L("No changes", "Keine Änderungen"));
+      A.log("examiner", L("Test case edited", "Testfall bearbeitet"), `${P.selCase}: ${r.changes.join("; ")}`);
+      await loadCases(); await openCase(P.selCase); return true;
+    } catch (e) { A.toast(e.message); return false; }
+  }
+  async function caseAction(action, body) {
+    try {
+      await api(`/api/testcases/${encodeURIComponent(P.selCase)}/${action}`, { body: body || {} });
+      A.log("examiner", { verify: L("Test case verified", "Testfall verifiziert"), reject: L("Test case rejected", "Testfall abgelehnt"), reopen: L("Test case reopened", "Testfall wieder geöffnet") }[action], P.selCase + (body && (body.reason || body.override_reason) ? " · " + (body.reason || body.override_reason) : ""));
+      await loadCases(); await openCase(P.selCase); return true;
+    } catch (e) {
+      if (action === "verify" && /give a reason/.test(e.message)) {
+        A.modal(L("Checks failed", "Prüfungen fehlgeschlagen"), `<p>${esc(e.message)}</p><label class="stack"><span class="field-label">${L("Why is the test case correct anyway?", "Warum ist der Testfall trotzdem korrekt?")}</span><textarea class="textarea" id="pipeOverride" style="font-family:var(--font-body)"></textarea></label>`, null, `<button class="btn" data-act="closeModal">${L("Cancel", "Abbrechen")}</button><button class="btn primary" data-act="pipeVerifyOverride">${L("Verify with reason", "Mit Begründung verifizieren")}</button>`);
+      } else A.toast(e.message);
+      return false;
+    }
+  }
+  async function openSend() {
+    try { P.users = await api("/api/users"); } catch (e) { /* keep the old list */ }
+    const devs = P.users.filter(u => u.role === "dev");
+    const ids = [...P.sel].filter(id => (P.cases.find(c => c.id === id) || {}).status === "verified");
+    A.modal(L("Send to developers", "An Entwickler senden"), `<p class="muted" style="font-size:var(--fs-sm)">${ids.length} ${L("verified test case(s)", "verifizierte(r) Testfall/-fälle")}: <span class="mono">${ids.map(esc).join(", ")}</span></p>
+      <div class="stack">${devs.length ? devs.map(u => `<label class="row"><input type="checkbox" class="pipeTo" value="${esc(u.name)}" checked> <b>${esc(u.name)}</b> <span class="muted" style="font-size:var(--fs-xs)">${L("last seen", "zuletzt")} ${esc((u.seen || "").replace("T", " "))}</span></label>`).join("") : `<div class="muted" style="font-size:var(--fs-sm)">${L("No developer has signed in yet. Developers open this page, choose “Developer” and enter their name. You can also type names here.", "Noch kein Entwickler angemeldet. Entwickler öffnen diese Seite, wählen „Entwickler“ und geben ihren Namen ein. Namen können auch hier eingetragen werden.")}</div>`}</div>
+      <label class="stack"><span class="field-label">${L("Other developers (comma-separated)", "Weitere Entwickler (durch Komma getrennt)")}</span><input class="input" id="pipeToExtra"></label>
+      <label class="stack"><span class="field-label">${L("Note", "Notiz")}</span><input class="input" id="pipeNote" placeholder="${esc(L("e.g. EEL 13.4 — DBVO boundary", "z. B. EEL 13.4 — DBVO-Grenzfall"))}"></label>`, null,
+      `<button class="btn" data-act="closeModal">${L("Cancel", "Abbrechen")}</button><button class="btn primary" data-act="pipeSend" data-ids="${esc(ids.join(","))}">${ic("inbox")} ${L("Send", "Senden")}</button>`);
+  }
+
+  /* ---------- users and the developer inbox ---------- */
+  function shell() {
+    const b = document.getElementById("userBtn");
+    if (b) b.innerHTML = `👤 <span>${esc(P.user || L("Sign in", "Anmelden"))}</span>`;
+  }
+  function askName(then) {
+    A.modal(L("Who are you?", "Wer sind Sie?"), `<p class="muted" style="font-size:var(--fs-sm)">${L("Your name is recorded with every edit, verification and hand-over. Developers receive test cases under this name.", "Ihr Name wird bei jeder Änderung, Verifizierung und Übergabe vermerkt. Entwickler erhalten Testfälle unter diesem Namen.")}</p>
+      <label class="stack"><span class="field-label">${L("Name", "Name")}</span><input class="input" id="pipeUserName" value="${esc(P.user)}" autocomplete="name"></label>`, null,
+      `<button class="btn" data-act="closeModal">${L("Cancel", "Abbrechen")}</button><button class="btn primary" data-act="pipeSaveUser">${L("Continue", "Weiter")}</button>`);
+    P.afterName = then;
+    setTimeout(() => { const i = document.getElementById("pipeUserName"); if (i) i.focus(); }, 30);
+  }
+  async function register() {
+    if (!P.online || !P.user || !["itsg", "dev", "vendor"].includes(S.role)) return;
+    try { await api("/api/users", { body: { name: P.user, role: S.role } }); } catch (e) { /* offline */ }
+  }
+  function onRole() {
+    if (S.role === "dev" && !P.user) askName(() => { loadInbox(); });
+    else { register(); if (S.role === "dev") loadInbox(); }
+  }
+  async function loadInbox() {
+    if (!P.online || !P.user) return;
+    try {
+      const before = P.inbox.length;
+      P.inbox = await api(`/api/inbox?user=${encodeURIComponent(P.user)}`);
+      if (S.role === "dev" && P.inbox.length > before && before) A.toast(L("New test cases from ITSG", "Neue Testfälle von ITSG"));
+      if (onScreen("devinbox") && !editing()) rerender(); else A.renderShell();
+    } catch (e) { /* offline */ }
+  }
+  async function openInbox(id) {
+    P.selInbox = id;
+    try { P.inboxDetail = await api(`/api/testcases/${encodeURIComponent(id)}`); } catch (e) { A.toast(e.message); return; }
+    P.devVars = JSON.parse(JSON.stringify((P.inboxDetail.formula || {}).variables || []));
+    P.devPreview = { ok: true, value: P.inboxDetail.expected_value, trace: P.inboxDetail.trace || [] };
+    if (!P.seenInbox.includes(id)) { P.seenInbox.push(id); store.set("seenInbox", P.seenInbox); }
+    rerender();
+  }
+  function vDevInbox() {
+    if (P.online === false) return `${head(L("Developer inbox", "Entwickler-Postfach"), "")}${docsInner()}`;
+    if (!P.user) return `${head(L("Developer inbox", "Entwickler-Postfach"), "")}<section class="panel"><div class="panel-body"><p>${L("Enter your name to see the test cases ITSG sent you.", "Namen eingeben, um die von ITSG gesendeten Testfälle zu sehen.")}</p><div><button class="btn primary" data-act="pipeUser">👤 ${L("Sign in", "Anmelden")}</button></div></div></section>`;
+    const c = P.inboxDetail;
+    return `${head(L("Developer inbox", "Entwickler-Postfach") + " — " + esc(P.user), L("Verified test cases from ITSG for your next release: the scenario to enter, the formula with its variables, the expected value, and how the AI and the examiner got there.", "Verifizierte Testfälle von ITSG für Ihr nächstes Release: das Szenario, die Formel mit ihren Variablen, der Erwartungswert und wie KI und Prüfer dorthin gekommen sind."), `<button class="btn" data-act="pipeRefreshInbox">↻ ${L("Refresh", "Aktualisieren")}</button>`)}
+      <div class="split"><section class="panel"><div class="panel-body flush">${P.inbox.length ? P.inbox.map(t => `<button class="list-item" data-act="pipeOpenInbox" data-id="${esc(t.id)}" aria-selected="${t.id === P.selInbox}"><span class="mono muted" style="font-size:11px">${esc(t.id)} · ${esc((t.sent_at || "").replace("T", " "))}</span><b style="font-size:var(--fs-sm)">${esc(t.title)}</b><div class="row" style="gap:4px">${!P.seenInbox.includes(t.id) ? pill(L("new", "neu"), "accent") : ""}${pill("§" + esc(t.section), "mono")}${t.formula_changed ? `<span class="flag-formula">ƒ ${L("formula updated", "Formel neu")}</span>` : ""}${t.my_ack ? pill("✓ " + esc(t.my_ack.state), "ok") : ""}</div></button>`).join("") : `<div class="empty">${L("Nothing yet. ITSG sends verified test cases here.", "Noch nichts. ITSG sendet verifizierte Testfälle hierher.")}</div>`}</div></section>
+      <div class="stack">${c ? `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${esc(c.id)} · §${esc(c.section)} ${esc(c.section_title)} · ${esc(c.document.name)}</span><h3>${esc(c.title)}</h3></div><div class="row">${pill(esc(c.kind), "")}${c.package ? pill(esc(c.package), "mono") : ""}</div></div>
+        <div class="panel-body"><div class="callout accent"><b>${L("Criterion", "Kriterium")}</b>${esc(c.criterion)}</div>
+        ${c.formula_changed ? `<div class="callout warn"><b>ƒ ${L("This calculation changed with the new specification", "Diese Berechnung hat sich mit der neuen Spezifikation geändert")}</b>${c.previous_expression ? `<span>${L("Before", "Vorher")}: <span class="formula-old">${esc(c.previous_expression)}</span></span>` : ""}</div>` : ""}
+        <div class="formula-box ${c.formula_changed ? "changed" : ""}"><span class="field-label">${L("Formula", "Formel")} → <b class="mono">${esc((c.formula || {}).result_name || "")}</b></span><div class="formula-view">${formulaView((c.formula || {}).expression, P.devVars)}</div>
+          <div id="devVars">${varTable(P.devVars, true)}</div><span class="muted" style="font-size:var(--fs-xs)">${L("Try other values to understand the rule — this does not change the test case.", "Andere Werte ausprobieren, um die Regel zu verstehen — der Testfall bleibt unverändert.")}</span>
+          <div id="devPreview">${previewHtml(P.devPreview, null)}</div>
+          <div class="row"><span class="field-label">${L("Expected value in the test case", "Erwartungswert im Testfall")}:</span><b class="mono">${esc(c.expected_value)}</b></div></div>
+        <div class="kv"><dt>${L("Expected outcome", "Erwartetes Verhalten")}</dt><dd>${esc(c.expected_outcome || "")}</dd><dt>${L("Verified by", "Verifiziert von")}</dt><dd>${esc(c.verified_by || "—")} · ${esc(c.verified_at || "")}</dd></div>
+        <span class="field-label">${L("Scenario", "Szenario")}</span><pre class="json">${esc(JSON.stringify(c.scenario, null, 2))}</pre>
+        ${(c.quotes || []).map(q => `<div class="de-quote" style="font-size:var(--fs-sm)">„${esc(q)}“</div>`).join("")}
+        <label class="stack"><span class="field-label">${L("Comment for ITSG (optional)", "Kommentar an ITSG (optional)")}</span><input class="input" id="devComment" value="${esc((c.acks || []).find(a => a.who === P.user) ? (c.acks.find(a => a.who === P.user).comment || "") : "")}"></label>
+        <div class="row between"><div class="row"><button class="btn ok primary" data-act="pipeAck" data-state="accepted">✓ ${L("Accept", "Annehmen")}</button><button class="btn" data-act="pipeAck" data-state="question">? ${L("Ask a question", "Rückfrage")}</button></div><div class="row"><button class="btn ghost sm" data-act="pipeExport" data-id="${esc(c.id)}">${ic("download")} JSON</button>${c.package ? `<button class="btn ghost sm" data-act="pipeExportPkg" data-id="${esc(c.package)}">${ic("download")} ${L("Package", "Paket")}</button>` : ""}</div></div></div></section>
+        <section class="panel"><div class="panel-head"><h4>${L("Spec change", "Spezifikationsänderung")}</h4></div><div class="panel-body"><b>${esc((c.spec_change || {}).summary || "")}</b><details class="cot-more"><summary class="muted">JSON</summary><pre class="json">${esc(JSON.stringify(c.spec_change, null, 2))}</pre></details></div></section>
+        <section class="panel"><div class="panel-head"><h4>${L("Chain of thought", "Gedankengang")}</h4><span class="muted" style="font-size:var(--fs-xs)">${(c.cot || []).length} ${L("steps", "Schritte")}</span></div><div class="panel-body"><details class="cot-more"><summary>${L("Show how the AI derived this test case", "Zeigen, wie die KI diesen Testfall hergeleitet hat")}</summary><div class="cot" style="margin-top:10px">${(c.cot || []).map(evHtml).join("")}</div></details></div></section>
+        <section class="panel"><div class="panel-head"><h4>${L("History", "Verlauf")}</h4></div><div class="panel-body flush">${(c.history || []).slice().reverse().map(h => `<div class="log-item"><span class="log-time">${esc((h.t || "").slice(5, 16).replace("T", " "))}</span><span>${h.who && h.who.startsWith("AI") ? "AI" : "👤"}</span><div><b>${esc(h.action)}</b> · ${esc(h.who)}<div class="muted">${esc(h.detail || "")}</div></div></div>`).join("")}</div></section>`
+      : `<section class="panel"><div class="empty">${L("Select a test case.", "Testfall auswählen.")}</div></section>`}</div></div>`;
+  }
+  let devTimer = null;
+  function scheduleDevEval() {
+    clearTimeout(devTimer);
+    devTimer = setTimeout(async () => {
+      const c = P.inboxDetail; if (!c) return;
+      try { P.devPreview = await api("/api/evaluate", { body: { expression: (c.formula || {}).expression, variables: P.devVars } }); } catch (e) { P.devPreview = { ok: false, error: e.message }; }
+      const el = document.getElementById("devPreview"); if (el) el.innerHTML = previewHtml(P.devPreview, null);
+    }, 250);
+  }
+  async function exportJson(path, name) {
+    try { const j = await api(path); A.downloadOrCopy(name, JSON.stringify(j, null, 2), "application/json"); } catch (e) { A.toast(e.message); }
+  }
+
+  /* ---------- screens, actions, events ---------- */
+  const at = id => A.SCREENS.findIndex(s => s.id === id);
+  A.SCREENS.splice(at("ingest") + 1, 0, { id: "pipeline", group: "spec", step: null, icon: "ai", roles: ["itsg"], t: () => L("AI test pipeline", "KI-Testpipeline"),
+    badge: () => P.run && P.run.status === "running" ? { n: "●", hot: true } : null });
+  A.SCREENS.splice(at("tests") + 1, 0, { id: "review", group: "tests", step: null, icon: "check", roles: ["itsg"], t: () => L("Test-case review", "Testfall-Prüfung"),
+    badge: () => { const n = P.cases.filter(c => c.status === "draft").length; return n ? { n, hot: true } : null; } });
+  A.SCREENS.push({ id: "devinbox", group: "dev", step: null, icon: "inbox", roles: ["dev"], t: () => L("Test cases from ITSG", "Testfälle von ITSG"),
+    badge: () => { const n = P.inbox.filter(t => !P.seenInbox.includes(t.id)).length; return n ? { n, hot: true } : null; } });
+  A.GROUPS.dev = () => L("Developer", "Entwicklung");
+  Object.assign(A.RENDER, { pipeline: vPipeline, review: vReview, devinbox: vDevInbox });
+
+  Object.assign(A.ACT, {
+    pipeStart: () => startRun(),
+    pipeStop: async () => { try { await api(`/api/runs/${encodeURIComponent(P.runId)}/stop`, { body: {} }); pollRun(true); } catch (e) { A.toast(e.message); } },
+    pipeSelItem: (el, e) => { if (e && e.target.closest('[data-act="pipeGen"]')) return; P.selItem = el.dataset.sec; P.follow = false; paintRun(false); },
+    pipeGen: async el => { try { await api(`/api/runs/${encodeURIComponent(P.runId)}/items/${encodeURIComponent(el.dataset.sec)}/generate`, { body: {} }); P.selItem = el.dataset.sec; P.follow = true; if (P.run) P.run.status = "running"; pollRun(true); } catch (e) { A.toast(e.message); } },
+    pipeDelDoc: async el => { try { await api(`/api/upload/${encodeURIComponent(el.dataset.name)}`, { method: "DELETE" }); P.choice = { new: null, old: undefined }; await refreshDocs(); rerender(); } catch (e) { A.toast(e.message); } },
+    pipeOpenCase: el => openCase(el.dataset.id),
+    pipeFilter: el => { P.caseFilter = el.dataset.f; rerender(); },
+    pipeRefreshCases: () => loadCases().then(rerender),
+    pipeAddVar: el => { const d = P.draft; if (!d) return; const name = el.dataset.name || prompt(L("Variable name", "Variablenname")); if (!name || !/^[A-Za-z_]\w*$/.test(name)) return; if (!d.formula.variables.some(v => v.name === name)) d.formula.variables.push({ name, type: "number", value: "", source: "scenario" }); document.getElementById("pipeVars").innerHTML = varTable(d.formula.variables, false); scheduleEval(); },
+    pipeDelVar: el => { const d = P.draft; d.formula.variables.splice(Number(el.dataset.i), 1); document.getElementById("pipeVars").innerHTML = varTable(d.formula.variables, false); scheduleEval(); },
+    pipeSave: () => saveCase(),
+    pipeVerify: async () => {
+      if (!readDraftFields()) return;
+      const c = P.caseDetail, d = P.draft;
+      const dirty = JSON.stringify(d.formula) !== JSON.stringify(c.formula) || JSON.stringify(d.scenario) !== JSON.stringify(c.scenario || {}) || d.title !== c.title || d.criterion !== c.criterion || d.expected_outcome !== c.expected_outcome;
+      if (dirty && !(await saveCase())) return; // verify what is on screen, not the stored older version
+      if (await caseAction("verify")) A.toast(L("Verified — ready to send to developers", "Verifiziert — bereit zum Senden an Entwickler"));
+    },
+    pipeVerifyOverride: async () => { const r = (document.getElementById("pipeOverride") || {}).value || ""; if (!r.trim()) return; document.getElementById("modalHost").innerHTML = ""; if (await caseAction("verify", { override_reason: r.trim() })) A.toast(L("Verified with reason", "Mit Begründung verifiziert")); },
+    pipeReject: () => A.modal(L("Reject test case", "Testfall ablehnen"), `<label class="stack"><span class="field-label">${L("Reason", "Begründung")}</span><textarea class="textarea" id="pipeRejectReason" style="font-family:var(--font-body)"></textarea></label>`, null, `<button class="btn" data-act="closeModal">${L("Cancel", "Abbrechen")}</button><button class="btn bad" data-act="pipeRejectGo">${L("Reject", "Ablehnen")}</button>`),
+    pipeRejectGo: async () => { const r = (document.getElementById("pipeRejectReason") || {}).value || ""; if (!r.trim()) return; document.getElementById("modalHost").innerHTML = ""; await caseAction("reject", { reason: r.trim() }); },
+    pipeReopen: () => caseAction("reopen", { reason: L("reopened for changes", "für Änderungen wieder geöffnet") }),
+    pipeSendOpen: () => openSend(),
+    pipeSend: async el => {
+      const to = [...document.querySelectorAll(".pipeTo:checked")].map(i => i.value).concat(((document.getElementById("pipeToExtra") || {}).value || "").split(",").map(s => s.trim()).filter(Boolean));
+      if (!to.length) { A.toast(L("Choose at least one developer", "Mindestens einen Entwickler wählen")); return; }
+      try {
+        const pkg = await api("/api/send", { body: { ids: el.dataset.ids.split(","), to, note: (document.getElementById("pipeNote") || {}).value || "" } });
+        document.getElementById("modalHost").innerHTML = "";
+        A.log("examiner", L("Test cases sent to developers", "Testfälle an Entwickler gesendet"), `${pkg.id}: ${pkg.ids.length} → ${to.join(", ")}`);
+        A.toast(`${pkg.ids.length} ${L("test case(s) sent to", "Testfall/-fälle gesendet an")} ${to.join(", ")}`);
+        P.sel.clear(); await loadCases(); if (P.selCase) await openCase(P.selCase); else rerender();
+      } catch (e) { A.toast(e.message); }
+    },
+    pipeExport: el => exportJson(`/api/testcases/${encodeURIComponent(el.dataset.id)}/export`, el.dataset.id + ".json"),
+    pipeExportPkg: el => exportJson(`/api/packages/${encodeURIComponent(el.dataset.id)}`, el.dataset.id + ".json"),
+    pipeUser: () => askName(() => { if (S.role === "dev") loadInbox(); }),
+    pipeSaveUser: () => { const v = ((document.getElementById("pipeUserName") || {}).value || "").trim(); if (!v) return; P.user = v; store.set("user", v); document.getElementById("modalHost").innerHTML = ""; register(); shell(); const f = P.afterName; P.afterName = null; if (f) f(); rerender(); },
+    pipeOpenInbox: el => openInbox(el.dataset.id),
+    pipeRefreshInbox: () => loadInbox(),
+    pipeAck: async el => {
+      try {
+        await api(`/api/testcases/${encodeURIComponent(P.selInbox)}/ack`, { body: { state: el.dataset.state, comment: (document.getElementById("devComment") || {}).value || "" } });
+        A.toast(el.dataset.state === "accepted" ? L("Accepted — ITSG can see it", "Angenommen — ITSG sieht es") : L("Question sent to ITSG", "Rückfrage an ITSG gesendet"));
+        await loadInbox(); await openInbox(P.selInbox);
+      } catch (e) { A.toast(e.message); }
+    }
+  });
+
+  document.addEventListener("input", e => {
+    const t = e.target;
+    if (t.id === "pipeExpr" && P.draft) { P.draft.formula.expression = t.value; scheduleEval(); }
+    else if (t.dataset && t.dataset.var != null && t.closest("#pipeVars") && P.draft) { P.draft.formula.variables[Number(t.dataset.var)][t.dataset.k] = t.value; scheduleEval(); const fv = document.getElementById("pipeFormulaView"); if (fv) fv.innerHTML = formulaView(P.draft.formula.expression, P.draft.formula.variables); }
+    else if (t.dataset && t.dataset.var != null && t.closest("#devVars") && P.devVars) { P.devVars[Number(t.dataset.var)][t.dataset.k] = t.value; scheduleDevEval(); }
+    else if (["pipeTitle", "pipeOutcome", "pipeCrit", "pipeScenario"].includes(t.id)) { const sb = document.getElementById("pipeSaveBtn"); if (sb) sb.disabled = false; }
+  });
+  document.addEventListener("change", e => {
+    const t = e.target;
+    const parse = v => { if (!v) return null; const i = v.indexOf(":"); return { kind: v.slice(0, i), name: v.slice(i + 1) }; };
+    if (t.id === "pipeAsLaw") P.uploadTarget = t.checked ? "law_file" : "upload";
+    else if (t.id === "pipeNew") { P.choice = { new: parse(t.value), old: undefined }; store.set("pipeChoice", P.choice); refreshPlan(); }
+    else if (t.id === "pipeOld") { P.choice.old = t.value === "" ? undefined : t.value === "-" ? null : parse(t.value); store.set("pipeChoice", P.choice); refreshPlan(); }
+    else if (t.id === "pipeMax") { P.maxItems = Math.max(1, Math.min(20, Number(t.value) || 4)); store.set("pipeMax", P.maxItems); }
+    else if (t.id === "pipeModel") { P.model = t.value; store.set("pipeModel", P.model); }
+    else if (t.dataset && t.dataset.sel) { if (t.checked) P.sel.add(t.dataset.sel); else P.sel.delete(t.dataset.sel); const b = document.querySelector('[data-act="pipeSendOpen"]'); const n = [...P.sel].filter(id => (P.cases.find(c => c.id === id) || {}).status === "verified").length; if (b) { b.disabled = !n; b.innerHTML = `${ic("inbox")} ${L("Send to developers", "An Entwickler senden")}${n ? ` (${n})` : ""}`; } }
+    else if (t.dataset && t.dataset.var != null && t.dataset.k === "type" && P.draft) { P.draft.formula.variables[Number(t.dataset.var)].type = t.value; scheduleEval(); }
+  });
+
+  function afterRender() {
+    if (S.screen === "pipeline") paintRun(false);
+    if (S.screen === "review" && P.selCase && !P.caseDetail) openCase(P.selCase);
+  }
+  function init() {
+    if (A.IS_PRESENTER) return;
+    // deep links, e.g. ?role=dev&user=Kim or ?run=<id>#pipeline or ?case=<id>#review
+    const q = new URLSearchParams(location.search);
+    if (q.get("user")) { P.user = q.get("user"); store.set("user", P.user); }
+    if (["itsg", "vendor", "dev"].includes(q.get("role")) && q.get("role") !== S.role) { S.role = q.get("role"); store.set("role", S.role); A.render(); }
+    if (q.get("run")) { P.runId = q.get("run"); store.set("pipeRun", P.runId); }
+    if (q.get("case")) { if (S.role === "dev") P.selInbox = q.get("case"); else P.selCase = q.get("case"); }
+    shell();
+    connect().then(() => { if (P.selInbox && S.role === "dev") openInbox(P.selInbox); else if (P.selCase && S.role === "itsg") openCase(P.selCase); });
+    setInterval(() => { if (P.online === false) connect(); }, 5000);
+    setInterval(() => pollRun(false), 1000);
+    setInterval(() => { if (S.role === "dev" && P.online) loadInbox(); else if (S.role === "itsg" && P.online && !onScreen("review")) loadCases(); }, 6000);
+    if (S.role === "dev" && !P.user) setTimeout(() => askName(() => loadInbox()), 300);
+    else register();
+  }
+  return { init, upload, testButton, docsBlock, afterRender, shell, onRole, P, evHtml };
+})();
+window.PIPE = PIPE;
+
 window.TOUR = TOUR;
 APP.init();
 TOUR.init();
+PIPE.init();
 
 </script>

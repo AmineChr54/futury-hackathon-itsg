@@ -178,6 +178,7 @@ a { color: var(--accent); }
 .tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
 .empty { padding: var(--s-6); text-align: center; color: var(--muted); font-size: var(--fs-sm); }
 .toast-host { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 90; display: grid; gap: 8px; }
+body.touring .toast-host { top: calc(var(--bar-h) + 12px); bottom: auto; }
 .toast { background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: var(--r-md); font-size: var(--fs-sm); box-shadow: var(--shadow); max-width: 360px; animation: toast-in .25s ease-out; }
 @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
 
@@ -288,7 +289,7 @@ details.tech > .tech-body { padding: var(--s-4); display: grid; gap: var(--s-4);
 
 /* ---------- timeline (AU periods) ---------- */
 .tl { width: 100%; height: auto; display: block; }
-.tl text { fill: var(--muted); font: 500 10px var(--font-mono); }
+.tl text { fill: var(--muted); font: 500 12px var(--font-mono); }
 .tl .lbl { fill: var(--fg-2); }
 .tl .axis { stroke: var(--line-strong); }
 .tl .au { fill: var(--info); }
@@ -396,7 +397,7 @@ details.tech > .tech-body { padding: var(--s-4); display: grid; gap: var(--s-4);
 .tour-spot { position: fixed; z-index: 85; border-radius: 10px; box-shadow: 0 0 0 9999px var(--scrim); outline: 3px solid var(--accent); outline-offset: 2px; pointer-events: none; transition: all .5s cubic-bezier(.2,.7,.2,1); }
 /* Docked bar at the very bottom: keeps the page visible above it. */
 .tour-card { position: fixed; z-index: 86; left: 0; right: 0; bottom: 0; background: var(--surface); color: var(--fg); box-shadow: 0 -6px 24px rgba(20, 12, 14, .18); padding: 10px var(--s-5) calc(10px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--s-5); row-gap: 6px; align-items: center; border-top: 3px solid var(--accent); max-height: 40vh; overflow: auto; }
-.tour-card .tour-progress, .tour-card .tour-notes { grid-column: 1 / -1; }
+.tour-card .tour-chapters, .tour-card .tour-notes { grid-column: 1 / -1; }
 .tour-text { display: grid; gap: 2px; min-width: 0; }
 .tour-text .row { flex-wrap: nowrap; }
 .tour-card h3 { font-size: var(--fs-lg); }
@@ -405,7 +406,18 @@ details.tech > .tech-body { padding: var(--s-4); display: grid; gap: var(--s-4);
 .tour-notes ul { margin: 0; padding-left: 1.2em; display: grid; gap: 2px; font-size: var(--fs-sm); }
 body.touring .main-inner { padding-bottom: 42vh; }
 @media (max-width: 760px) { .tour-card { grid-template-columns: minmax(0, 1fr); } .tour-ctrl { justify-items: start; } }
+.tour-chapters { display: flex; gap: 10px; }
+.tour-ch { display: grid; gap: 4px; min-width: 64px; }
+.tour-ch > b { font: 600 10px/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tour-ch.cur > b { color: var(--accent); }
 .tour-progress { display: flex; gap: 4px; }
+.tour-cap { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 1.05rem; line-height: 1.4; }
+.tour-cap > span > b { font: 600 var(--fs-xs)/1 var(--font-body); letter-spacing: .08em; text-transform: uppercase; margin-right: 8px; }
+.tour-cap .today { color: var(--muted); }
+.tour-cap .arrow { color: var(--accent); font-weight: 700; }
+.tour-cap .now { color: var(--fg); font-weight: 600; animation: cap-in .5s ease-out .6s both; }
+.tour-cap .now > b { color: var(--ok); }
+@keyframes cap-in { from { opacity: 0; transform: translateX(-8px); } }
 .tour-progress i { flex: 1; height: 3px; border-radius: 2px; background: var(--surface-3); }
 .tour-progress i.on { background: var(--accent); }
 .kbd { font: 600 11px/1 var(--font-mono); border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; background: var(--surface-2); }
@@ -746,7 +758,9 @@ const CORE = (() => {
     let ref = currentStart, open = true;
     for (const a of eligible) {
       const limit = addMonths(a.end, P.six_months);
-      const ok = open && ref <= limit;
+      // v13.4 "nicht mehr als 6 Monate": a gap of exactly 6 months still chains. P.gapExclusive replays the
+      // v13.3 wording "nicht mindestens 6 Monate", where exactly 6 months already breaks the chain.
+      const ok = open && (P.gapExclusive ? ref < limit : ref <= limit);
       trace.push(`${de(a.start)}–${de(a.end)}: next start ${de(ref)} ≤ end + ${P.six_months} mo (${de(limit)}) → ${ok ? "include" : "stop"}`);
       if (ok) { included.push(a); ref = a.start; } else open = false;
     }
@@ -1157,6 +1171,19 @@ const CORE = (() => {
     employmentEnd: null
   };
 
+  /* The §3.12 boundary that v13.4 flipped: the older period ends exactly 6 months before the next one starts.
+     v13.4 chains both periods (32 days → request 41); the v13.3 wording stopped the chain (12 days → no request). */
+  const BOUNDARY_6M = {
+    id: "EEL-3.12-006", name: "Jonas Keller", origin: "generated",
+    today: D("2026-03-02"),
+    state: {
+      insurance: "GKV", marginal: false,
+      current: { start: D("2026-03-02"), end: D("2026-03-08"), certified: true },
+      priors: [{ start: D("2026-01-12"), end: D("2026-01-16"), certified: true, label: "a" }, { start: D("2025-06-23"), end: D("2025-07-12"), certified: true, label: "b" }]
+    },
+    employmentEnd: null
+  };
+
   /* Proposed machine-readable test input (would need a spec change: vendors import it instead of typing). */
   function scenarioJSON(sc, ruleId, P) {
     const g = gates(sc.state, sc.today, P);
@@ -1238,7 +1265,7 @@ const CORE = (() => {
     ["3.12", "C", UUID.chain, "Prior AUs included only while gaps ≤ 6 months (Daumenkriterium)", "Vorerkrankungen nur bei Lücken ≤ 6 Monate (Daumenkriterium)", "13.3"],
     ["3.12", "C", UUID.thirty_days, "Request 41 only if prior AUs + current AU ≥ 30 days", "41 nur, wenn Vorerkrankungen + aktuelle AU ≥ 30 Tage", "13.3"],
     ["3.12", "M", null, "Golden case Peter Mustermann: 4 periods, newest first", "Referenzfall Peter Mustermann: 4 Zeiträume, neueste zuerst", "13.3"],
-    ["3.12", "M", null, "Boundary: gap of exactly 6 months is included", "Grenzfall: Lücke von genau 6 Monaten wird übernommen", "13.3"],
+    ["3.12", "M", null, "Boundary: gap of exactly 6 months is included", "Grenzfall: Lücke von genau 6 Monaten wird übernommen", "13.4"],
     ["3.12", "M", null, "Boundary: gap of 6 months + 1 day stops the chain", "Grenzfall: Lücke 6 Monate + 1 Tag beendet die Kette", "13.3"],
     ["3.12", "M", null, "29 days in total: no request 41", "29 Tage insgesamt: keine Anfrage 41", "13.3"],
     ["3.12", "M", null, "Open-ended AU evaluated as today + 7 days", "Offenes AU-Ende wird mit heute + 7 Tagen bewertet", "13.3"],
@@ -1361,6 +1388,7 @@ const CORE = (() => {
     t("guard: 14 weeks not found in “12 Wochen …”", "guard.number", () => !numberGuard(14, "12 Wochen nach der Entbindung", "weeks").ok);
     t("diff: §3.12 boundary wording detected", "diff", () => diffSection("3.12").parts.some(p => p.t === "+" && p.s.includes("mehr als")));
     t("change log parser: 10 entries, §3.12 referenced", "changelog", () => { const l = parseChangelog(CHANGELOG_RAW); return l.length === 10 && l.some(e => e.refs.some(r => r.sec === "3.12")); });
+    t("§3.12 boundary: gap of exactly 6 months chains (v13.4) but stopped the chain in v13.3", "dbvo.chain", () => { const b = BOUNDARY_6M, n = gates(b.state, b.today, P), o = gates(b.state, b.today, Object.assign({}, P, { gapExclusive: true })); return n.allowed && n.chain.included.length === 2 && !o.allowed && o.chain.included.length === 1; });
     t("ITSG example: earlier illness > 6 months before → no request 41", "dbvo.gates", () => { const r = gates(NEG_6M.state, NEG_6M.today, P); return !r.allowed && !r.gates.find(x => x.id === "six_months").ok; });
     t("test input JSON round-trips to the same expected result", "scenario.json", () => { const j = JSON.parse(JSON.stringify(scenarioJSON(GOLDEN, "R-3.12-B", P))), s = scenarioFromJSON(j); return gates(s.state, s.today, P).allowed && dbvoBlock(s.state, P) === j.expected.dbvo; });
     t("explain: gap file → ANZAHL-AU 04 → 05 and extra period 01.11.2024–05.11.2024", "explain", () => { const v = validateMessage(brokenVariants().find(b => b.id === "gap").text, GOLDEN, P), e = explainDbvo(v.meta.expected, v.meta.actual, P); return e.some(x => x.field === "ANZAHL-AU" && x.expected === "04" && x.actual === "05") && e.some(x => x.kind === "extra" && x.en.includes("01.11.2024–05.11.2024")); });
@@ -1375,7 +1403,7 @@ const CORE = (() => {
     FN, chain, countDays, gates, dbvoBlock, efzEnd, eelEnd, muPeriod, PARAMS_DEFAULT, UUID,
     RULES, quoteGuard, numberGuard, schemaGuard, runGuards, agreement, evaluateRule, sectionText,
     parseDTA, fieldOf, blockOf, validateMessage, DSLW, ABGABEGRUENDE, fieldInfo, explainDbvo,
-    TEEL0, TEEL0_LINES, GOLDEN, NEG_6M, scenarioJSON, scenarioFromJSON, brokenVariants, TEMPLATES, generateVariants,
+    TEEL0, TEEL0_LINES, GOLDEN, NEG_6M, BOUNDARY_6M, scenarioJSON, scenarioFromJSON, brokenVariants, TEMPLATES, generateVariants,
     CATALOGUE, LEGACY_ROWS, baselineCheck, VENDORS, SEQUENCE, selfTest
   };
 })();
@@ -1507,8 +1535,8 @@ const APP = (() => {
     const endUsed = res.days.endUsed;
     const all = [...st.priors.map(a => a.start), res.days.winStart];
     const x0 = Math.min(...all) - 12, x1 = Math.max(endUsed, st.current.start) + 12;
-    const W = 760, H = opt.compact ? 76 : 96, pad = 8, sx = d => pad + (d - x0) / (x1 - x0) * (W - 2 * pad);
-    const y = opt.compact ? 30 : 40, bh = 16;
+    const W = 760, H = opt.compact ? 94 : 106, pad = 8, sx = d => pad + (d - x0) / (x1 - x0) * (W - 2 * pad);
+    const y = opt.compact ? 32 : 42, bh = 16;
     let svg = `<svg class="tl" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(L("Sick-leave timeline", "AU-Zeitstrahl"))}">`;
     svg += `<rect class="win" x="${sx(res.days.winStart)}" y="${y - 6}" width="${Math.max(0, sx(st.current.start) - sx(res.days.winStart))}" height="${bh + 12}" rx="4"/>`;
     svg += `<text x="${sx(res.days.winStart) + 4}" y="${y - 10}">${esc(L("12-month window", "12-Monats-Fenster"))} ${C.de(res.days.winStart)}</text>`;
@@ -1516,10 +1544,10 @@ const APP = (() => {
     st.priors.forEach((a, i) => {
       const cls = !inc.has(a) ? "out" : a.paper ? "paper" : "";
       svg += `<rect class="au ${cls}" x="${sx(a.start)}" y="${y}" width="${Math.max(3, sx(a.end + 1) - sx(a.start))}" height="${bh}" rx="3"><title>${C.de(a.start)}–${C.de(a.end)}${a.certified ? "" : " (uncertified)"}</title></rect>`;
-      svg += `<text class="lbl" x="${sx(a.start)}" y="${y + bh + 24 + (i % 2) * 11}">${C.de(a.start).slice(0, 6)}</text>`;
+      svg += `<text class="lbl" x="${sx(a.start)}" y="${y + bh + 27 + (i % 2) * 14}">${C.de(a.start).slice(0, 6)}</text>`;
     });
     svg += `<rect class="au cur" x="${sx(st.current.start)}" y="${y}" width="${Math.max(3, sx(endUsed + 1) - sx(st.current.start))}" height="${bh}" rx="3"><title>${esc(L("current", "aktuell"))} ${C.de(st.current.start)}–${C.de(endUsed)}</title></rect>`;
-    svg += `<text class="lbl" x="${Math.min(W - 70, sx(st.current.start))}" y="${y - 10}" style="fill:var(--accent)">${esc(L("current AU", "aktuelle AU"))} ${C.de(st.current.start).slice(0, 6)}${st.current.end == null ? " → +7" : ""}</text>`;
+    svg += `<text class="lbl" x="${Math.min(W - pad, sx(endUsed + 1))}" y="${y - 10}" text-anchor="end" style="fill:var(--accent)">${esc(L("current AU", "aktuelle AU"))} ${C.de(st.current.start).slice(0, 6)}${st.current.end == null ? " → +7" : ""}</text>`;
     return svg + "</svg>";
   }
 
@@ -1567,6 +1595,17 @@ const APP = (() => {
     if (key === "golden.eelend") {
       const r = C.eelEnd(g.finalAuEnd, g.employmentEnd), rule = C.RULES.find(x => x.id === "R-3.7.3");
       return { title: `${L("Confirmed EEL end", "Bestätigtes EEL-Ende")} ${C.de(r.end)}`, sub: "§3.7.3 · " + L("new in v13.4", "neu in v13.4"), steps: [{ kind: "src", ic: "§", title: `§3.7.3 · ${L("page", "Seite")} 92 · v13.4`, html: `<div class="trail-box de-quote">„${esc(rule.runA.quotes._rule)}“</div>` }, fnStep("eel.confirmedEnd"), inStep(`${L("AU until", "AU bis")} ${C.de(g.finalAuEnd)} · ${L("employment ends", "Beschäftigung endet")} ${C.de(g.employmentEnd)}`), calcStep(r.trace), resStep(C.de(r.end), "EEL-3.7.3-001, KK 62")] };
+    }
+    if (key === "b6m.new" || key === "b6m.old") {
+      const rB = C.RULES.find(x => x.id === "R-3.12-B"), b = C.BOUNDARY_6M, old = key === "b6m.old", r = C.gates(b.state, b.today, old ? Object.assign({}, P, { gapExclusive: true }) : P);
+      const q = old ? "nicht mindestens 6 Monate vergangen sind" : "nicht mehr als 6 Monate vergangen sind";
+      return { title: r.allowed ? `${L("Request 41 with", "Anfrage 41 mit")} ${r.chain.included.length} ${L("periods", "Zeiträumen")}` : L("No request 41", "Keine Anfrage 41"), sub: `${b.id} · §3.12 · v${old ? "13.3" : "13.4"}`, steps: [
+        { kind: "src", ic: "§", title: `${L("Specification", "Spezifikation")} §3.12 · v${old ? "13.3" : "13.4"}`, html: `<div class="trail-box de-quote">„${esc(q)}“</div>${old ? `<div class="muted" style="font-size:var(--fs-xs)">${L("Old wording, reconstructed from the change log", "Alter Wortlaut, aus dem Änderungsprotokoll rekonstruiert")}</div>` : ""}` },
+        { kind: "llm", ic: "AI", title: `${L("Parameter extracted", "Parameter extrahiert")}: <code>six_months = ${P.six_months}</code> ${pill(L("LLM: extraction only", "LLM: nur Extraktion"), "info")}`, html: `<div class="trail-box">${L("Two independent runs (Kolibri-1, prompt A / prompt B)", "Zwei unabhängige Läufe (Kolibri-1, Prompt A / Prompt B)")}: <b>${rB.runA.params.six_months}</b> / <b>${rB.runB.params.six_months}</b> ${pill("A = B", "ok")}</div><div class="row">${statusPill(S.rules[rB.id].status)}</div>` },
+        fnStep("dbvo.gates"),
+        inStep(`${esc(b.name)} · ${L("current AU", "aktuelle AU")} ${C.de(b.state.current.start)}–${C.de(b.state.current.end)}<br>${b.state.priors.map(a => `${C.de(a.start)}–${C.de(a.end)}`).join("<br>")}`),
+        calcStep([...r.chain.trace, ...r.days.trace, ...r.gates.map(x => `${x.ok ? "✓" : "✕"} ${x.id}: ${x.detail}`)]),
+        resStep(r.allowed ? `${L("Request 41 with", "Anfrage 41 mit")} ${r.chain.included.length} ${L("periods", "Zeiträumen")}` : `${L("No request 41", "Keine Anfrage 41")} (${r.gates.filter(x => !x.ok).map(x => x.id).join(", ")})`, b.id)] };
     }
     if (key === "neg6m.allowed") {
       const n = C.NEG_6M, r = C.gates(n.state, n.today, P);
@@ -1616,7 +1655,7 @@ const APP = (() => {
     { id: "vhome", group: "mine", step: null, icon: "home", roles: ["vendor"], t: () => L("Home", "Start") },
     { id: "vwork", group: "mine", step: null, vstep: 1, icon: "test", roles: ["vendor"], t: () => L("My test cases", "Meine Testfälle"), badge: () => { if (!published(S.vendorUser)) return null; const n = Object.values(work(S.vendorUser)).filter(x => x.status === "todo").length; return n ? { n, hot: true } : null; } },
     { id: "ingest", group: "spec", step: 1, icon: "archive", roles: ["itsg"], t: () => L("Inputs & archive", "Eingaben & Archiv") },
-    { id: "baseline", group: "spec", step: null, icon: "grid", roles: ["itsg"], t: () => L("Baseline check", "Bestandsprüfung"), badge: () => { const c = baseline().counts; return c.obsolete + c.missing ? { n: c.obsolete + c.missing, hot: true } : null; } },
+    { id: "baseline", group: "spec", step: null, icon: "grid", roles: ["itsg"], t: () => L("Coverage check", "Abdeckungsprüfung"), badge: () => { const c = baseline().counts; return c.obsolete + c.missing ? { n: c.obsolete + c.missing, hot: true } : null; } },
     { id: "specs", group: () => S.role === "vendor" ? "mine" : "spec", step: null, icon: "doc", roles: ["itsg", "vendor"], t: () => L("Specification", "Spezifikation") },
     { id: "changes", group: "spec", step: 2, icon: "diff", roles: ["itsg"], t: () => L("Change impact", "Änderungen"), badge: () => CHANGES.filter(c => c.source === "diff-only").length ? { n: CHANGES.filter(c => c.source !== "log-no-text").length, hot: true } : null },
     { id: "extract", group: "rules", step: 3, icon: "ai", roles: ["itsg"], t: () => L("Rules (criteria)", "Regeln (Prüfkriterien)"), badge: () => { const n = Object.values(S.rules).filter(r => r.status === "pending").length; return n ? { n, hot: true } : null; } },
@@ -1627,7 +1666,7 @@ const APP = (() => {
     { id: "report", group: () => S.role === "vendor" ? "mine" : "cert", step: null, vstep: 3, icon: "report", roles: ["itsg", "vendor"], t: () => S.role === "vendor" ? L("My results", "Meine Ergebnisse") : L("Report & next scope", "Bericht & nächster Umfang") },
     { id: "mail", group: () => S.role === "vendor" ? "mine" : "cert", step: null, icon: "inbox", roles: ["itsg", "vendor"], t: () => L("Messages", "Nachrichten"), badge: () => { const n = unreadCount(); return n ? { n, hot: true } : null; } },
     { id: "functions", group: "evidence", step: null, icon: "fn", roles: ["itsg"], t: () => L("Function library", "Funktionsbibliothek"), badge: () => ({ n: `${TESTS.filter(t => t.ok).length}/${TESTS.length}` }) },
-    { id: "coverage", group: "evidence", step: null, icon: "grid", roles: ["itsg"], t: () => L("Coverage", "Abdeckung") },
+    { id: "coverage", group: "evidence", step: null, icon: "grid", roles: ["itsg"], t: () => L("Coverage by §", "Abdeckung je §") },
     { id: "log", group: "evidence", step: null, icon: "log", roles: ["itsg"], t: () => L("Audit trail", "Prüfpfad"), badge: () => S.log.length ? { n: S.log.length } : null }
   ];
   const GROUPS = { start: () => "", mine: () => L("My certification 2027", "Meine Zertifizierung 2027"), spec: () => L("Specification", "Spezifikation"), rules: () => L("Rules", "Regeln"), tests: () => L("Tests", "Tests"), cert: () => L("Certification", "Zertifizierung"), evidence: () => L("Evidence", "Nachweise") };
@@ -1638,7 +1677,7 @@ const APP = (() => {
     const pend = Object.values(S.rules).filter(r => r.status === "pending").length;
     const affected = C.CATALOGUE.filter(r => rowStatus(r) !== "unchanged").length;
     const steps = [
-      ["baseline", 0, L("Baseline check", "Bestandsprüfung"), L("Once: old tests vs. current law — obsolete, missing", "Einmalig: alte Tests vs. geltendes Recht — veraltet, fehlend"), "det", L("deterministic", "deterministisch")],
+      ["baseline", 0, L("Coverage check", "Abdeckungsprüfung"), L("Every spec sentence has a test; old tests vs. current law", "Jeder Satz hat einen Test; alte Tests vs. geltendes Recht"), "det", L("deterministic", "deterministisch")],
       ["ingest", 1, L("Ingest", "Einlesen"), L("Original government PDF, § index from its structure", "Original-PDF der Behörde, §-Index aus der Struktur"), "det", L("deterministic", "deterministisch")],
       ["changes", 2, L("Detect changes", "Änderungen finden"), L("Change log + section diff, reconciled", "Protokoll + Abschnitts-Diff, abgeglichen"), "det", L("deterministic + AI type", "deterministisch + KI-Typ")],
       ["extract", 3, L("Rules", "Regeln"), L("AI drafts the rule in plain words; examiner approves, edits or declines", "KI formuliert die Regel; Prüfer gibt frei, ändert oder lehnt ab"), "ai", L("AI + human", "KI + Mensch")],
@@ -1648,14 +1687,14 @@ const APP = (() => {
       ["audit", 7, L("Audit & report", "Prüfung & Bericht"), L("Pass/fail per vendor, next scope", "Bestanden/nicht bestanden je Hersteller, nächster Umfang"), "human", L("human", "Mensch")]
     ];
     const P = S.params, gr = C.gates(C.GOLDEN.state, C.GOLDEN.today, P);
-    return `${head(L("From spec change to certified release", "Von der Spezifikationsänderung zur zertifizierten Version"),
+    return `${S.recap ? recapPanel() : ""}${head(L("From spec change to certified release", "Von der Spezifikationsänderung zur zertifizierten Version"),
       L("The government publishes new specifications once a year, sometimes in December for 1 January. This assistant turns the change into updated, traceable test cases — the language model reads, pre-written functions calculate, examiners approve.", "Die Spezifikationen kommen einmal im Jahr, manchmal im Dezember für den 1. Januar. Dieser Assistent macht aus der Änderung aktualisierte, nachvollziehbare Testfälle — das Sprachmodell liest, vorab geschriebene Funktionen rechnen, Prüfer geben frei."),
       `<button class="btn primary" data-act="tour">${ic("play")} ${L("Start guided demo", "Geführte Demo starten")}</button>`)}
       <div class="grid-4" data-tour="kpis">
         <div class="panel kpi"><div class="kpi-value">${CHANGES.filter(c => c.source !== "log-no-text").length}</div><div class="kpi-label">${L("changed sections in v13.4 (with text)", "geänderte Abschnitte in v13.4 (mit Text)")}</div><div>${pill(CHANGES.filter(c => c.source === "diff-only").length + " " + L("not in change log", "nicht im Protokoll"), "bad")}</div></div>
         <div class="panel kpi"><div class="kpi-value">${pend}</div><div class="kpi-label">${L("rules awaiting approval", "Regeln warten auf Freigabe")}</div><div>${pill(C.RULES.length + " " + L("rules extracted", "Regeln extrahiert"), "info")}</div></div>
         <div class="panel kpi"><div class="kpi-value">${affected}<span class="muted" style="font-size:1rem"> / ${C.CATALOGUE.length}</span></div><div class="kpi-label">${L("test cases new or affected", "Testfälle neu oder betroffen")}</div><div>${pill(L("EEL subset of ~4,000", "EEL-Teilmenge von ~4.000"), "")}</div></div>
-        <div class="panel kpi"><div class="kpi-value">${baseline().counts.obsolete + baseline().counts.missing}</div><div class="kpi-label">${L("old tests obsolete or rules without a test", "alte Tests veraltet oder Regeln ohne Test")}</div><div>${pill(L("baseline check", "Bestandsprüfung"), "warn")}</div></div>
+        <div class="panel kpi"><div class="kpi-value">${baseline().counts.obsolete + baseline().counts.missing}</div><div class="kpi-label">${L("old tests obsolete or rules without a test", "alte Tests veraltet oder Regeln ohne Test")}</div><div>${pill(L("coverage check", "Abdeckungsprüfung"), "warn")}</div></div>
       </div>
       <section class="panel" data-tour="pipeline">
         <div class="panel-head"><h3>${L("The pipeline", "Die Pipeline")}</h3><div class="legend"><span><i style="background:var(--ok)"></i>${L("deterministic code", "deterministischer Code")}</span><span><i style="background:var(--info)"></i>${L("language model", "Sprachmodell")}</span><span><i style="background:var(--warn)"></i>${L("human decision", "menschliche Entscheidung")}</span></div></div>
@@ -1687,6 +1726,26 @@ const APP = (() => {
               <dt>${L("EEL end confirmed", "EEL-Ende bestätigt")}</dt><dd>${prov("golden.eelend", C.de(C.eelEnd(C.GOLDEN.finalAuEnd, C.GOLDEN.employmentEnd).end))}</dd>
             </dl><p class="muted" style="font-size:var(--fs-xs)">${L("Click any underlined value to see where it came from.", "Klicken Sie auf einen unterstrichenen Wert, um seine Herkunft zu sehen.")}</p></div></section>
       </div>`;
+  }
+
+  /* What the guided demo did, chapter by chapter (closing step). */
+  function recapPanel() {
+    const checked = CHANGES.filter(c => c.source !== "log-no-text").length, missed = CHANGES.filter(c => c.source === "diff-only").length;
+    const appr = Object.values(S.rules).filter(r => r.status === "approved").length;
+    const affected = C.CATALOGUE.filter(r => rowStatus(r) !== "unchanged").length;
+    const b = baseline(), nSt = STATEMENTS.length, d = reportData(C.VENDORS.find(v => v.id === "sap"));
+    const rows = [
+      [L("Specification", "Spezifikation"), `${checked} ${L("changes found", "Änderungen gefunden")}, ${missed} ${L("of them missing from the change log", "davon fehlt im Änderungsprotokoll")}`],
+      [L("Requirements", "Anforderungen"), `${appr} / ${C.RULES.length} ${L("rules approved in plain language, each tied to its spec quote", "Regeln in Klartext freigegeben, jede mit Spezifikationszitat")}`],
+      [L("Testing", "Tests"), `${affected} / ${C.CATALOGUE.length} ${L("tests updated or flagged", "Tests aktualisiert oder markiert")} · ${nSt - b.missing.length} / ${nSt} ${L("spec sentences covered", "Sätze abgedeckt")} · ${b.counts.obsolete} ${L("obsolete tests found", "veraltete Tests gefunden")}`],
+      [L("Results", "Ergebnisse"), `${L("package sent to", "Paket an")} ${(S.publishedTo || []).length} ${L("vendors", "Hersteller")} · SAP ${d.passed} / ${d.in_scope} ${L("passed", "bestanden")} → ${d.failed.length ? L("not certified yet", "noch nicht zertifiziert") : L("certified", "zertifiziert")}`]
+    ];
+    return `<section class="panel" data-tour="recap" style="border-color:var(--accent-line)"><div class="panel-head"><h2>${L("One sentence of v13.4, start to finish", "Ein Satz aus v13.4, von Anfang bis Ende")}</h2>${pill(L("this session", "diese Sitzung"), "accent")}</div>
+      <div class="panel-body"><dl class="kv" style="font-size:var(--fs-md);gap:8px 20px">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+        <div class="compare"><div class="callout"><b>${L("Today, by hand", "Heute, von Hand")}</b>${L("Weeks of reading, every test case rewritten and recalculated by hand, then typed into each vendor's software: about 1,333 hours for the full catalogue at 20 minutes per case.", "Wochen des Lesens, jeder Testfall von Hand umgeschrieben und neu berechnet, dann in jede Herstellersoftware getippt: rund 1.333 Stunden für den ganzen Katalog bei 20 Minuten je Fall.")}</div>
+          <div class="callout ok"><b>${L("With the assistant", "Mit dem Assistenten")}</b>${L("The AI reads and drafts, tested code calculates, examiners decide, and every value traces back to the spec.", "Die KI liest und formuliert, getesteter Code rechnet, Prüfer entscheiden, und jeder Wert führt zurück zur Spezifikation.")}</div></div>
+        <div class="callout accent"><b>${L("What we need from ITSG", "Was wir von ITSG brauchen")}</b>${L("The real v13.3 PDF, the ~4,000 existing test scenarios, and a yes or no on a JSON input interface, with SAP as the pilot.", "Das echte v13.3-PDF, die ~4.000 vorhandenen Testszenarien und ein Ja oder Nein zu einer JSON-Eingabeschnittstelle, mit SAP als Pilot.")}</div>
+        ${demoNote()}</div></section>`;
   }
 
   /* ---------- 1 · Inputs & archive ---------- */
@@ -1730,18 +1789,21 @@ const APP = (() => {
   }
   function vBaseline() {
     const b = baseline(), bad = b.rows.filter(r => r.status !== "ok"), ok = b.rows.filter(r => r.status === "ok");
-    return `${head(L("Baseline check", "Bestandsprüfung"), L("A one-time check before the yearly cycle: every existing test is matched against the current specification. Tests whose rule was removed by law are obsolete; test-relevant statements without a test are missing. Both checks are lookups, not AI judgements.", "Eine einmalige Prüfung vor dem Jahreszyklus: Jeder vorhandene Test wird mit der geltenden Spezifikation abgeglichen. Tests, deren Regel weggefallen ist, sind veraltet; prüfrelevante Aussagen ohne Test fehlen. Beides sind Nachschlagevorgänge, keine KI-Urteile."),
+    const nSt = STATEMENTS.length, covered = nSt - b.missing.length, alt = bad.find(r => r.row.id === "ALT-3.12-031");
+    return `${head(L("Coverage & baseline check", "Abdeckung & Bestandsprüfung"), L("Does every test-relevant sentence of the spec have a test, and does every test still match the spec? Every existing test is matched against the current specification. Tests whose rule was removed by law are obsolete; test-relevant statements without a test are missing. Both checks are lookups, not AI judgements.", "Hat jeder prüfrelevante Satz der Spezifikation einen Test, und passt jeder Test noch zur Spezifikation? Jeder vorhandene Test wird mit der geltenden Spezifikation abgeglichen. Tests, deren Regel weggefallen ist, sind veraltet; prüfrelevante Aussagen ohne Test fehlen. Beides sind Nachschlagevorgänge, keine KI-Urteile."),
       `<button class="btn" data-act="exportBaseline">${ic(FRAMED ? "copy" : "download")} ${FRAMED ? L("Copy CSV", "CSV kopieren") : L("Export CSV", "CSV exportieren")}</button>`)}
-      <div class="grid-3" data-tour="baseline">
+      <div class="stack" data-tour="baseline"><div class="grid-4">
+        <div class="panel kpi"><div class="kpi-value">${covered}<span class="muted" style="font-size:1rem"> / ${nSt}</span></div><div class="kpi-label">${L("test-relevant spec sentences have a test", "prüfrelevante Sätze der Spezifikation haben einen Test")}</div><div class="meter"><i style="width:${Math.round(covered / nSt * 100)}%;background:var(--ok)"></i></div></div>
         <div class="panel kpi"><div class="kpi-value" style="color:var(--ok)">${b.counts.ok}</div><div class="kpi-label">${L("tests still map to v13.4", "Tests passen weiter zu v13.4")}</div></div>
         <div class="panel kpi"><div class="kpi-value" style="color:var(--bad)">${b.counts.obsolete}</div><div class="kpi-label">${L("obsolete: rule or wording no longer in the spec", "veraltet: Regel oder Wortlaut nicht mehr in der Spezifikation")}</div></div>
         <div class="panel kpi"><div class="kpi-value" style="color:var(--warn)">${b.counts.missing}</div><div class="kpi-label">${L("missing: spec statement without a test", "fehlend: Aussage der Spezifikation ohne Test")}</div></div>
       </div>
+      ${alt ? `<div class="callout accent"><b>${L("Our §3.12 sentence", "Unser Satz aus §3.12")}</b><span>${L("Old test", "Alter Test")} <span class="mono">ALT-3.12-031</span> ${L("checks “a gap of exactly 6 months stops the chain”. That wording is no longer in v13.4, so it is flagged obsolete; its replacement", "prüft „eine Lücke von genau 6 Monaten beendet die Kette“. Dieser Wortlaut steht nicht mehr in v13.4, also wird er als veraltet markiert; sein Ersatz")} <span class="mono">EEL-3.12-006</span> ${L("expects the opposite.", "erwartet das Gegenteil.")}</span></div>` : ""}</div>
       <div class="callout"><b>${L("Why this matters", "Warum das wichtig ist")}</b>${L("ITSG: “After 30 years I would not be sure there are no test cases inside that have been removed by law.” The demo adds three simulated historic rows (ALT-…) to the 46-row catalogue to show what the check finds.", "ITSG: „Nach 30 Jahren wäre ich nicht sicher, dass keine Testfälle mehr drin sind, die per Gesetz entfallen sind.“ Die Demo ergänzt den 46-Zeilen-Katalog um drei simulierte Altzeilen (ALT-…), um zu zeigen, was die Prüfung findet.")}</div>
       <div class="grid-2">
         <section class="panel"><div class="panel-head"><h3>${L("Obsolete tests", "Veraltete Tests")}</h3>${pill(String(bad.length), "bad")}</div>
           <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>ID</th><th>§</th><th>${L("Test", "Test")}</th><th>${L("Why", "Warum")}</th></tr></thead><tbody>
-          ${bad.map(r => `<tr><td class="mono" style="white-space:nowrap">${r.row.id}</td><td class="mono">§${esc(r.row.sec)}</td><td>${esc(T(r.row.title))}<br><span class="muted" style="font-size:11px">${L("since", "seit")} v${esc(r.row.since)}</span></td><td>${esc(T(r.why))}</td></tr>`).join("")}</tbody></table></div></section>
+          ${bad.map(r => `<tr ${r === alt ? 'class="sel"' : ""}><td class="mono" style="white-space:nowrap">${r.row.id}</td><td class="mono">§${esc(r.row.sec)}</td><td>${esc(T(r.row.title))}<br><span class="muted" style="font-size:11px">${L("since", "seit")} v${esc(r.row.since)}</span></td><td>${esc(T(r.why))}</td></tr>`).join("")}</tbody></table></div></section>
         <section class="panel"><div class="panel-head"><h3>${L("Missing tests", "Fehlende Tests")}</h3>${pill(String(b.missing.length), "warn")}</div>
           <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>§</th><th>${L("Statement in v13.4 without a test", "Aussage in v13.4 ohne Test")}</th></tr></thead><tbody>
           ${b.missing.map(m => `<tr><td>${secLink(m.sec)}</td><td><span class="de-quote">„${esc(m.quote)}“</span> <span class="muted" style="font-size:11px">${HL_KIND[m.kind]()}</span></td></tr>`).join("")}</tbody></table></div></section>
@@ -1842,7 +1904,7 @@ const APP = (() => {
         <section class="panel" data-tour="redline"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">§${ch.sec}</span><h3>${esc(ch.title)}</h3></div><div class="row"><span class="pill ${SOURCE[ch.source].cls}">${T(SOURCE[ch.source])}</span>${riskPill(risk)}</div></div>
           <div class="panel-body">
             ${ch.entry ? `<div class="callout"><b>${L("Change log entry", "Eintrag im Änderungsprotokoll")} (${esc(ch.entry.version)} · ${esc(ch.entry.date)})</b><span class="de-quote">${esc(ch.entry.raw.split(" | ")[2])}</span><span class="muted" style="font-size:var(--fs-xs)">${L("Parsed: § refs", "Geparst: §-Bezüge")} ${ch.entry.refs.map(r => r.sec).join(", ")} · ${L("description", "Beschreibung")} „${esc(ch.entry.description)}“</span></div>` : `<div class="callout bad"><b>${L("Not in the change log", "Nicht im Änderungsprotokoll")}</b>${L("Found only by comparing the text. Without the diff, this change would have gone unnoticed.", "Nur durch Textvergleich gefunden. Ohne Diff wäre diese Änderung übersehen worden.")}</div>`}
-            ${redline ? `<div><div class="row between"><span class="field-label">${L("Redline", "Änderungsansicht")} v13.3 → v13.4</span><div class="row">${pill(L("v13.3 text illustrative", "v13.3-Text illustrativ"), "warn")}<button class="btn sm ghost" data-act="toggleRedline">${S.fullRedline ? L("Show changes only", "Nur Änderungen") : L("Show full text", "Ganzen Text zeigen")}</button></div></div><div class="spec redline trail-box" style="margin-top:6px">${redline}</div></div>` : `<div class="callout warn">${ch.source === "log-only" ? L("No wording change in the prose. The change probably lives in a field table or the record description — check manually.", "Keine Textänderung im Fließtext. Die Änderung steckt vermutlich in einer Feldtabelle oder der Datensatzbeschreibung — manuell prüfen.") : L("Section text not loaded in this demo (only DBVO, DBEE, DBMU and DBSD excerpts are embedded).", "Abschnittstext in dieser Demo nicht geladen (nur Auszüge DBVO, DBEE, DBMU, DBSD).")}</div>`}
+            ${redline ? `<div data-tour="redlinebox"><div class="row between"><span class="field-label">${L("Redline", "Änderungsansicht")} v13.3 → v13.4</span><div class="row">${pill(L("v13.3 text illustrative", "v13.3-Text illustrativ"), "warn")}<button class="btn sm ghost" data-act="toggleRedline">${S.fullRedline ? L("Show changes only", "Nur Änderungen") : L("Show full text", "Ganzen Text zeigen")}</button></div></div><div class="spec redline trail-box" style="margin-top:6px">${redline}</div></div>` : `<div class="callout warn">${ch.source === "log-only" ? L("No wording change in the prose. The change probably lives in a field table or the record description — check manually.", "Keine Textänderung im Fließtext. Die Änderung steckt vermutlich in einer Feldtabelle oder der Datensatzbeschreibung — manuell prüfen.") : L("Section text not loaded in this demo (only DBVO, DBEE, DBMU and DBSD excerpts are embedded).", "Abschnittstext in dieser Demo nicht geladen (nur Auszüge DBVO, DBEE, DBMU, DBSD).")}</div>`}
             <div class="grid-3">
               <div class="stack"><span class="field-label">${L("Type of change", "Art der Änderung")} · ${pill(L("AI suggestion", "KI-Vorschlag"), "info")}</span>
                 <select class="select" data-act="setType" data-sec="${ch.sec}" id="type-${ch.sec.replace(/\./g, "-")}">${["condition", "parameter", "new_rule", "removed_rule", "format", "clarification", "editorial"].map(t => `<option value="${t}" ${changeType(ch.sec) === t ? "selected" : ""}>${typeLabel(t)}</option>`).join("")}</select>
@@ -1945,7 +2007,7 @@ const APP = (() => {
               <div class="chain-step"><span class="n">1</span><div class="stack" style="gap:6px"><span class="field-label">${L("From the specification", "Aus der Spezifikation")} · ${C.SPEC.doc} v${C.SPEC.version}</span>
                 ${quotes.map(q => `<div class="row between" style="align-items:start"><span class="de-quote">„${esc(q)}“</span><button class="btn sm ghost" data-act="goSec" data-sec="${rule.sec}" data-q="${esc(q)}">${L("Show in document", "Im Dokument zeigen")}</button></div>`).join("")}</div></div>
               <div class="chain-step"><span class="n">2</span><div class="stack" style="gap:6px"><span class="field-label">${L("The rule in plain language", "Die Regel in Klartext")} · ${pill(st.text != null ? L("edited by examiner", "vom Prüfer geändert") : L("AI draft — edit freely", "KI-Entwurf — frei änderbar"), st.text != null ? "warn" : "info")}</span>
-                ${pending ? `<textarea class="rule-text" id="ruleText-${rule.id}" data-rule-text="${rule.id}" aria-label="${esc(L("Rule text", "Regeltext"))}">${esc(ruleText(rule))}</textarea>` : `<p class="rule-text">${esc(ruleText(rule))}</p>`}
+                ${pending ? `<textarea class="rule-text" id="ruleText-${rule.id}" data-rule-text="${rule.id}" rows="${Math.ceil(ruleText(rule).length / 72) + 1}" aria-label="${esc(L("Rule text", "Regeltext"))}">${esc(ruleText(rule))}</textarea>` : `<p class="rule-text">${esc(ruleText(rule))}</p>`}
                 ${liveText && pending ? `<div class="callout"><b>${L("Live model suggests", "Live-Modell schlägt vor")} (${esc(st.live.model)})</b><span>${esc(liveText)}</span><div class="row"><button class="btn sm" data-act="useLiveText" data-rule="${rule.id}">${L("Use this wording", "Diesen Wortlaut übernehmen")}</button></div></div>` : ""}</div></div>
               <div class="chain-step"><span class="n">3</span><div class="stack" style="gap:6px"><span class="field-label">${L("Test case for this rule", "Testfall zu dieser Regel")}</span>
                 <div class="row between"><span><b class="mono">${rc.id}</b> ${esc(rc.title)}</span><button class="btn sm" data-act="openCase" data-rule="${rule.id}">${ic("test")} ${L("Open test case", "Testfall öffnen")}</button></div></div></div>
@@ -2000,14 +2062,21 @@ const APP = (() => {
     const tabs = [["rules", L("Per rule", "Je Regel")], ["catalogue", L("Catalogue", "Katalog")], ["variants", L("Fresh variants", "Frische Varianten")], ["golden", L("ITSG reference case", "ITSG-Referenzfall")]];
     let body = "";
     if (tab === "rules") {
-      body = `<div class="callout accent" data-tour="perrule"><b>${L("One test case per rule", "Ein Testfall je Regel")}</b><span>${L("Vendor engineers type every test case into their software by hand today, so each rule starts with one representative case, described in words the way ITSG writes them. With automatic input (JSON import), expand to the full boundary set — then more is better.", "Hersteller-Entwickler tippen heute jeden Testfall von Hand in ihre Software. Deshalb beginnt jede Regel mit einem repräsentativen Fall, in Worten beschrieben wie bei ITSG. Mit automatischer Eingabe (JSON-Import) lässt sich auf alle Grenzfälle erweitern — dann gilt: mehr ist besser.")}</span></div>
+      const b = C.BOUNDARY_6M, rNew = C.gates(b.state, b.today, S.params), rOld = C.gates(b.state, b.today, Object.assign({}, S.params, { gapExclusive: true }));
+      const verdict = r => r.allowed ? `${L("Request 41 with", "Anfrage 41 mit")} ${r.chain.included.length} ${L("periods", "Zeiträumen")} · ${r.days.total} ${L("days", "Tage")}` : `${L("No request 41", "Keine Anfrage 41")} · ${L("only", "nur")} ${r.days.total} ${L("days", "Tage")}`;
+      body = `<section class="panel" data-tour="changedtest" style="border-color:var(--accent-line)"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${b.id} · §3.12 · ${L("changed by v13.4", "durch v13.4 geändert")}</span><h3>${L("The test that changed: a gap of exactly 6 months", "Der Test, der sich geändert hat: genau 6 Monate Lücke")}</h3></div>${pill(L("expected result recomputed, not rewritten by hand", "Erwartungswert neu berechnet, nicht von Hand umgeschrieben"), "accent")}</div>
+        <div class="panel-body"><div class="grid-2"><div class="stack" style="gap:6px"><span class="field-label">${L("Test setup in words", "Testkonstellation in Worten")}</span>${describeCase(b)}<span class="muted" style="font-size:var(--fs-xs)">${L("The older period ends on 12.07.2025, exactly 6 months before the next one starts on 12.01.2026.", "Der ältere Zeitraum endet am 12.07.2025, genau 6 Monate vor Beginn des nächsten am 12.01.2026.")}</span></div>
+          <div class="stack" style="gap:var(--s-3)">${timeline(b.state, b.today, S.params, { compact: true })}
+            <div class="stack" style="gap:4px"><span class="field-label">v13.3 · „nicht <del style="color:var(--bad)">mindestens</del> 6 Monate“</span><div class="muted" style="text-decoration:line-through">${verdict(rOld)}</div><span class="muted" style="font-size:var(--fs-xs)">${L("Old catalogue row", "Alte Katalogzeile")} <span class="mono">ALT-3.12-031</span>, ${L("now obsolete", "jetzt veraltet")} · ${prov("b6m.old", L("why", "warum"))}</span></div>
+            <div class="stack" style="gap:4px"><span class="field-label">v13.4 · „nicht <b style="color:var(--ok)">mehr als</b> 6 Monate“ · ${pill(L("calculated by tested code", "von getestetem Code berechnet"), "ok")}</span><div style="font-size:var(--fs-lg)"><b>${prov("b6m.new", verdict(rNew))}</b></div></div></div></div></div></section>
+        <div class="callout accent" data-tour="perrule"><b>${L("One test case per rule", "Ein Testfall je Regel")}</b><span>${L("Vendor engineers type every test case into their software by hand today, so each rule starts with one representative case, described in words the way ITSG writes them. With automatic input (JSON import), expand to the full boundary set — then more is better.", "Hersteller-Entwickler tippen heute jeden Testfall von Hand in ihre Software. Deshalb beginnt jede Regel mit einem repräsentativen Fall, in Worten beschrieben wie bei ITSG. Mit automatischer Eingabe (JSON-Import) lässt sich auf alle Grenzfälle erweitern — dann gilt: mehr ist besser.")}</span></div>
         ${C.RULES.map(r => {
           const rc = ruleCase(r.id), st = S.rules[r.id], open = S.expandRule === r.id;
           const bset = rc.boundary ? S.variants.filter(v => rc.boundary.includes(v.template.id)) : TESTS.filter(t => t.fn === r.fn);
           const list = !open ? "" : rc.boundary
             ? `<div class="tbl-wrap"><table class="tbl"><tbody>${bset.map(v => `<tr><td class="mono" style="white-space:nowrap">${v.id}</td><td>${esc(T(v.template.label))}<br><span class="muted" style="font-size:11px">${esc(v.name)} · ${L("current AU", "aktuelle AU")} ${C.de(v.state.current.start)}</span></td><td>${prov("variant:" + v.id, v.result.allowed ? L("request 41", "Anfrage 41") : L("no request 41", "keine Anfrage 41"))}</td></tr>`).join("")}</tbody></table></div>`
             : `<div class="tbl-wrap"><table class="tbl"><tbody>${bset.map(t => `<tr><td style="width:28px">${t.ok ? `<span style="color:var(--ok)">✓</span>` : `<span style="color:var(--bad)">✕</span>`}</td><td>${esc(t.name)}</td></tr>`).join("")}</tbody></table></div>`;
-          return `<section class="panel" id="case-${r.id}"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${r.id} · §${r.sec}</span><h3>${esc(T(r.label))}</h3></div>${statusPill(st.status)}</div>
+          return `<section class="panel" id="case-${r.id}" ${r === C.RULES[0] ? 'data-tour="firstcase"' : ""}><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${r.id} · §${r.sec}</span><h3>${esc(T(r.label))}</h3></div>${statusPill(st.status)}</div>
             <div class="panel-body"><div class="stack" style="gap:4px"><span class="de-quote" style="font-size:var(--fs-sm)">„${esc(Object.values(r.runA.quotes)[0])}“ ${secLink(r.sec)}</span><p class="muted" style="font-size:var(--fs-sm)">${L("Rule", "Regel")}: ${esc(ruleText(r))} <span class="xref" data-act="openRule" data-rule="${r.id}">${L("open rule", "Regel öffnen")}</span></p></div>
               <div class="grid-2"><div class="stack" style="gap:6px"><span class="field-label">${rc.id} · ${rc.origin} · ${L("test setup in words", "Testkonstellation in Worten")}</span><b>${esc(rc.title)}</b>${rc.desc}</div>
                 <div class="stack" style="gap:6px"><span class="field-label">${L("Expected result", "Erwartetes Ergebnis")} · ${pill(L("calculated by tested code", "von getestetem Code berechnet"), "ok")}</span><div>${rc.expected}</div>${rc.sc ? timeline(rc.sc.state, rc.sc.today, S.params, { compact: true }) : ""}</div></div>
@@ -2027,7 +2096,7 @@ const APP = (() => {
         <div class="panel-body"><div class="grid-2">${S.variants.map(v => { const r = v.result; return `<div class="panel" style="border-color:${r.allowed ? "var(--line)" : "var(--line)"}"><div class="panel-head"><div class="stack" style="gap:2px"><span class="mono" style="font-size:var(--fs-xs)">${v.id}</span><b>${esc(v.name)}</b></div>${pill(T(v.template.label), "info")}</div>
           <div class="panel-body">${timeline(v.state, v.today, S.params, { compact: true })}
             <div class="row between"><span>${L("Expected", "Erwartet")}: ${prov("variant:" + v.id, r.allowed ? L("request 41", "Anfrage 41") + ` · ${r.chain.included.length} ${L("period(s)", "Zeitr.")}` : L("no request 41", "keine Anfrage 41"))}</span>${r.allowed ? pill("41", "ok") : pill("—", "")}</div>
-            ${v.expected ? `<div class="code" style="font-size:11px">${esc(v.expected)}</div>` : `<div class="muted" style="font-size:var(--fs-xs)">${L("Failing gate", "Nicht erfüllt")}: ${r.gates.filter(x => !x.ok).map(x => x.id).join(", ")}</div>`}</div></div>`; }).join("")}</div></div></section>`;
+            ${v.expected ? `<div class="code" style="font-size:11px;white-space:pre-wrap;word-break:break-all">${esc(v.expected)}</div>` : `<div class="muted" style="font-size:var(--fs-xs)">${L("Failing gate", "Nicht erfüllt")}: ${r.gates.filter(x => !x.ok).map(x => x.id).join(", ")}</div>`}</div></div>`; }).join("")}</div></div></section>`;
     } else {
       const g = C.GOLDEN, r = C.gates(g.state, g.today, S.params);
       body = `<section class="panel"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">TC-3.12-001 · ${L("from ITSG", "von ITSG")}</span><h3>${esc(g.name)} — ${L("prior-illness request", "Vorerkrankungsanfrage")}</h3></div>${pill(L("employment ends", "Beschäftigung endet") + " " + C.de(g.employmentEnd), "")}</div>
@@ -2036,6 +2105,7 @@ const APP = (() => {
           <div class="stack"><span class="field-label">${L("Expected DBVO block (oracle)", "Erwarteter DBVO-Baustein (Orakel)")}</span><div class="code" style="font-size:11px;white-space:pre-wrap;word-break:break-all">${esc(C.dbvoBlock(g.state, S.params))}</div>${pill("✓ " + L("identical to ITSG's real file", "identisch mit ITSG-Datei"), "ok")}</div></div></div></section>`;
     }
     return `${head(L("Test cases", "Testfälle"), L("Each approved rule gets one test case in plain words, with its expected result calculated by tested code. The catalogue is updated, not rewritten: rows citing a changed § are flagged, and boundary variants are generated fresh.", "Jede freigegebene Regel bekommt einen Testfall in Worten, das erwartete Ergebnis berechnet getesteter Code. Der Katalog wird aktualisiert, nicht neu geschrieben: Zeilen mit geändertem § werden markiert, Grenzfall-Varianten entstehen neu."))}
+      <p class="muted" style="font-size:var(--fs-xs)">${L("IDs: R- rule · TC- test case written for a rule · EEL- row in the test catalogue · TV- fresh variant · ALT- historic row", "IDs: R- Regel · TC- Testfall zu einer Regel · EEL- Zeile im Testkatalog · TV- frische Variante · ALT- historische Zeile")}</p>
       <div class="tabs" role="tablist">${tabs.map(([k, t]) => `<button class="tab" role="tab" aria-selected="${tab === k}" data-act="testTab" data-tab="${k}">${t}</button>`).join("")}</div>${body}`;
   }
 
@@ -2056,7 +2126,7 @@ const APP = (() => {
         <dl class="kv"><dt>${L("This package", "Dieses Paket")}</dt><dd>${nCases} ${L("cases", "Fälle")}</dd><dt>${L("Typed by hand", "Von Hand getippt")}</dt><dd>≈ ${nCases * manualMin} ${L("min per vendor", "Min. je Hersteller")} (${L("assumed", "angenommen")} ${manualMin} ${L("min per case", "Min. je Fall")})</dd><dt>${L("Full catalogue by hand", "Ganzer Katalog von Hand")}</dt><dd>≈ ${fmtN(Math.round(4000 * manualMin / 60))} ${L("hours", "Stunden")}</dd><dt>${L("Imported", "Importiert")}</dt><dd>${L("seconds, any number of cases", "Sekunden, beliebig viele Fälle")}</dd></dl>
         <div class="actions"><button class="btn" data-act="packageJson">${ic(FRAMED ? "copy" : "download")} ${L("Download test package JSON", "Testpaket-JSON herunterladen")}</button></div></div></section>`;
     return `${head(L("Publish", "Veröffentlichen"), L("Publish the test package to vendors through Messages. They receive the test cases in words and the checklist — and, as a proposal, the same cases as importable JSON. Expected results stay with ITSG.", "Testpaket über Nachrichten an Hersteller veröffentlichen. Sie erhalten die Testfälle in Worten und die Checkliste — und, als Vorschlag, dieselben Fälle als importierbares JSON. Erwartungswerte bleiben bei ITSG."))}
-      <div class="grid-2"><section class="panel" data-tour="publish"><div class="panel-head"><h3>${L("Test package EEL 2027-01", "Testpaket EEL 2027-01")}</h3>${S.published ? pill("✓ " + L("published", "veröffentlicht"), "ok") : pill(L("draft", "Entwurf"), "warn")}</div>
+      <div class="grid-2" data-tour="publishrow"><section class="panel" data-tour="publish"><div class="panel-head"><h3>${L("Test package EEL 2027-01", "Testpaket EEL 2027-01")}</h3>${S.published ? pill("✓ " + L("published", "veröffentlicht"), "ok") : pill(L("draft", "Entwurf"), "warn")}</div>
         <div class="panel-body">${pkg}<div class="stack">${C.VENDORS.map(v => `<label class="row"><input type="checkbox" checked id="pub-${v.id}"> <b>${esc(v.name)} ${esc(v.release)}</b> <span class="muted" style="font-size:var(--fs-xs)">${esc(v.productName)} · ${T(v.size)} · ${v.prev ? L("recertification", "Rezertifizierung") : L("first certification: full catalogue", "Erstzertifizierung: ganzer Katalog")}</span></label>`).join("")}</div>
         ${S.published ? `<div class="callout ok"><b>${L("Sent through Messages", "Über Nachrichten verschickt")}</b><span>${(S.publishedTo || []).map(id => vendorOf(id).name).join(", ")}</span><div class="row"><button class="btn sm" data-act="go" data-screen="mail">${ic("inbox")} ${L("Open messages", "Nachrichten öffnen")}</button></div></div>` : ""}
         <div class="actions"><button class="btn primary" data-act="publish" ${S.published ? "disabled" : ""}>${ic("inbox")} ${S.published ? L("Published", "Veröffentlicht") : L("Publish to vendors", "An Hersteller veröffentlichen")}</button>${Object.values(S.rules).some(r => r.status === "pending") ? `<span class="muted" style="font-size:var(--fs-xs)">${L("Note: some rules are still awaiting approval.", "Hinweis: Einige Regeln warten noch auf Freigabe.")}</span>` : ""}</div></div></section>
@@ -2787,79 +2857,87 @@ const TOUR = (() => {
   const A = APP, S = A.S, C = A.C, L = A.L, T = A.T;
   const $ = s => document.querySelector(s);
   const approve = id => { if (S.rules[id].status === "pending") { const btn = document.querySelector(`[data-act="approve"][data-rule="${id}"]`); if (btn) btn.click(); else { S.rules[id].status = "approved"; } } };
+  /* The story follows one sentence of §3.12 ("nicht mindestens" → "nicht mehr als 6 Monate") from the new PDF
+     to a vendor's verdict, in ITSG's order: specification → requirements → testing → results.
+     ch = chapter, obj = the ITSG challenge objective the step demonstrates (1 Identify … 6 Deliver). */
+  const CHAPTERS = { hook: { en: "Start", de: "Start" }, spec: { en: "Specification", de: "Spezifikation" }, req: { en: "Requirements", de: "Anforderungen" }, test: { en: "Testing", de: "Tests" }, res: { en: "Results", de: "Ergebnisse" }, close: { en: "Close", de: "Abschluss" } };
+  const OBJECTIVES = { 1: { en: "Identify", de: "Identifizieren" }, 2: { en: "Translate", de: "Übersetzen" }, 3: { en: "Generate", de: "Generieren" }, 4: { en: "Traceable record", de: "Nachvollziehbarkeit" }, 5: { en: "Test & compare", de: "Testen & vergleichen" }, 6: { en: "Deliver reports", de: "Berichte liefern" } };
   const STEPS = [
-    { screen: "overview", sel: "[data-tour=pipeline]", zoom: 1.0,
-      title: { en: "December: v13.4 arrives", de: "Dezember: v13.4 kommt" },
-      body: { en: "New specs are published once a year, sometimes just weeks before 1 January. Today experts re-read hundreds of pages, write ~4,000 test cases by hand, and vendor engineers type every case into their software. Here is the same work as a pipeline — plus a one-time check of the old catalogue.", de: "Neue Spezifikationen kommen einmal im Jahr, manchmal wenige Wochen vor dem 1. Januar. Heute lesen Experten Hunderte Seiten neu, schreiben ~4.000 Testfälle von Hand, und Hersteller-Entwickler tippen jeden Fall in ihre Software. Hier dieselbe Arbeit als Pipeline — plus eine einmalige Prüfung des alten Katalogs." },
-      notes: { en: ["ITSG's biggest pain is test creation and maintenance, not checking.", "Colours: green = deterministic code, blue = language model, amber = human decision.", "The language model drafts and reads. It never calculates an expected value."], de: ["Der größte Schmerz bei ITSG ist das Erstellen und Pflegen der Tests, nicht das Prüfen.", "Farben: grün = deterministischer Code, blau = Sprachmodell, gelb = menschliche Entscheidung.", "Das Sprachmodell formuliert und liest. Es berechnet nie einen Erwartungswert."] } },
-    { screen: "baseline", sel: "[data-tour=baseline]",
-      title: { en: "First: is the old catalogue still the law?", de: "Zuerst: Gilt der alte Katalog noch?" },
-      body: { en: "Every existing test is matched against the current specification. Tests whose rule or wording was removed are obsolete; test-relevant statements without a test are missing. Both are lookups in the original PDF, not AI judgements.", de: "Jeder vorhandene Test wird mit der geltenden Spezifikation abgeglichen. Tests, deren Regel oder Wortlaut entfallen ist, sind veraltet; prüfrelevante Aussagen ohne Test fehlen. Beides sind Nachschlagevorgänge im Original-PDF, keine KI-Urteile." },
-      notes: { en: ["ITSG's own idea: “after 30 years I would not be sure there are no test cases that have been removed by law.”", "The three ALT-… rows are simulated; we need the real ~4,000 scenarios (Gerhard knows where they are).", "Missing example: §3.12.6 now also applies to reasons 11 and 12 — no test covers that yet."], de: ["Die Idee von ITSG: „Nach 30 Jahren wäre ich nicht sicher, dass keine Testfälle drin sind, die per Gesetz entfallen sind.“", "Die drei ALT-…-Zeilen sind simuliert; wir brauchen die echten ~4.000 Szenarien (Gerhard weiß, wo sie liegen).", "Beispiel fehlend: §3.12.6 gilt jetzt auch für Abgabegrund 11 und 12 — dafür gibt es noch keinen Test."] } },
-    { screen: "changes", sel: "[data-tour=sources]", before: () => { S.selChange = "3.12"; },
-      title: { en: "Two sources for “what changed”", de: "Zwei Quellen für „was hat sich geändert“" },
-      body: { en: "The official change log is parsed by code, not by the AI. A section diff of old and new text runs in parallel, because the government doesn't always ship a change log. Disagreements are flagged.", de: "Das offizielle Änderungsprotokoll wird per Code geparst, nicht von der KI. Parallel läuft ein Abschnitts-Diff von altem und neuem Text, weil nicht immer ein Protokoll mitkommt. Abweichungen werden markiert." },
-      notes: { en: ["Correction from the ITSG engineer: there isn't always a change log.", "Red: found only by the diff — would have been missed today.", "Old text is an illustrative reconstruction; we asked ITSG for the real v13.3 PDF."], de: ["Korrektur vom ITSG-Ingenieur: Es gibt nicht immer ein Änderungsprotokoll.", "Rot: nur per Diff gefunden — wäre heute übersehen worden.", "Der alte Text ist rekonstruiert; das echte v13.3-PDF haben wir bei ITSG angefragt."] } },
-    { screen: "changes", sel: "[data-tour=redline]", before: () => { S.selChange = "3.12"; },
-      title: { en: "“Editorial” — but the boundary flips", de: "„Redaktionell“ — aber die Grenze kippt" },
-      body: { en: "The change log calls the §3.12 change editorial. The redline shows “nicht mindestens 6 Monate” became “nicht mehr als 6 Monate”: at exactly six months the result flips. Impact is counted from the catalogue, and risk follows a fixed rule.", de: "Das Protokoll nennt die Änderung an §3.12 redaktionell. Die Änderungsansicht zeigt: aus „nicht mindestens 6 Monate“ wurde „nicht mehr als 6 Monate“ — bei genau sechs Monaten kippt das Ergebnis. Die Auswirkung wird aus dem Katalog gezählt, das Risiko folgt einer festen Regel." },
-      notes: { en: ["Only the change TYPE is an AI suggestion; the examiner confirms it.", "Impact = catalogue rows citing §3.12 (deterministic).", "Risk = fixed rule from type + impact, not an LLM judgement."], de: ["Nur der Änderungstyp ist ein KI-Vorschlag; der Prüfer bestätigt ihn.", "Auswirkung = Katalogzeilen mit Verweis auf §3.12 (deterministisch).", "Risiko = feste Regel aus Typ + Auswirkung, kein LLM-Urteil."] } },
-    { screen: "specs", sel: "[data-tour=spectext]", before: () => { S.selSec = "3.12"; S.specVersion = "13.4"; S.selHl = null; },
-      title: { en: "The AI highlights, like the experts do", de: "Die KI markiert, wie es die Experten tun" },
-      body: { en: "Test-relevant sentences are marked by kind: condition, number, required field, exception. Each highlight is a verbatim span and links to the rule and tests derived from it. The § index comes from the PDF's own structure and 3,528 internal links.", de: "Testrelevante Sätze werden nach Art markiert: Bedingung, Zahl, Pflichtfeld, Ausnahme. Jede Markierung ist wörtlich und verlinkt Regel und Tests. Der §-Index kommt aus der Struktur des PDFs und 3.528 internen Links." },
-      notes: { en: ["Mirrors today's manual highlighting — instantly familiar to examiners.", "Retrieval is structural, not fuzzy: a section must start with its heading."], de: ["Entspricht der heutigen Handmarkierung — für Prüfer sofort vertraut.", "Die Suche ist strukturell, nicht unscharf: Ein Abschnitt muss mit seiner Überschrift beginnen."] } },
-    { screen: "extract", sel: "[data-tour=ruletext]", before: () => { S.selRule = "R-3.12-A"; S.techOpen = false; },
-      title: { en: "A rule you can read", de: "Eine Regel, die man lesen kann" },
-      body: { en: "Spec text → the rule in plain language → its test case. The AI drafts the wording from the verbatim quotes; the examiner reads it, edits it if needed, and approves or declines it. No hashes, no function ids on this level.", de: "Spezifikationstext → die Regel in Klartext → ihr Testfall. Die KI formuliert aus den wörtlichen Zitaten vor; der Prüfer liest, ändert bei Bedarf und gibt frei oder lehnt ab. Keine Hashes, keine Funktions-IDs auf dieser Ebene." },
-      notes: { en: ["ITSG's feedback: “you can't see the text — we need a readable rule a human can edit, approve or decline.”", "ITSG calls these criteria or questions — same thing.", "Edit the wording live to show it's not locked."], de: ["Feedback von ITSG: „Man sieht den Text nicht — wir brauchen eine lesbare Regel, die ein Mensch ändern, freigeben oder ablehnen kann.“", "ITSG nennt das Kriterien oder Fragen — dasselbe.", "Den Wortlaut live ändern, um zu zeigen, dass er nicht fest ist."] } },
-    { screen: "extract", sel: "[data-tour=guards]", before: () => { S.selRule = "R-3.12-A"; S.techOpen = true; }, after: () => A.animateExtraction(() => TOUR.spot()),
-      title: { en: "Why you can trust it — one click deeper", de: "Warum man ihr trauen kann — einen Klick tiefer" },
-      body: { en: "Behind the fold: the model picked a pre-written function and quoted the spec verbatim. Five mechanical checks run on every answer — quote verbatim, number in the quote, value in range, two runs agree, function tests pass.", de: "Hinter der Klappe: Das Modell hat eine vorab geschriebene Funktion gewählt und die Spezifikation wörtlich zitiert. Fünf mechanische Prüfungen laufen bei jeder Antwort — Zitat wörtlich, Zahl im Zitat, Wert im Bereich, zwei Läufe gleich, Funktionstests bestanden." },
-      notes: { en: ["This is for the jury and auditors; examiners don't need to open it.", "Run B paraphrased one quote — the check rejected it mechanically.", "“einer Woche” is converted to 7 days by a rule, not by the model."], de: ["Das ist für Jury und Prüfer; Prüfer müssen es nicht öffnen.", "Lauf B hat ein Zitat umformuliert — die Prüfung hat es mechanisch abgelehnt.", "„einer Woche“ wird per Regel in 7 Tage umgerechnet, nicht vom Modell."] } },
-    { screen: "extract", sel: "[data-tour=approve]", before: () => { S.selRule = "R-3.12-A"; S.techOpen = false; }, after: () => setTimeout(() => { approve("R-3.12-A"); ["R-3.12-B", "R-3.12.5", "R-3.7.3"].forEach(id => { if (S.rules[id].status === "pending") S.rules[id].status = "approved"; }); A.render(); TOUR.spot(); }, 900),
-      title: { en: "Approve, edit or decline — once per rule", de: "Freigeben, ändern oder ablehnen — einmal je Regel" },
-      body: { en: "The examiner signs off the rule — not 3,000 individual test cases. Declining needs a reason; editing a number recomputes every expected value. Every decision lands in a hash-chained audit trail.", de: "Der Prüfer gibt die Regel frei — nicht 3.000 einzelne Testfälle. Ablehnen braucht eine Begründung; eine geänderte Zahl berechnet alle Erwartungswerte neu. Jede Entscheidung landet in einem verketteten Prüfpfad." },
-      notes: { en: ["Human in the loop where judgement matters.", "When the two AI runs disagree, approval is blocked until resolved — see the maternity rule."], de: ["Der Mensch entscheidet dort, wo Urteil gefragt ist.", "Wenn die zwei KI-Läufe sich widersprechen, ist die Freigabe bis zur Klärung gesperrt — siehe Mutterschutz-Regel."] } },
-    { screen: "overview", sel: "#drawer", noZoom: true, after: () => A.openProv("golden.efz27"),
-      title: { en: "Every value has a provenance trail", de: "Jeder Wert hat einen Herkunftsnachweis" },
-      body: { en: "ITSG's own reference case, recomputed live. “Sick pay ends 27.03.2026” traces back to the German sentence, the extracted 42 days, the function and its version, the inputs and each calculation step.", de: "Der ITSG-Referenzfall, live berechnet. „EFZ endet 27.03.2026“ führt zurück auf den deutschen Satz, die extrahierten 42 Tage, Funktion und Version, Eingaben und jeden Rechenschritt." },
-      notes: { en: ["This is how an engineer can trust the number without trusting the AI.", "Same as ITSG's hand calculation: 42 − 25 = 17 days → 27.03."], de: ["So kann ein Ingenieur der Zahl vertrauen, ohne der KI vertrauen zu müssen.", "Wie die Handrechnung von ITSG: 42 − 25 = 17 Tage → 27.03."] } },
-    { screen: "tests", sel: "[data-tour=perrule]", noZoom: true, before: () => { A.closeDrawer(); S.testTab = "rules"; S.expandRule = null; },
-      title: { en: "One test case per rule, in plain words", de: "Ein Testfall je Regel, in Worten" },
-      body: { en: "Vendor engineers type every case in by hand, so each rule starts with one representative case — written the way ITSG writes them, with the expected result calculated by tested code. The first one is ITSG's own example: an earlier illness more than six months back, so no message 41.", de: "Hersteller-Entwickler tippen jeden Fall von Hand ein. Deshalb beginnt jede Regel mit einem repräsentativen Fall — so formuliert, wie ITSG es tut, das Ergebnis von getestetem Code berechnet. Der erste ist das Beispiel von ITSG: eine Vorerkrankung mehr als sechs Monate zurück, also keine Meldung 41." },
-      notes: { en: ["ITSG: “for each rule, one test case would be enough — for the first step.” 12 for one rule was “a bit much”.", "“If you have an automatic solution, more is better” — the full boundary set is one click away.", "Each case downloads as JSON — see the automatic-input proposal in Publish."], de: ["ITSG: „Für jede Regel wäre ein Testfall genug — für den ersten Schritt.“ 12 für eine Regel waren „etwas viel“.", "„Wenn ihr eine automatische Lösung habt, ist mehr besser“ — alle Grenzfälle sind einen Klick entfernt.", "Jeder Fall lässt sich als JSON laden — siehe den Vorschlag zur automatischen Eingabe unter Veröffentlichen."] } },
-    { screen: "tests", sel: "[data-tour=variants]", before: () => { A.closeDrawer(); S.testTab = "variants"; }, after: () => setTimeout(() => { const b = document.querySelector('[data-act="newVariants"]'); if (b) { const inp = document.getElementById("seedInput"); if (inp) inp.value = S.seed + 1; b.click(); TOUR.spot(); } }, 1200),
-      title: { en: "Fresh variants every cycle", de: "Frische Varianten in jeder Runde" },
-      body: { en: "Each criterion is a template on its boundaries: exactly six months, six months plus one day, 29 and 30 days, open-ended sick leave. A new seed means new people and dates — and new expected results, computed by the functions.", de: "Jedes Kriterium ist eine Vorlage an seinen Grenzen: genau sechs Monate, sechs Monate plus ein Tag, 29 und 30 Tage, offenes AU-Ende. Ein neuer Seed bringt neue Personen und Daten — und neue Erwartungswerte aus den Funktionen." },
-      notes: { en: ["ITSG's stated fear: vendors fitting messages to known solutions.", "With fresh data, there are no known solutions to fit."], de: ["Die Sorge von ITSG: Hersteller passen Meldungen an bekannte Lösungen an.", "Mit frischen Daten gibt es keine bekannten Lösungen."] } },
-    { screen: "inbox", sel: "[data-tour=autoinput]", before: () => { S.role = "itsg"; }, after: () => setTimeout(() => { if (!S.published) { const b = document.querySelector('[data-act="publish"]'); if (b) b.click(); TOUR.spot(); } }, 900),
-      title: { en: "Publish — and stop typing test cases", de: "Veröffentlichen — und keine Testfälle mehr abtippen" },
-      body: { en: "The package goes to the vendors. Our proposal: the same cases as JSON that the payroll software imports, while the output stays the standard DTA file. It needs a spec change, so start with SAP. Below, the employer ⇄ insurer dialogue: the insurer's replies are given input the vendor's software must handle.", de: "Das Paket geht an die Hersteller. Unser Vorschlag: dieselben Fälle als JSON, das die Abrechnungssoftware importiert; die Ausgabe bleibt die Standard-DTA-Datei. Das braucht eine Spezifikationsänderung, also mit SAP beginnen. Darunter der Dialog Arbeitgeber ⇄ Krankenkasse: Die Antworten der Kasse sind vorgegebene Eingaben, die die Software verarbeiten muss." },
-      notes: { en: ["ITSG's steer: “work on the idea of how to do the input automatically.”", "“Start with SAP — many of our customers use it.”", "Click a REF-ID in the dialogue to show it repeats the employer's DSID."], de: ["Hinweis von ITSG: „Arbeitet an der Idee, wie man die Eingabe automatisiert.“", "„Fangt mit SAP an — viele unserer Kunden nutzen es.“", "Im Dialog eine REF-ID anklicken: Sie wiederholt die DSID des Arbeitgebers."] } },
-    { screen: "vhome", sel: "[data-tour=vsteps]", noZoom: true, before: () => { A.vendorDemo("sap", false); },
+    { ch: "hook", screen: "overview", sel: "[data-tour=pipeline]", zoom: 1.0, before: () => { S.recap = false; },
+      cap: { today: { en: "~600 pages re-read and ~4,000 tests kept up by hand", de: "~600 Seiten neu lesen, ~4.000 Tests von Hand pflegen" }, now: { en: "One sentence of §3.12, followed from the PDF to a certificate", de: "Ein Satz aus §3.12, verfolgt vom PDF bis zum Zertifikat" } },
+      title: { en: "December: v13.4 lands, five weeks before 1 January", de: "Dezember: v13.4 kommt, fünf Wochen vor dem 1. Januar" },
+      body: { en: "Every year the spec changes, sometimes weeks before it takes effect. Today ITSG re-reads hundreds of pages, rewrites test cases by hand, and vendors type every case into their software. We'll follow one sentence of the new PDF through this whole pipeline, from the spec to a vendor's certificate.", de: "Jedes Jahr ändert sich die Spezifikation, manchmal wenige Wochen vor dem Stichtag. Heute liest ITSG Hunderte Seiten neu, schreibt Testfälle von Hand um, und Hersteller tippen jeden Fall in ihre Software. Wir verfolgen einen Satz aus dem neuen PDF durch die ganze Pipeline, von der Spezifikation bis zum Zertifikat eines Herstellers." },
+      notes: { en: ["ITSG's biggest pain is creating and maintaining tests, not checking them.", "Colours: green = deterministic code, blue = language model, amber = human decision.", "The thread: §3.12, “nicht mindestens 6 Monate” → “nicht mehr als 6 Monate”."], de: ["Der größte Schmerz bei ITSG ist das Erstellen und Pflegen der Tests, nicht das Prüfen.", "Farben: grün = deterministischer Code, blau = Sprachmodell, gelb = menschliche Entscheidung.", "Der rote Faden: §3.12, „nicht mindestens 6 Monate“ → „nicht mehr als 6 Monate“."] } },
+    { ch: "spec", obj: 1, screen: "changes", sel: "[data-tour=sources]", before: () => { S.selChange = "3.12"; },
+      cap: { today: { en: "Trust the change log", de: "Dem Änderungsprotokoll vertrauen" }, now: { en: "Change log + text diff: one change the log never mentions", de: "Protokoll + Textvergleich: eine Änderung, die das Protokoll verschweigt" } },
+      title: { en: "What changed? Two sources, and the change log missed one", de: "Was hat sich geändert? Zwei Quellen, und das Protokoll übersieht eine" },
+      body: { en: "Code parses the official change log, and a section-by-section diff of the old and new text runs next to it, because the government doesn't always ship a change log. Here the diff found a change in §3.12.6 that the log never mentions.", de: "Code parst das offizielle Änderungsprotokoll, daneben läuft ein Abschnitts-Diff von altem und neuem Text, weil nicht immer ein Protokoll mitkommt. Hier hat der Diff eine Änderung in §3.12.6 gefunden, die das Protokoll nicht nennt." },
+      notes: { en: ["Correction from the ITSG engineer: there isn't always a change log.", "Red = found only by the diff; it would have been missed today.", "No AI involved in finding changes: parsing and diffing are deterministic."], de: ["Korrektur vom ITSG-Ingenieur: Es gibt nicht immer ein Änderungsprotokoll.", "Rot = nur per Diff gefunden; wäre heute übersehen worden.", "Beim Finden der Änderungen ist keine KI beteiligt: Parsen und Diff sind deterministisch."] } },
+    { ch: "spec", obj: 1, screen: "changes", sel: "[data-tour=redlinebox]", before: () => { S.selChange = "3.12"; S.fullRedline = false; },
+      cap: { today: { en: "Labelled “editorial”, easy to skip", de: "Als „redaktionell“ markiert, leicht zu übersehen" }, now: { en: "The boundary flips at exactly 6 months, and 18 tests are affected", de: "Die Grenze kippt bei genau 6 Monaten, 18 Tests betroffen" } },
+      title: { en: "Our sentence: “editorial”, but the boundary flips", de: "Unser Satz: „redaktionell“, aber die Grenze kippt" },
+      body: { en: "The change log calls the §3.12 change editorial. The redline shows “nicht mindestens 6 Monate” became “nicht mehr als 6 Monate”. At exactly six months the result flips, and 18 catalogue tests cite §3.12, so a fixed rule rates it high risk.", de: "Das Protokoll nennt die Änderung an §3.12 redaktionell. Die Änderungsansicht zeigt: Aus „nicht mindestens 6 Monate“ wurde „nicht mehr als 6 Monate“. Bei genau sechs Monaten kippt das Ergebnis, und 18 Katalogtests verweisen auf §3.12, also stuft eine feste Regel das Risiko hoch ein." },
+      notes: { en: ["Only the change TYPE is an AI suggestion; the examiner confirms it.", "Impact = catalogue rows citing §3.12 (counted, not guessed). Risk = fixed rule from type + impact.", "The v13.3 text is reconstructed from the change log; we asked ITSG for the real PDF."], de: ["Nur der Änderungstyp ist ein KI-Vorschlag; der Prüfer bestätigt ihn.", "Auswirkung = Katalogzeilen mit Verweis auf §3.12 (gezählt, nicht geschätzt). Risiko = feste Regel aus Typ und Auswirkung.", "Der v13.3-Text ist aus dem Protokoll rekonstruiert; das echte PDF haben wir bei ITSG angefragt."] } },
+    { ch: "req", obj: 2, screen: "extract", sel: "[data-tour=ruletext]", before: () => { S.selRule = "R-3.12-B"; S.techOpen = false; },
+      cap: { today: { en: "Highlight the PDF, then think up test cases", de: "PDF markieren, dann Testfälle ausdenken" }, now: { en: "A readable rule, quoting the spec word for word", de: "Eine lesbare Regel, die die Spezifikation wörtlich zitiert" } },
+      title: { en: "From a sentence to a rule anyone can read", de: "Vom Satz zur Regel, die jeder lesen kann" },
+      body: { en: "The AI turns the spec sentence into a rule in plain language and quotes the spec word for word. The examiner reads it, edits it if needed, and approves or declines it. “Show in document” jumps to the highlighted sentence in the original PDF.", de: "Die KI macht aus dem Satz eine Regel in Klartext und zitiert die Spezifikation wörtlich. Der Prüfer liest sie, ändert sie bei Bedarf und gibt sie frei oder lehnt sie ab. „Im Dokument zeigen“ springt zum markierten Satz im Original-PDF." },
+      notes: { en: ["ITSG's feedback: “you can't see the text”, so the readable rule is now the main content.", "ITSG calls these criteria or questions; same thing.", "Edit the wording live to show it isn't locked."], de: ["Feedback von ITSG: „Man sieht den Text nicht“, deshalb ist die lesbare Regel jetzt der Hauptinhalt.", "ITSG nennt das Kriterien oder Fragen; dasselbe.", "Den Wortlaut live ändern, um zu zeigen, dass er nicht fest ist."] } },
+    { ch: "req", obj: 2, screen: "extract", sel: "[data-tour=approve]", before: () => { S.selRule = "R-3.12-B"; S.techOpen = false; }, after: () => setTimeout(() => { if (STEPS[idx] !== STEPS[4]) return; approve("R-3.12-B"); ["R-3.12-A", "R-3.12.5", "R-3.7.3"].forEach(id => { if (S.rules[id].status === "pending") S.rules[id].status = "approved"; }); A.render(); TOUR.spot(); }, 1800),
+      cap: { today: { en: "Review thousands of test cases", de: "Tausende Testfälle prüfen" }, now: { en: "Approve each rule once, after five automatic checks", de: "Jede Regel einmal freigeben, nach fünf automatischen Prüfungen" } },
+      title: { en: "Approve once per rule, not 3,000 test cases", de: "Einmal je Regel freigeben, nicht 3.000 Testfälle" },
+      body: { en: "Five automatic checks ran first: every quote is verbatim, every number is in its quote, values are in range, two independent AI runs agree, and the function's tests pass. The examiner signs off the rule, and the other rules are approved the same way. Every decision lands in a hash-chained audit trail.", de: "Vorher liefen fünf automatische Prüfungen: Jedes Zitat ist wörtlich, jede Zahl steht im Zitat, die Werte liegen im Bereich, zwei unabhängige KI-Läufe stimmen überein, und die Funktionstests bestehen. Der Prüfer gibt die Regel frei, die anderen Regeln genauso. Jede Entscheidung landet in einem verketteten Prüfpfad." },
+      notes: { en: ["The five checks are under “Technical details” on this screen, for the jury and auditors.", "When the two AI runs disagree, approval is blocked: see the maternity rule.", "Editing a number creates a new parameter set and recomputes every expected value."], de: ["Die fünf Prüfungen stehen unter „Technische Details“ auf dieser Seite, für Jury und Prüfer.", "Wenn die zwei KI-Läufe sich widersprechen, ist die Freigabe gesperrt: siehe Mutterschutz-Regel.", "Eine geänderte Zahl erzeugt einen neuen Parametersatz und berechnet alle Erwartungswerte neu."] } },
+    { ch: "test", obj: 3, screen: "tests", sel: "[data-tour=changedtest]", before: () => { S.testTab = "rules"; S.expandRule = null; },
+      cap: { today: { en: "Find and rewrite affected tests by hand", de: "Betroffene Tests suchen und von Hand umschreiben" }, now: { en: "Expected result recomputed: no request 41 → request 41", de: "Erwartungswert neu berechnet: keine Anfrage 41 → Anfrage 41" } },
+      title: { en: "The test that changed", de: "Der Test, der sich geändert hat" },
+      body: { en: "Same employee, new law. Under v13.3 a gap of exactly six months broke the chain: only 12 days counted, so no request 41. Under v13.4 both periods count: 32 days, so request 41 goes out with two periods. Tested code recomputed the expected result; nobody rewrote it by hand.", de: "Derselbe Arbeitnehmer, neues Recht. Unter v13.3 beendete eine Lücke von genau sechs Monaten die Kette: Nur 12 Tage zählten, also keine Anfrage 41. Unter v13.4 zählen beide Zeiträume: 32 Tage, also geht Anfrage 41 mit zwei Zeiträumen raus. Getesteter Code hat das Ergebnis neu berechnet; niemand hat es von Hand umgeschrieben." },
+      notes: { en: ["This is ITSG's #1 pain: spec change → affected test → updated expected result.", "The old catalogue row ALT-3.12-031 tested the opposite; the coverage check flags it as obsolete.", "Click the v13.4 result for its full trail (next step)."], de: ["Das ist der größte Schmerz bei ITSG: Spezifikationsänderung → betroffener Test → neuer Erwartungswert.", "Die alte Katalogzeile ALT-3.12-031 prüfte das Gegenteil; die Abdeckungsprüfung markiert sie als veraltet.", "Ein Klick auf das v13.4-Ergebnis zeigt die ganze Herkunft (nächster Schritt)."] } },
+    { ch: "test", obj: 4, screen: "tests", sel: "#drawer", noZoom: true, before: () => { S.testTab = "rules"; S.expandRule = null; }, after: () => A.openProv("b6m.new"),
+      cap: { today: { en: "Expected values calculated by hand, no trail", de: "Erwartungswerte von Hand gerechnet, ohne Nachweis" }, now: { en: "Every value traces back to the German sentence", de: "Jeder Wert führt zurück zum deutschen Satz" } },
+      title: { en: "Every expected value traces back to the spec", de: "Jeder Erwartungswert führt zurück zur Spezifikation" },
+      body: { en: "Click any result to see its trail: the German sentence, the number the AI read from it, the function and version that did the calculation, the inputs and each step. An engineer can trust the number without having to trust the AI.", de: "Ein Klick auf ein Ergebnis zeigt seine Herkunft: den deutschen Satz, die Zahl, die die KI daraus gelesen hat, die rechnende Funktion mit Version, die Eingaben und jeden Schritt. Ein Ingenieur kann der Zahl vertrauen, ohne der KI vertrauen zu müssen." },
+      notes: { en: ["The AI only found the sentence and read “6 Monate”; code did the rest.", "ITSG's reference case (Peter Mustermann) has the same trails on the Overview."], de: ["Die KI hat nur den Satz gefunden und „6 Monate“ gelesen; den Rest hat Code gemacht.", "Der ITSG-Referenzfall (Peter Mustermann) hat dieselben Herkunftsnachweise im Überblick."] } },
+    { ch: "test", obj: 3, screen: "tests", sel: "[data-tour=firstcase]", before: () => { S.testTab = "rules"; S.expandRule = null; },
+      cap: { today: { en: "Many cases per rule, all typed in by hand", de: "Viele Fälle je Regel, alle von Hand getippt" }, now: { en: "One case per rule, in ITSG's own words", de: "Ein Fall je Regel, in den Worten von ITSG" } },
+      title: { en: "One test case per rule, in ITSG's own words", de: "Ein Testfall je Regel, in den Worten von ITSG" },
+      body: { en: "Vendors type every case in by hand today, so each rule starts with one representative case, described the way ITSG writes them and with its expected result calculated by code. This one is ITSG's own example: an earlier illness more than six months back, so no message 41. The full boundary set is one click away.", de: "Hersteller tippen heute jeden Fall von Hand ein, deshalb beginnt jede Regel mit einem repräsentativen Fall, so beschrieben, wie ITSG es tut, mit von Code berechnetem Ergebnis. Dieser ist das Beispiel von ITSG: eine Vorerkrankung mehr als sechs Monate zurück, also keine Meldung 41. Alle Grenzfälle sind einen Klick entfernt." },
+      notes: { en: ["ITSG: “for each rule, one test case would be enough, for the first step.” 12 for one rule was “a bit much”.", "“Fresh variants” generates new names and dates every cycle, so vendors can't fit answers to known solutions.", "Each case downloads as JSON test input."], de: ["ITSG: „Für jede Regel wäre ein Testfall genug, für den ersten Schritt.“ 12 für eine Regel waren „etwas viel“.", "„Frische Varianten“ erzeugt jede Runde neue Namen und Daten, damit Hersteller Antworten nicht an bekannte Lösungen anpassen können.", "Jeder Fall lässt sich als JSON-Testeingabe laden."] } },
+    { ch: "test", obj: 1, screen: "baseline", sel: "[data-tour=baseline]",
+      cap: { today: { en: "30 years of tests, and nobody knows which are obsolete", de: "30 Jahre Tests, niemand weiß, welche veraltet sind" }, now: { en: "Every sentence mapped to a test, obsolete tests flagged", de: "Jeder Satz einem Test zugeordnet, veraltete Tests markiert" } },
+      title: { en: "Coverage: every sentence has a test, and old tests get checked too", de: "Abdeckung: Jeder Satz hat einen Test, und alte Tests werden mitgeprüft" },
+      body: { en: "Each test-relevant sentence of the spec is matched to the tests that cover it, and sentences without a test are flagged as missing. The old catalogue is checked against the current law too: ALT-3.12-031 still expects the old v13.3 boundary, so it's flagged obsolete.", de: "Jeder prüfrelevante Satz der Spezifikation wird den Tests zugeordnet, die ihn abdecken; Sätze ohne Test werden als fehlend markiert. Auch der alte Katalog wird gegen das geltende Recht geprüft: ALT-3.12-031 erwartet noch die alte Grenze aus v13.3 und wird als veraltet markiert." },
+      notes: { en: ["ITSG's own idea: “after 30 years I would not be sure there are no test cases that have been removed by law.”", "The three ALT-… rows are simulated; we need the real ~4,000 scenarios (Gerhard knows where they are).", "Missing example: §3.12.6 now also applies to reasons 11 and 12, and no test covers that yet."], de: ["Die Idee von ITSG: „Nach 30 Jahren wäre ich nicht sicher, dass keine Testfälle drin sind, die per Gesetz entfallen sind.“", "Die drei ALT-…-Zeilen sind simuliert; wir brauchen die echten ~4.000 Szenarien (Gerhard weiß, wo sie liegen).", "Beispiel fehlend: §3.12.6 gilt jetzt auch für Abgabegrund 11 und 12, und dafür gibt es noch keinen Test."] } },
+    { ch: "test", obj: 3, screen: "inbox", sel: "[data-tour=publishrow]", after: () => setTimeout(() => { if (STEPS[idx] !== STEPS[9]) return; if (!S.published) { const b = document.querySelector('[data-act="publish"]'); if (b) b.click(); TOUR.spot(); } }, 1400),
+      cap: { today: { en: "Vendors type every case into their software", de: "Hersteller tippen jeden Fall in ihre Software" }, now: { en: "The same cases as importable JSON (proposal, SAP pilot)", de: "Dieselben Fälle als importierbares JSON (Vorschlag, Pilot SAP)" } },
+      title: { en: "Publish, and stop typing test cases in", de: "Veröffentlichen, und keine Testfälle mehr abtippen" },
+      body: { en: "The package goes to the vendors through Messages. Our proposal: the same cases as JSON that the payroll software imports, while the output stays the standard DTA file. That needs a spec change, so start with SAP.", de: "Das Paket geht über Nachrichten an die Hersteller. Unser Vorschlag: dieselben Fälle als JSON, das die Abrechnungssoftware importiert; die Ausgabe bleibt die Standard-DTA-Datei. Das braucht eine Spezifikationsänderung, also mit SAP beginnen." },
+      notes: { en: ["ITSG's steer: “work on the idea of how to do the input automatically.”", "“Start with SAP: many of our customers use it.”", "Expected results stay with ITSG; vendors never see them."], de: ["Hinweis von ITSG: „Arbeitet an der Idee, wie man die Eingabe automatisiert.“", "„Fangt mit SAP an: Viele unserer Kunden nutzen es.“", "Erwartungswerte bleiben bei ITSG; Hersteller sehen sie nie."] } },
+    { ch: "res", obj: 5, screen: "vhome", sel: "[data-tour=vsteps]", noZoom: true, before: () => { A.vendorDemo("sap", false); },
+      cap: { today: { en: "Test packages scattered across e-mails and PDFs", de: "Testpakete verstreut in E-Mails und PDFs" }, now: { en: "SAP sees its status, its next step and its deadline", de: "SAP sieht Stand, nächsten Schritt und Frist" } },
       title: { en: "The vendor's side: SAP signs in", de: "Die Herstellersicht: SAP meldet sich an" },
       body: { en: "Same tool, other role. SAP sees only its own certification: where it stands, the next step, the days left until 31.12.2026, and what ITSG will check on site. The package has just arrived in Messages.", de: "Dasselbe Werkzeug, andere Rolle. SAP sieht nur die eigene Zertifizierung: Stand, nächster Schritt, Tage bis 31.12.2026 und was ITSG vor Ort prüft. Das Paket ist gerade unter Nachrichten angekommen." },
       notes: { en: ["SAP and Lexware are illustrative — all results are imagined (the label says so on every results screen).", "My test cases: each case in words, “mark as entered” or import the JSON, then send the result file.", "Expected results are never shown to vendors — nothing to fit answers to."], de: ["SAP und Lexware sind illustrativ — alle Ergebnisse sind erfunden (das steht auf jeder Ergebnisseite).", "Meine Testfälle: jeder Fall in Worten, „als eingegeben markieren“ oder JSON importieren, dann Ergebnisdatei senden.", "Erwartungswerte sieht der Hersteller nie — es gibt nichts, woran er Antworten anpassen könnte."] } },
-    { screen: "mail", sel: "[data-tour=thread]", noZoom: true, before: () => { A.vendorDemo("sap", true); },
+    { ch: "res", obj: 5, screen: "mail", sel: "[data-tour=thread]", noZoom: true, before: () => { A.vendorDemo("sap", true); },
+      cap: { today: { en: "Results and verdicts spread across mailboxes", de: "Ergebnisse und Urteile über Postfächer verteilt" }, now: { en: "One thread: package in, result out, verdict back", de: "Ein Verlauf: Paket rein, Ergebnis raus, Urteil zurück" } },
       title: { en: "Messages: package in, result out, verdict back", de: "Nachrichten: Paket rein, Ergebnis raus, Urteil zurück" },
       body: { en: "Like e-mail, but every attachment is live. ITSG's package arrived here; SAP sent its result file back, and the comparison posted the verdict in words at once. ITSG answers in the same thread — request a fix, send the report, or issue the certificate.", de: "Wie E-Mail, aber jeder Anhang ist lebendig. Das Paket von ITSG kam hier an; SAP hat die Ergebnisdatei zurückgeschickt, und der Vergleich hat das Urteil sofort in Worten gepostet. ITSG antwortet im selben Verlauf — Korrektur anfordern, Bericht senden oder Zertifikat erteilen." },
       notes: { en: ["Attach rules, test cases, result files or reports — the other side opens them with one click.", "Switch to ITSG: “Issue certificate” only unlocks when nothing failed (try Lexware).", "“Ask ITSG” on any test case opens a message with that case attached."], de: ["Regeln, Testfälle, Ergebnisdateien oder Berichte anhängen — die andere Seite öffnet sie mit einem Klick.", "Zu ITSG wechseln: „Zertifikat erteilen“ geht nur, wenn nichts fehlgeschlagen ist (Lexware ausprobieren).", "„ITSG fragen“ an jedem Testfall öffnet eine Nachricht mit diesem Fall im Anhang."] } },
-    { screen: "validate", sel: "[data-tour=verdict]", before: () => { S.role = "itsg"; S.sample = "teel0"; S.selField = null; },
-      title: { en: "The real ITSG file passes", de: "Die echte ITSG-Datei besteht" },
-      body: { en: "This is TEEL0-Test1-DBVO, the file ITSG gave us. Parsed with the field offsets from the spec, every check passes and the DBVO block equals the oracle's expected block byte for byte.", de: "Das ist TEEL0-Test1-DBVO, die Datei von ITSG. Mit den Feldpositionen aus der Spezifikation gelesen, bestehen alle Prüfungen und der DBVO-Baustein gleicht dem Erwartungswert Byte für Byte." },
-      notes: { en: ["Product and modification ID come straight from the file — the result attaches to that exact version.", "Our expected file uses the same format, so it can feed ITSG's existing comparator."], de: ["Produkt- und Modifikations-ID kommen direkt aus der Datei — das Ergebnis gilt für genau diese Version.", "Unsere Erwartungsdatei hat dasselbe Format und kann den bestehenden ITSG-Vergleicher speisen."] } },
-    { screen: "validate", sel: "[data-tour=words]", before: () => { S.role = "itsg"; S.sample = "gap"; S.selField = null; S.valTab = "words"; },
-      title: { en: "A broken file, explained in words", de: "Eine fehlerhafte Datei, in Worten erklärt" },
-      body: { en: "Same file with one extra period from November 2024. Instead of red bytes to decode by hand: “this period should not be in the request — more than 6 months lie before the next one”, and “ANZAHL-AU expected 04, got 05”, each with its §. The bytes are still one tab away.", de: "Dieselbe Datei mit einem zusätzlichen Zeitraum aus November 2024. Statt roter Bytes zum Nachschlagen: „Dieser Zeitraum gehört nicht in die Anfrage — davor liegen mehr als 6 Monate“ und „ANZAHL-AU erwartet 04, geliefert 05“, jeweils mit §. Die Bytes sind einen Reiter entfernt." },
-      notes: { en: ["ITSG: reading a difference today means looking up each field in the dictionary — “so technical someone needs to go deep in it.”", "“It could be very helpful, but there mustn't be any errors” — the explanations are computed, not generated.", "Zero tolerance: one wrong field and the release is blocked."], de: ["ITSG: Heute heißt eine Abweichung lesen, jedes Feld im Verzeichnis nachzuschlagen — „so technisch, dass man tief einsteigen muss.“", "„Es könnte sehr hilfreich sein, aber es darf keine Fehler geben“ — die Erklärungen sind berechnet, nicht generiert.", "Null Toleranz: ein falsches Feld und die Version wird gesperrt."] } },
-    { screen: "audit", sel: "[data-tour=checklist]", before: () => { S.role = "itsg"; S.vendor = "sap"; },
-      title: { en: "On-site audit: only what matters", de: "Vor-Ort-Prüfung: nur was zählt" },
-      body: { en: "The scope is computed: criteria that failed last year, criteria touched by a change, and new criteria. Message checks are pre-filled from the compared file. A brand-new product would get the full catalogue.", de: "Der Umfang wird berechnet: letztes Jahr nicht bestandene Kriterien, von Änderungen betroffene und neue Kriterien. Meldungsprüfungen sind aus der geprüften Datei vorbelegt. Ein neues Produkt bekäme den ganzen Katalog." },
-      notes: { en: ["From the ITSG meeting: “we want to see the two again and everything changed or new.”", "Switch to Lexware: it failed one criterion last year and passes this year."], de: ["Aus dem ITSG-Gespräch: „Wir wollen die zwei wiedersehen und alles Geänderte oder Neue.“", "Zu Lexware wechseln: letztes Jahr ein Kriterium nicht bestanden, dieses Jahr bestanden."] } },
-    { screen: "report", sel: "[data-tour=allvendors]", before: () => { S.role = "itsg"; S.vendor = "sap"; },
-      title: { en: "Pass/fail per vendor — printable and as JSON", de: "Bestanden/nicht bestanden je Hersteller — druckbar und als JSON" },
-      body: { en: "Every vendor at a glance: how many passed, how many failed, and in words — “everything passes except EEL-3.20-002”. Each report prints, downloads as JSON per customer, carries a SHA-256 seal, and feeds the next audit scope: failed + changed + new.", de: "Alle Hersteller auf einen Blick: wie viele bestanden, wie viele nicht, und in Worten — „alles besteht außer EEL-3.20-002“. Jeder Bericht ist druckbar, als JSON je Kunde ladbar, mit SHA-256-Siegel, und speist den nächsten Prüfumfang: nicht bestanden + geändert + neu." },
-      notes: { en: ["SAP is “Not certified” in this imagined run on purpose: one new 13.4 criterion failed (cancellation must repeat the names). Zero tolerance — one fail blocks the release.", "ITSG asked for exactly this: “how many passed, how many failed, every test case — print it or give it as JSON for each customer.”", "Close: the AI drafts, code calculates, examiners decide — and every value is traceable.", "Ask: the previous spec PDF, the real test scenarios, and whether ITSG would back a JSON input interface."], de: ["SAP ist in diesem erfundenen Durchlauf absichtlich „Nicht zertifiziert“: Ein neues 13.4-Kriterium schlug fehl (Stornierung muss die Namen wiederholen). Null Toleranz — ein Fehler sperrt die Version.", "Genau das hat ITSG gefragt: „wie viele bestanden, wie viele nicht, jeder Testfall — drucken oder als JSON für jeden Kunden.“", "Abschluss: Die KI formuliert, Code rechnet, Prüfer entscheiden — und jeder Wert ist nachvollziehbar.", "Bitte: das Vorjahres-PDF, die echten Testszenarien und ob ITSG eine JSON-Eingabeschnittstelle unterstützen würde."] } }
+    { ch: "res", obj: 5, screen: "validate", sel: "[data-tour=words]", before: () => { S.role = "itsg"; S.sample = "gap"; S.selField = null; S.valTab = "words"; },
+      cap: { today: { en: "Red bytes, looked up field by field", de: "Rote Bytes, Feld für Feld nachgeschlagen" }, now: { en: "Each difference explained in a sentence, with its §", de: "Jede Abweichung als Satz erklärt, mit ihrem §" } },
+      title: { en: "A wrong file, explained in words", de: "Eine falsche Datei, in Worten erklärt" },
+      body: { en: "This vendor file sends one period too many: an illness from November 2024 that lies more than six months before the next one, our §3.12 rule again. Instead of red bytes to decode by hand, each difference reads as a sentence with its field and §. The byte view is one tab away.", de: "Diese Herstellerdatei sendet einen Zeitraum zu viel: eine Erkrankung aus November 2024, die mehr als sechs Monate vor der nächsten liegt, wieder unsere Regel aus §3.12. Statt roter Bytes zum Nachschlagen steht jede Abweichung als Satz da, mit Feld und §. Die Byte-Ansicht ist einen Reiter entfernt." },
+      notes: { en: ["The real ITSG file TEEL0-Test1-DBVO passes every check and matches our expected block byte for byte: pick it in the file list.", "ITSG: “It could be very helpful, but there mustn't be any errors.” The explanations are computed, not generated.", "Zero tolerance: one wrong field and the release is blocked."], de: ["Die echte ITSG-Datei TEEL0-Test1-DBVO besteht alle Prüfungen und gleicht unserem Erwartungswert Byte für Byte: in der Dateiliste auswählen.", "ITSG: „Es könnte sehr hilfreich sein, aber es darf keine Fehler geben.“ Die Erklärungen sind berechnet, nicht generiert.", "Null Toleranz: ein falsches Feld und die Version wird gesperrt."] } },
+    { ch: "res", obj: 6, screen: "report", sel: "[data-tour=allvendors]", before: () => { S.role = "itsg"; S.vendor = "sap"; },
+      cap: { today: { en: "Reports assembled by hand", de: "Berichte von Hand zusammengestellt" }, now: { en: "Pass/fail per vendor, as print or JSON, with the next scope set", de: "Bestanden/nicht bestanden je Hersteller, druckbar oder als JSON, nächster Umfang gesetzt" } },
+      title: { en: "Pass/fail per vendor, ready to print or send", de: "Bestanden/nicht bestanden je Hersteller, druckbar und versendbar" },
+      body: { en: "The on-site audit only checked what failed last year, changed or is new. The report says in numbers and in words how many passed and which one failed. One fail, so SAP isn't certified yet. Each report prints, exports as JSON per vendor, carries a seal, and sets the next audit scope.", de: "Die Vor-Ort-Prüfung umfasste nur, was letztes Jahr fehlschlug, sich änderte oder neu ist. Der Bericht sagt in Zahlen und Worten, wie viele bestanden und welcher nicht. Ein Fehler, also ist SAP noch nicht zertifiziert. Jeder Bericht ist druckbar, als JSON je Hersteller ladbar, versiegelt und legt den nächsten Prüfumfang fest." },
+      notes: { en: ["In this imagined run SAP fails one new 13.4 criterion (a cancellation must repeat the names). Zero tolerance: one fail blocks the release.", "ITSG asked for exactly this: “how many passed, how many failed, every test case; print it or give it as JSON for each customer.”", "Lexware passes: click its row."], de: ["In diesem erfundenen Durchlauf fällt SAP bei einem neuen 13.4-Kriterium durch (eine Stornierung muss die Namen wiederholen). Null Toleranz: ein Fehler sperrt die Version.", "Genau das hat ITSG gefragt: „wie viele bestanden, wie viele nicht, jeder Testfall; drucken oder als JSON für jeden Kunden.“", "Lexware besteht: Zeile anklicken."] } },
+    { ch: "close", screen: "overview", sel: "[data-tour=recap]", noZoom: true, before: () => { S.recap = true; },
+      cap: { today: { en: "Weeks of reading and typing", de: "Wochen des Lesens und Tippens" }, now: { en: "One session, and every value is traceable", de: "Eine Sitzung, und jeder Wert ist nachvollziehbar" } },
+      title: { en: "One sentence, start to finish, in one session", de: "Ein Satz, von Anfang bis Ende, in einer Sitzung" },
+      body: { en: "From the new PDF to an updated, approved, traceable test and a vendor verdict. The AI reads and drafts, tested code calculates, examiners decide. Today the same work takes weeks of reading and typing.", de: "Vom neuen PDF zum aktualisierten, freigegebenen, nachvollziehbaren Test und zum Urteil über einen Hersteller. Die KI liest und formuliert, getesteter Code rechnet, Prüfer entscheiden. Heute kostet dieselbe Arbeit Wochen des Lesens und Tippens." },
+      notes: { en: ["Ask: the real v13.3 PDF, the ~4,000 real test scenarios, and whether ITSG would back a JSON input interface with SAP as pilot.", "Sovereign AI: it runs on Kolibri-1 (German, open weights, self-hostable).", "Everything shown is running code; only the SAP and Lexware results are imagined."], de: ["Bitte: das echte v13.3-PDF, die ~4.000 echten Testszenarien und ob ITSG eine JSON-Eingabeschnittstelle mit SAP als Pilot unterstützen würde.", "Souveräne KI: läuft auf Kolibri-1 (deutsch, offene Gewichte, selbst hostbar).", "Alles Gezeigte ist laufender Code; nur die Ergebnisse von SAP und Lexware sind erfunden."] } }
   ];
 
   let idx = -1, presenter = null, chan = null;
@@ -2870,15 +2948,24 @@ const TOUR = (() => {
   function host() { return $("#tourHost"); }
   function card() {
     const s = STEPS[idx];
+    if (presenterLive && presenter && presenter.closed) presenterLive = false;
     host().innerHTML = `<div class="tour-spot" id="tourSpot"></div><div class="tour-card" id="tourCard" role="dialog" aria-live="polite">
-      <div class="tour-progress">${STEPS.map((_, i) => `<i class="${i <= idx ? "on" : ""}"></i>`).join("")}</div>
-      <div class="tour-text"><div class="row"><span class="eyebrow" style="white-space:nowrap">${idx + 1} / ${STEPS.length}</span><h3>${T(s.title)}</h3></div><p>${T(s.body)}</p></div>
+      <div class="tour-chapters">${Object.keys(CHAPTERS).map(ch => { const ids = STEPS.map((x, i) => x.ch === ch ? i : -1).filter(i => i >= 0); return `<div class="tour-ch ${s.ch === ch ? "cur" : ""}" style="flex:${ids.length} 1 0"><b>${T(CHAPTERS[ch])}</b><div class="tour-progress">${ids.map(i => `<i class="${i <= idx ? "on" : ""}"></i>`).join("")}</div></div>`; }).join("")}</div>
+      <div class="tour-text"><div class="row"><span class="eyebrow" style="white-space:nowrap">${idx + 1} / ${STEPS.length}</span><h3>${T(s.title)}</h3>${s.obj ? `<span class="pill info" style="white-space:nowrap">${L("ITSG objective", "ITSG-Ziel")} ${s.obj} · ${T(OBJECTIVES[s.obj])}</span>` : ""}</div>${presenterLive ? capStrip(s) : `<p>${T(s.body)}</p>`}</div>
       <div class="tour-ctrl"><div class="actions"><button class="btn sm" data-tour-act="prev" ${idx === 0 ? "disabled" : ""}>${L("Back", "Zurück")}</button><button class="btn sm primary" data-tour-act="next">${idx === STEPS.length - 1 ? L("Finish", "Beenden") : L("Next", "Weiter")}</button><button class="btn sm ghost" data-tour-act="end">${L("End", "Ende")}</button></div>
-        <div class="row" style="gap:4px"><button class="btn sm ghost" data-tour-act="notes" aria-expanded="${notesOpen}">${notesOpen ? L("Hide notes", "Notizen ausblenden") : L("Speaker notes", "Sprechernotizen")}</button><button class="btn sm ghost" data-tour-act="presenter">${L("Presenter window", "Referentenfenster")}</button><span class="muted" style="font-size:var(--fs-xs)"><span class="kbd">←</span> <span class="kbd">→</span> <span class="kbd">N</span> <span class="kbd">P</span> <span class="kbd">Esc</span></span></div></div>
-      ${notesOpen ? `<div class="tour-notes callout"><ul>${T(s.notes).map(n => `<li>${n}</li>`).join("")}</ul></div>` : ""}</div>`;
+        <div class="row" style="gap:4px">${presenterLive ? `<span class="muted" style="font-size:var(--fs-xs)">${L("Notes are on the presenter screen", "Notizen auf dem Referentenbildschirm")}</span>` : `<button class="btn sm ghost" data-tour-act="notes" aria-expanded="${notesOpen}">${notesOpen ? L("Hide notes", "Notizen ausblenden") : L("Speaker notes", "Sprechernotizen")}</button><button class="btn sm ghost" data-tour-act="presenter">${L("Presenter window", "Referentenfenster")}</button>`}<span class="muted" style="font-size:var(--fs-xs)"><span class="kbd">←</span> <span class="kbd">→</span> <span class="kbd">N</span> <span class="kbd">P</span> <span class="kbd">Esc</span></span></div></div>
+      ${notesOpen && !presenterLive ? `<div class="tour-notes callout"><ul>${T(s.notes).map(n => `<li>${n}</li>`).join("")}</ul></div>` : ""}</div>`;
   }
-  let presenterBlocked = false, notesOpen = false;
+  let presenterBlocked = false, notesOpen = false, presenterLive = false, lastCmd = null;
+  const capStrip = s => s.cap ? `<div class="tour-cap"><span class="today"><b>${L("Today", "Heute")}</b>${T(s.cap.today)}</span><span class="arrow" aria-hidden="true">→</span><span class="now"><b>${L("With the assistant", "Mit dem Assistenten")}</b>${T(s.cap.now)}</span></div>` : "";
+  const setPresenterLive = on => { if (presenterLive !== on) { presenterLive = on; refresh(); } };
   const toggleNotes = () => { notesOpen = !notesOpen; card(); spot(); };
+  /* Place the spotlight on el, clipped to the visible band between the top bar and the docked tour bar. */
+  function place(el, sp) {
+    const r = el.getBoundingClientRect(), topB = el.id === "drawer" ? 4 : $("#bar").getBoundingClientRect().bottom + 4, botB = innerHeight - (($("#tourCard") || { offsetHeight: 0 }).offsetHeight) - 4;
+    const top = Math.max(topB, r.top - 6), bottom = Math.min(botB, r.bottom + 6);
+    Object.assign(sp.style, { opacity: bottom > top ? "1" : "0", left: Math.max(4, r.left - 6) + "px", top: top + "px", width: Math.min(innerWidth - 8, r.width + 12) + "px", height: Math.max(0, bottom - top) + "px" });
+  }
   function spot() {
     const s = STEPS[idx]; if (!s) return;
     const el = document.querySelector(s.sel), sp = document.getElementById("tourSpot"), main = $("#main");
@@ -2895,7 +2982,7 @@ const TOUR = (() => {
       const r0 = el.getBoundingClientRect(), mr = main.getBoundingClientRect();
       main.style.transformOrigin = `${r0.left + r0.width / 2 - mr.left}px ${r0.top + r0.height / 2 - mr.top}px`;
       main.style.transform = zoom === 1 ? "" : `scale(${zoom})`;
-      setTimeout(() => { const r = el.getBoundingClientRect(); Object.assign(sp.style, { opacity: "1", left: Math.max(4, r.left - 6) + "px", top: Math.max(4, r.top - 6) + "px", width: Math.min(innerWidth - 8, r.width + 12) + "px", height: Math.min(innerHeight - 8, r.height + 12) + "px" }); }, reduce ? 0 : 620);
+      setTimeout(() => place(el, sp), reduce ? 0 : 620);
     }, reduce ? 0 : 420);
   }
   function show(i) {
@@ -2903,7 +2990,7 @@ const TOUR = (() => {
     idx = i;
     const s = STEPS[idx];
     $("#main").style.transform = "";
-    if (s.screen !== "overview" || !s.after || s.sel !== "#drawer") A.closeDrawer();
+    A.closeDrawer();
     S.role = "itsg"; // vendor steps switch to the vendor role in their own `before`
     if (s.before) s.before();
     A.go(s.screen);
@@ -2928,12 +3015,12 @@ const TOUR = (() => {
     const draw = () => {
       const s = STEPS[cur], n = STEPS[cur + 1];
       const el = Math.floor((Date.now() - t0) / 1000);
-      document.getElementById("pv").innerHTML = `<div class="row between"><div class="stack" style="gap:2px"><span class="eyebrow">${lang === "de" ? "Referentenansicht" : "Presenter view"} · EEL Review Assistant</span><h2>${s ? `${cur + 1} / ${STEPS.length} · ${tl(s.title)}` : (lang === "de" ? "Demo noch nicht gestartet" : "Demo not started")}</h2></div><div class="clock" id="pvClock">${String(Math.floor(el / 60)).padStart(2, "0")}:${String(el % 60).padStart(2, "0")}</div></div>
+      document.getElementById("pv").innerHTML = `<div class="row between"><div class="stack" style="gap:2px"><span class="eyebrow">${lang === "de" ? "Referentenansicht" : "Presenter view"} · EEL Review Assistant</span><h2>${s ? `${cur + 1} / ${STEPS.length} · ${tl(CHAPTERS[s.ch])} · ${tl(s.title)}${s.obj ? ` <span class="pill info">${lang === "de" ? "ITSG-Ziel" : "ITSG objective"} ${s.obj} · ${tl(OBJECTIVES[s.obj])}</span>` : ""}` : (lang === "de" ? "Demo noch nicht gestartet" : "Demo not started")}</h2></div><div class="clock" id="pvClock">${String(Math.floor(el / 60)).padStart(2, "0")}:${String(el % 60).padStart(2, "0")}</div></div>
         <div class="row"><button class="btn" data-cmd="prev">◀ ${lang === "de" ? "Zurück" : "Back"}</button><button class="btn primary" data-cmd="${cur < 0 ? "start" : "next"}">${cur < 0 ? (lang === "de" ? "Demo starten" : "Start demo") : (lang === "de" ? "Weiter" : "Next")} ▶</button><button class="btn" data-cmd="reset">${lang === "de" ? "Uhr zurücksetzen" : "Reset clock"}</button><button class="btn ghost" data-cmd="end">${lang === "de" ? "Beenden" : "End"}</button></div>
-        <div class="stack">${s ? `<p style="font-size:1.1rem;color:var(--muted)">${tl(s.body)}</p><ul class="notes">${tl(s.notes).map(x => `<li>${x}</li>`).join("")}</ul>` : `<p class="notes">${lang === "de" ? "Im Hauptfenster „Demo“ klicken oder hier starten." : "Click “Demo” in the main window or start here."}</p>`}</div>
+        <div class="stack">${s ? `${s.cap ? `<div class="callout" style="font-size:1rem"><b>${lang === "de" ? "Auf dem Projektor" : "On screen"}</b><span>${tl(s.cap.today)} → <b>${tl(s.cap.now)}</b></span></div>` : ""}<p style="font-size:1.1rem;color:var(--muted)">${tl(s.body)}</p><ul class="notes">${tl(s.notes).map(x => `<li>${x}</li>`).join("")}</ul>` : `<p class="notes">${lang === "de" ? "Im Hauptfenster „Demo“ klicken oder hier starten." : "Click “Demo” in the main window or start here."}</p>`}</div>
         <div class="next">${n ? `<b>${lang === "de" ? "Als Nächstes" : "Next"}:</b> ${tl(n.title)}` : (lang === "de" ? "Letzter Schritt" : "Last step")}</div>`;
     };
-    const cmd = c => { const msg = { type: "cmd", cmd: c }; try { if (window.opener) window.opener.postMessage(msg, "*"); } catch (e) { /* ignore */ } try { if (chan) chan.postMessage(msg); } catch (e) { /* ignore */ } };
+    const cmd = c => { const msg = { type: "cmd", cmd: c, id: Date.now() + ":" + Math.random() }; try { if (window.opener) window.opener.postMessage(msg, "*"); } catch (e) { /* ignore */ } try { if (chan) chan.postMessage(msg); } catch (e) { /* ignore */ } };
     const onMsg = d => { if (d && d.type === "tour") { cur = d.idx; lang = d.lang || lang; draw(); } };
     window.addEventListener("message", e => onMsg(e.data));
     if (chan) chan.onmessage = e => onMsg(e.data);
@@ -2942,11 +3029,15 @@ const TOUR = (() => {
     setInterval(() => { const c = document.getElementById("pvClock"); if (c) { const el = Math.floor((Date.now() - t0) / 1000); c.textContent = `${String(Math.floor(el / 60)).padStart(2, "0")}:${String(el % 60).padStart(2, "0")}`; } }, 1000);
     draw();
     cmd("hello");
+    window.addEventListener("pagehide", () => cmd("bye"));
   }
 
   /* ---------- wiring ---------- */
   function onCmd(d) {
-    if (!d || d.type !== "cmd") return;
+    if (!d || d.type !== "cmd" || (d.id && d.id === lastCmd)) return;
+    lastCmd = d.id;
+    if (d.cmd === "bye") return setPresenterLive(false);
+    setPresenterLive(true);
     if (d.cmd === "next") idx < 0 ? start() : show(idx + 1);
     else if (d.cmd === "prev") show(Math.max(0, idx - 1));
     else if (d.cmd === "start") start();
@@ -2972,7 +3063,7 @@ const TOUR = (() => {
       else if (e.key === "Escape") end();
     });
     window.addEventListener("resize", () => { if (idx >= 0) spot(); });
-    window.addEventListener("scroll", () => { if (idx >= 0) { const s = STEPS[idx], el = document.querySelector(s.sel), sp = document.getElementById("tourSpot"); if (el && sp) { const r = el.getBoundingClientRect(); Object.assign(sp.style, { left: Math.max(4, r.left - 6) + "px", top: Math.max(4, r.top - 6) + "px", width: Math.min(innerWidth - 8, r.width + 12) + "px", height: Math.min(innerHeight - 8, r.height + 12) + "px" }); } } }, { passive: true });
+    window.addEventListener("scroll", () => { if (idx >= 0) { const s = STEPS[idx], el = document.querySelector(s.sel), sp = document.getElementById("tourSpot"); if (el && sp) place(el, sp); } }, { passive: true });
   }
   return { start, end, refresh, spot, init, STEPS };
 })();

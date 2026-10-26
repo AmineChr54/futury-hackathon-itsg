@@ -10,8 +10,8 @@ For how to run it, see [`demo/README.md`](../demo/README.md).
 |---|---|
 | Users | Role switch: **ITSG examiner ⇄ vendor**. The vendor signs in as SAP or Lexware and sees only its own home, test cases, results and messages; expected results are never shown to vendors |
 | Communication | E-mail-like **Messages** inbox, one window (role switch shows the other side): threads per vendor and topic, attachments for test packages, result files (compared on arrival, verdict posted in words), reports, the certificate, rules and test cases |
-| Story | Starts with ITSG's biggest pain (spec change → affected tests), with the full pipeline one click away |
-| Presenting | Guided demo with spotlight, zoom and captions, plus a **separate presenter window** (speaker notes, timer, next step) synced to the projector window; free deep-dive at any time |
+| Story | Follows one sentence of §3.12 ("nicht mindestens" → "nicht mehr als 6 Monate") from the new PDF to a vendor's verdict, in four chapters: specification → requirements → testing → results. The payoff is the test whose expected result flips, computed under both versions. 15 steps, about 5 minutes |
+| Presenting | Guided demo with spotlight, zoom and captions, plus a **separate presenter window** (script, speaker notes, timer, next step) synced to the projector window. While it is open, the projector shows only the chapter, the title, the ITSG objective and a short "today → with the assistant" caption; free deep-dive at any time |
 | Language | DE/EN toggle; German spec quotes are always kept verbatim |
 | AI | Hybrid: recorded runs by default, **live hessian.AI** (Kolibri-1 / GLM-Flash) optional |
 | Trust | **The LLM only extracts parameters and picks a function; pre-written functions compute.** Every value has a provenance trail |
@@ -94,7 +94,7 @@ spec § section ──structural retrieval──▶ LLM ──JSON tool call─�
   Rules screen leads with spec quote → plain-language rule → test case. The function, the five
   guards and both AI runs are in a collapsed "Technical details" fold; the function library
   moved to the Evidence group.
-- **31 self-tests run in the browser** (and in Node). They include ITSG's reference case:
+- **32 self-tests run in the browser** (and in Node). They include ITSG's reference case:
   - 35 days,
   - sick pay ending 30.03 → 27.03.2026,
   - the expected DBVO block matching the real `TEEL0-Test1-DBVO` file **byte for byte**.

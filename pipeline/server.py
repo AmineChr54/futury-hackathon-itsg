@@ -905,7 +905,7 @@ class Handler(BaseHTTPRequestHandler):
     def api_get_status(self, parts, q):
         self.send_json({"ok": True, "model": CFG["model"], "models": MODELS, "key_configured": bool(CFG["key"]),
                         "base": CFG["base"], "law_dir": os.path.relpath(LAW_DIR, ROOT).replace("\\", "/"),
-                        "functions": F.FUNC_DOCS, "auth": AUTH})
+                        "functions": F.FUNC_DOCS, "auth": AUTH, "problems": setup_problems()})
 
     def api_post_login(self, parts, q):
         b = self.json_body()
@@ -1388,6 +1388,18 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(pkg)
 
 
+def setup_problems():
+    """What stops the pipeline from running on a fresh clone, with the fix (shown at start and on the page)."""
+    out = []
+    if not CFG["key"]:
+        out.append("No API key: copy pipeline/.env.example to pipeline/.env and set HAI_API_KEY (ask a teammate for the key).")
+    try:
+        import pypdf  # noqa: F401
+    except ImportError:
+        out.append(f"pypdf is not installed: run  {os.path.basename(sys.executable)} -m pip install -r pipeline/requirements.txt")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--host", default=os.environ.get("PIPELINE_HOST", "127.0.0.1"))
@@ -1395,6 +1407,8 @@ def main():
     a = ap.parse_args()
     print(f"EEL pipeline on http://{'localhost' if a.host == '127.0.0.1' else a.host}:{a.port}  "
           f"(model {CFG['model']}, key {'configured' if CFG['key'] else 'MISSING'}, law files: {LAW_DIR})", file=sys.stderr)
+    for problem in setup_problems():
+        print("  ! " + problem, file=sys.stderr)
     # on Windows reuse lets two servers share a port silently; on Linux it only lets a restart bind while the
     # old connections are still closing (TIME_WAIT), so keep it there
     ThreadingHTTPServer.allow_reuse_address = os.name != "nt"

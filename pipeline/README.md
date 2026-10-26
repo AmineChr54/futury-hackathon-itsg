@@ -12,19 +12,20 @@ PDF drop + docs/law_file/ ─▶ sections ─▶ diff / change log ─▶ AI per
 
 ## Run it
 
-```powershell
-pip install -r pipeline/requirements.txt
-python pipeline/server.py                  # http://localhost:8787
-python pipeline/server.py --host 0.0.0.0   # let developers on your network open it too
-```
+On a fresh clone (Python 3.10+ needed):
 
-Or double-click `pipeline/start.cmd`. The API key goes in `pipeline/.env` (gitignored):
+1. **API key.** `pipeline/.env` is not in git (it holds the team's hessian.AI key). Copy `pipeline/.env.example` to `pipeline/.env` and put the key after `HAI_API_KEY=`. Ask a teammate for the key, privately.
+2. **Start.** Windows: double-click `pipeline/start.cmd`. Mac/Linux: `sh pipeline/start.sh`. Both create `.env` from the template if it is missing and install `pypdf`. By hand:
 
 ```
-HAI_API_KEY=<team key>
-HAI_BASE_URL=https://hip-gw.hessian.ai/v1
-HAI_MODEL=vllm/Kolibri-1
+python -m pip install -r pipeline/requirements.txt    # python3 on Mac/Linux
+python pipeline/server.py                              # http://localhost:8787
+python pipeline/server.py --host 0.0.0.0               # let others on your network open it too
 ```
+
+3. Open `http://localhost:8787`, not `demo/index.html` as a file: the page needs the server.
+
+If something is missing, the server says so when it starts, and the pipeline screen shows a red box with the fix (no API key, pypdf not installed); **Generate test cases** stays disabled until it is fixed.
 
 Open `http://localhost:8787` (the demo page, served by the pipeline). Then:
 

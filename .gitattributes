@@ -2,3 +2,4 @@
 hackathon-files/**/TEEL* -text
 # shell scripts run on Linux hosts: keep LF even with core.autocrlf on Windows
 *.sh text eol=lf
+*.cmd text eol=crlf

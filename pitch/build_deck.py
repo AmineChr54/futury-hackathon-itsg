@@ -23,7 +23,7 @@ ROOT = os.path.dirname(HERE)
 IMG = os.path.join(ROOT, "images")
 OUT = os.path.join(HERE, "ITSG-Spec-Pipeline.pptx")
 
-NAME = "ITSG Spec Pipeline"
+NAME = "§pecs"
 TAGLINE = "From specification to certified test, in one session."
 
 # light theme of demo/index.html
@@ -127,7 +127,7 @@ def build():
     prs.core_properties.subject = TAGLINE
 
     # 1 · Welcome
-    s = new_slide(prs, ["We built ITSG Spec Pipeline for the ITSG challenge.",
+    s = new_slide(prs, ["We built §pecs for the ITSG challenge.",
                         "In one line: from the yearly specification to certified test cases."])
     lw = 1.45 * 681 / 293
     logo = s.shapes.add_picture(os.path.join(IMG, "ITSG-logo.png"), Inches((W - lw) / 2), Inches(1.75), height=Inches(1.45))
@@ -168,7 +168,7 @@ def build():
          font=DISPLAY, bold=True)
 
     # 4 · Our solution (the notes also carry data, model and logic for the submission)
-    s = new_slide(prs, ["ITSG Spec Pipeline: the AI reads and drafts, you approve, tested code calculates.",
+    s = new_slide(prs, ["§pecs: the AI reads and drafts, you approve, tested code calculates.",
                         "Every value traces back to a sentence in the spec. Let me show you.",
                         "Data: the government's v13.4 Verfahrensbeschreibung PDF (all 220 sections), last year's v13.3 "
                         "from the archive, and ITSG's own reference case and TEEL0-Test1-DBVO file.",

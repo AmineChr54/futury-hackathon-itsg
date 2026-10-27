@@ -2448,13 +2448,95 @@ const APP = (() => {
   const txt = b => typeof b === "string" ? b : T(b);
   const reportSummary = r => r.failed.length ? `${r.passed} ${L("of", "von")} ${r.in_scope} ${L("passed — everything passes except", "bestanden — alles besteht außer")} ${r.failed.join(", ")}` : `${L("All", "Alle")} ${r.in_scope} ${L("passed", "bestanden")}`;
 
+  /* ---------- the exchange with vendors, shared through the pipeline server ----------
+     Signed in on the server, every change (conversation, message, result file, published package, certificate,
+     the vendor's progress) is written to the server in order, and the page polls the shared state: ITSG and each
+     vendor see the same conversations from different machines. Without a server everything stays in this page. */
+  const XAPI = location.protocol.startsWith("http") ? "" : "http://localhost:8787";
+  const XS = { queue: Promise.resolve(), pending: 0, busy: false, paused: false, local: false, seedTried: false, last: "" };
+  const touring = () => document.body.classList.contains("touring");
+  const xOn = () => !XS.paused && !XS.local && !touring() && !!(window.PIPE && PIPE.P.online && PIPE.P.session && ["itsg", "vendor"].includes(S.role) && (S.role === "itsg" || S.vendorUser));
+  const xNow = () => Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 60000);  // local minutes, like the server's "at"
+  const xId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const DTA_EXT = /\.(dat|dta|txt|edi)$/i, RESULT_ACCEPT = ".dat,.dta,.txt,.edi,.xml,.csv,.json,.zip,.pdf";
+  function xHeaders(json) {
+    const s = window.PIPE && PIPE.P.session, h = { "X-Role": S.role, "X-User": encodeURIComponent((s && s.user) || ""), "X-Vendor": S.vendorUser || "" };
+    if (s && s.token) h["X-Token"] = s.token;
+    if (json) h["Content-Type"] = "application/json";
+    return h;
+  }
+  async function xCall(path, method, body, raw) {
+    const r = await fetch(XAPI + path, { method, headers: xHeaders(body != null && !raw), body: body == null ? undefined : raw ? body : JSON.stringify(body), cache: "no-store" });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || "HTTP " + r.status); }
+    return raw === "bytes" ? r.arrayBuffer() : r.json().catch(() => ({}));
+  }
+  function xQueue(fn) {  // writes go out one after the other; the page already shows the change
+    if (!xOn()) return;
+    XS.pending++;
+    XS.queue = XS.queue.then(fn).catch(e => toast(L("Not saved on the server: ", "Nicht auf dem Server gespeichert: ") + e.message)).finally(() => { XS.pending--; });
+  }
+  function enc1252(text) {  // the demo's sample files are strings decoded as windows-1252: back to their bytes
+    const back = { 0x20AC: 0x80, 0x201A: 0x82, 0x0192: 0x83, 0x201E: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02C6: 0x88, 0x2030: 0x89, 0x0160: 0x8A, 0x2039: 0x8B, 0x0152: 0x8C, 0x017D: 0x8E,
+      0x2018: 0x91, 0x2019: 0x92, 0x201C: 0x93, 0x201D: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02DC: 0x98, 0x2122: 0x99, 0x0161: 0x9A, 0x203A: 0x9B, 0x0153: 0x9C, 0x017E: 0x9E, 0x0178: 0x9F };
+    return Uint8Array.from(text, ch => { const c = ch.charCodeAt(0); return c < 256 ? c : back[c] || 0x3F; });
+  }
+  const xWork = vid => { if (S.role === "vendor") xQueue(() => xCall("/api/exchange", "PATCH", { vwork: { [vid]: work(vid) } })); };
+  const xRead = th => { const side = S.role === "itsg" ? "itsg" : "vendor"; if (th && th.msgs.length > (th.srvRead || 0)) { th.srvRead = th.msgs.length; xQueue(() => xCall(`/api/exchange/threads/${encodeURIComponent(th.id)}/read`, "POST", { n: th.read[side] })); } };
+  function xApply(x) {
+    const old = (S.mail && S.mail.files) || {};
+    S.mail = { threads: x.threads.map(t => Object.assign(t, { srvRead: t.read[S.role === "itsg" ? "itsg" : "vendor"] })),
+      files: Object.fromEntries(Object.entries(x.files || {}).map(([k, f]) => [k, Object.assign({}, f, old[k] && old[k].text != null ? { text: old[k].text } : {})])), certs: x.certs || {} };
+    S.publishedTo = x.publishedTo || [];
+    S.published = S.role === "itsg" ? S.publishedTo.length > 0 : !!x.published;
+    Object.entries(x.vwork || {}).forEach(([vid, w]) => { S.vwork[vid] = w; });
+  }
+  async function xSync(force) {
+    if (touring()) { XS.afterTour = true; return; }
+    if (XS.afterTour) { XS.afterTour = false; XS.last = ""; }
+    if (!xOn() || XS.busy || (XS.pending && !force)) return;
+    XS.busy = true;
+    try {
+      let x = await xCall("/api/exchange", "GET");
+      if (!x.threads.length && !XS.seedTried) {  // an empty exchange: write the opening conversations once
+        XS.seedTried = true;
+        const keep = S.mail; XS.local = true; S.mail = null;
+        const seed = mailbox(); S.mail = keep; XS.local = false;
+        await xCall("/api/exchange/seed", "POST", { threads: seed.threads });
+        x = await xCall("/api/exchange", "GET");
+      }
+      if (XS.pending) return;  // a write started meanwhile: the next poll brings it
+      const sig = JSON.stringify(x);
+      if (sig === XS.last && S.mail) return;
+      XS.last = sig; xApply(x);
+      const a = document.activeElement, typing = a && a.matches && a.matches("textarea, input, select") && a.closest("#view");
+      if (!typing && !document.querySelector("#modalHost .modal")) render(); else renderShell();
+      if (window.PIPE) PIPE.notifyMail && PIPE.notifyMail();
+    } catch (e) { /* offline or signed out: the page keeps its own copy */ } finally { XS.busy = false; }
+  }
+  function xPause(on) { XS.paused = on; if (!on) { XS.last = ""; xSync(); } }
+  async function xBytes(key) {
+    const f = mailbox().files[key];
+    if (f && f.bytes) return f.bytes;
+    if (f && f.text != null && !xOn()) return enc1252(f.text);
+    return new Uint8Array(await xCall(`/api/exchange/files/${encodeURIComponent(key)}`, "GET", null, "bytes"));
+  }
+  function xDownload(key) {
+    const f = mailbox().files[key]; if (!f) return;
+    xBytes(key).then(b => { const url = URL.createObjectURL(new Blob([b], { type: "application/octet-stream" })), a = document.createElement("a"); a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); })
+      .catch(e => toast(e.message));
+  }
+  const fmtSize = n => n == null ? "" : n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+
   function post(th, from, body, attach) {
-    th.msgs.push({ id: `${th.id}-${th.msgs.length + 1}`, from, at: tick(), body, attach: attach || [] });
+    const on = xOn(), m = { id: on ? xId("M") : `${th.id}-${th.msgs.length + 1}`, from, at: on ? xNow() : tick(), body, attach: attach || [] };
+    th.msgs.push(m);
     if (from === "itsg") th.read.itsg = th.msgs.length; else if (from !== "system") th.read.vendor = th.msgs.length;
+    if (on) { th.srvRead = th.msgs.length; xQueue(() => xCall(`/api/exchange/threads/${encodeURIComponent(th.id)}/messages`, "POST", { id: m.id, from: from === "system" ? "system" : undefined, body, attach: m.attach })); }
   }
   function newThread(vendor, subject, kind) {
-    const th = { id: "T" + (S.mail.threads.length + 1), vendor, subject, kind: kind || "", msgs: [], read: { itsg: 0, vendor: 0 } };
+    const on = xOn(), th = { id: on ? xId("T") : "T" + (S.mail.threads.length + 1), vendor, subject, kind: kind || "", msgs: [], read: { itsg: 0, vendor: 0 } };
     S.mail.threads.push(th);
+    if (on) xQueue(() => xCall("/api/exchange/threads", "POST", { id: th.id, vendor, subject, kind: th.kind }));
     return th;
   }
   function mailbox() {
@@ -2498,9 +2580,17 @@ const APP = (() => {
     return { name, text: key === "gap" ? C.brokenVariants().find(b => b.id === "gap").text : C.TEEL0 };
   }
   function storeResult(vid, ruleId, file) {
-    const mb = mailbox(), key = "F" + (Object.keys(mb.files).length + 1), res = compareCase(ruleId, file.text), rc = ruleCase(ruleId);
-    mb.files[key] = { name: file.name, text: file.text, rule: ruleId };
+    const mb = mailbox(), on = xOn(), key = on ? xId("F") : "F" + (Object.keys(mb.files).length + 1), rc = ruleCase(ruleId), dta = DTA_EXT.test(file.name);
+    const bytes = file.bytes || enc1252(file.text);
+    mb.files[key] = { key, name: file.name, text: file.text, bytes, rule: ruleId, vendor: vid, size: bytes.length, format: dta ? "dta" : (file.name.split(".").pop() || "").toLowerCase() };
+    if (on) xQueue(() => xCall(`/api/exchange/files?name=${encodeURIComponent(file.name)}&rule=${encodeURIComponent(ruleId)}&key=${key}`, "POST", bytes, true));
+    if (!dta) {  // XML, CSV, JSON, ZIP, PDF: delivered to ITSG as they are, checked by the examiner
+      log(vid, L("Result file sent", "Ergebnisdatei gesendet"), `${vendorOf(vid).name} · ${rc.id} · ${file.name}`);
+      return { att: { type: "file", ref: key }, verdict: null, res: null };
+    }
+    const res = compareCase(ruleId, file.text);
     Object.assign(work(vid)[ruleId], { status: res.ok ? "pass" : "fail", result: res, file: file.name });
+    xWork(vid);
     log(vid, L("Result file sent", "Ergebnisdatei gesendet"), `${vendorOf(vid).name} · ${rc.id} · ${file.name} → ${res.ok ? "pass" : "fail"}`);
     return { att: { type: "dta", ref: key }, verdict: { type: "verdict", ref: Object.assign({ file: file.name, caseId: rc.id }, res) }, res };
   }
@@ -2508,7 +2598,7 @@ const APP = (() => {
   function vendorSendFile(vid, ruleId, file) {
     const th = certThread(vid), r = storeResult(vid, ruleId, file), id = ruleCase(ruleId).id;
     post(th, vid, { en: `Result file for ${id}.`, de: `Ergebnisdatei zu ${id}.` }, [r.att]);
-    post(th, "system", verdictBody, [r.verdict]);
+    if (r.verdict) post(th, "system", verdictBody, [r.verdict]);
     return r.res;
   }
   /* Guided demo: bring a vendor to "package received" (or "result sent") without clicking. */
@@ -2522,7 +2612,10 @@ const APP = (() => {
     }
     S.selThread = certThread(vid).id; S.mailFolder = "inbox";
   }
-  function readLatin1(file, cb) { const r = new FileReader(); r.onload = () => cb({ name: file.name, text: new TextDecoder("latin1").decode(new Uint8Array(r.result)) }); r.readAsArrayBuffer(file); }
+  function readLatin1(file, cb) {
+    if (file.size > 10 * 1024 * 1024) { toast(L("Files up to 10 MB", "Dateien bis 10 MB")); return; }
+    const r = new FileReader(); r.onload = () => { const bytes = new Uint8Array(r.result); cb({ name: file.name, text: new TextDecoder("latin1").decode(bytes), bytes }); }; r.readAsArrayBuffer(file);
+  }
 
   /* ---------- attachments ---------- */
   function attLabel(a) {
@@ -2537,7 +2630,12 @@ const APP = (() => {
     const v = vendorOf(th.vendor), vend = S.role === "vendor";
     const act = label => `<div class="actions"><button class="btn sm" data-act="mailOpen" data-type="${a.type}" data-ref="${esc(typeof a.ref === "string" ? a.ref : "")}" data-th="${th.id}">${label}</button></div>`;
     if (a.type === "package") return `<div class="att"><div class="row between"><b>${ic("inbox")} ${L("Test package", "Testpaket")} EEL 2027-01</b>${pill(packageJSON().cases.length + " " + L("cases", "Fälle"), "")}</div><span class="muted">${L("Test cases in words · the same cases as JSON test input · criteria checklist. Expected results stay with ITSG.", "Testfälle in Worten · dieselben Fälle als JSON-Testeingabe · Kriterien-Checkliste. Erwartungswerte bleiben bei ITSG.")}</span>${vend ? `<div class="actions"><button class="btn sm primary" data-act="mailOpen" data-type="package" data-ref="" data-th="${th.id}">${L("Open my test cases", "Meine Testfälle öffnen")}</button><button class="btn sm" data-act="vImportAll">${ic("upload")} ${L("Import all (JSON)", "Alle importieren (JSON)")}</button></div>` : act(L("View package", "Paket ansehen"))}</div>`;
-    if (a.type === "dta") { const f = mailbox().files[a.ref]; return `<div class="att"><b>${ic("doc")} ${esc(f.name)}</b><span class="muted">${L("DTA output file", "DTA-Ausgabedatei")} · ${ruleCase(f.rule).id}</span>${act(L("Open comparison", "Vergleich öffnen"))}</div>`; }
+    if (a.type === "dta" || a.type === "file") {
+      const f = mailbox().files[a.ref]; if (!f) return `<div class="att"><span class="muted">${L("File loading…", "Datei wird geladen…")}</span></div>`;
+      const dl = `<button class="btn sm ghost" data-act="mailDownload" data-ref="${esc(a.ref)}">${ic("download")} ${L("Download", "Herunterladen")}</button>`;
+      return `<div class="att"><b>${ic("doc")} ${esc(f.name)}</b><span class="muted">${a.type === "dta" ? L("DTA output file", "DTA-Ausgabedatei") : (f.format || "").toUpperCase() + " " + L("result file", "Ergebnisdatei")}${f.rule ? " · " + ruleCase(f.rule).id : ""}${f.size ? " · " + fmtSize(f.size) : ""}</span>
+        <div class="actions">${a.type === "dta" ? `<button class="btn sm" data-act="mailOpen" data-type="dta" data-ref="${esc(a.ref)}" data-th="${th.id}">${L("Open comparison", "Vergleich öffnen")}</button>` : ""}${dl}</div></div>`;
+    }
     if (a.type === "verdict") { const r = a.ref; return `<div class="att ${r.ok ? "ok" : "bad"}"><b>${r.ok ? "✓ " + L("PASS", "BESTANDEN") : "✕ " + L("FAIL", "NICHT BESTANDEN")} · ${esc(r.caseId)} · ${r.passed}/${r.total} ${L("checks", "Prüfungen")}</b><span class="muted" style="font-size:var(--fs-xs)">${esc(r.file)}</span>${r.ok ? `<span>${L("Matches the expected result in every field.", "Stimmt in jedem Feld mit dem erwarteten Ergebnis überein.")}</span>` : r.words.map(w => `<span>• ${esc(T(w))}</span>`).join("")}</div>`; }
     if (a.type === "report") { const d = reportData(vendorOf(a.ref)); return `<div class="att"><b>${ic("report")} ${L("Test report", "Prüfbericht")} ${esc(vendorOf(a.ref).name)} · ${esc(d.release)}</b><span>${esc(reportSummary(d))}.</span>${act(L("Open report", "Bericht öffnen"))}</div>`; }
     if (a.type === "certificate") { const c = mailbox().certs[th.vendor]; return `<div class="att cert"><b>${ic("check")} ${L("Certificate DTA EEL 2027", "Zertifikat DTA EEL 2027")}</b><span>${esc(v.productName)} ${esc(v.release)} · ${L("product", "Produkt")} <span class="mono">${v.product}</span> · ${L("modification", "Modifikation")} <span class="mono">${v.modification}</span></span><span>${L("Valid", "Gültig")} 01.01.2027 – 31.12.2027</span><span class="mono muted" style="font-size:11px">${L("seal", "Siegel")} ${c ? c.seal.slice(0, 32) : ""}…</span></div>`; }
@@ -2561,7 +2659,7 @@ const APP = (() => {
     const list = all.filter(inFolder).sort((a, b) => lastAt(b) - lastAt(a));
     const newMode = !!(S.compose && S.compose.thread === null);
     const th = newMode ? null : (all.find(t => t.id === S.selThread) || list[0] || null);
-    if (th) th.read[s] = th.msgs.length;
+    if (th) { th.read[s] = th.msgs.length; xRead(th); }
     const who = (from, t) => from === "itsg" ? { n: L("ITSG system review", "ITSG Systemuntersuchung"), cls: "itsg", a: "IT" } : from === "system" ? { n: L("Automatic comparison", "Automatischer Vergleich"), cls: "", a: "⚙" } : { n: vendorOf(from).name, cls: "ven", a: vendorOf(from).name.slice(0, 3).toUpperCase() };
     const folderBtn = (k, label, n) => `<button aria-pressed="${S.mailFolder === k}" data-act="mailFolder" data-v="${k}"><span>${label}</span>${n ? `<span class="nav-badge hot">${n}</span>` : ""}</button>`;
     const folders = `<div class="mail-folders"><button class="btn primary sm" style="justify-content:center;margin-bottom:8px" data-act="mailNew">${L("New message", "Neue Nachricht")}</button>
@@ -2814,7 +2912,11 @@ const APP = (() => {
     role: el => { const was = S.role; S.role = el.dataset.v; store.set("role", S.role); S.compose = null; S.attachMenu = false; S.selThread = null; if (S.role === "vendor" && was !== "vendor") { S.screen = "vhome"; render(); ACT.signInModal(); } else render(); if (window.PIPE) PIPE.onRole(); },
     signInModal: () => modal(L("Sign in as", "Anmelden als"), `<p class="muted" style="font-size:var(--fs-sm)">${L("Pick the vendor whose side you want to see. Each vendor only sees its own package, results and messages.", "Hersteller wählen, dessen Sicht Sie sehen möchten. Jeder Hersteller sieht nur sein eigenes Paket, seine Ergebnisse und Nachrichten.")}</p>
       <div class="signin">${C.VENDORS.map(v => `<button data-act="signIn" data-v="${v.id}" aria-pressed="${S.vendorUser === v.id}"><b style="font-size:var(--fs-lg)">${esc(v.name)}</b><span>${esc(v.productName)} ${esc(v.release)}</span><span class="muted" style="font-size:var(--fs-xs)">${T(v.size)}</span></button>`).join("")}</div>${demoNote()}`),
-    signIn: el => { S.vendorUser = el.dataset.v; S.role = "vendor"; S.selThread = null; S.compose = null; $("#modalHost").innerHTML = ""; log("vendor", L("Signed in", "Angemeldet"), vendorOf(S.vendorUser).name); go(S.screen === "vhome" || !S.screen ? "vhome" : S.screen); },
+    signIn: el => {
+      const ses = window.PIPE && PIPE.P.session;
+      if (ses && ses.vendor && ses.vendor !== el.dataset.v) { toast(L("You are signed in as ", "Sie sind angemeldet als ") + vendorOf(ses.vendor).name); return; }
+      if (ses) xCall("/api/session/vendor", "POST", { vendor: el.dataset.v }).then(() => { XS.last = ""; xSync(); }).catch(() => { });
+      S.vendorUser = el.dataset.v; S.role = "vendor"; S.selThread = null; S.compose = null; $("#modalHost").innerHTML = ""; log("vendor", L("Signed in", "Angemeldet"), vendorOf(S.vendorUser).name); go(S.screen === "vhome" || !S.screen ? "vhome" : S.screen); },
     lang: el => { S.lang = el.dataset.v; store.set("lang", S.lang); render(); if (window.TOUR) TOUR.refresh(); },
     tour: () => window.TOUR && TOUR.start(),
     prov: el => openProv(el.dataset.key),
@@ -2885,6 +2987,7 @@ const APP = (() => {
     publish: () => {
       const ids = C.VENDORS.filter(v => { const cb = document.getElementById("pub-" + v.id); return !cb || cb.checked; }).map(v => v.id), n = packageJSON().cases.length;
       S.published = true; S.publishedTo = ids;
+      xQueue(() => xCall("/api/exchange", "PATCH", { publishedTo: ids }));
       ids.forEach(id => post(certThread(id), "itsg", { en: `The test package EEL 2027-01 is ready: ${n} test cases, described in words, plus the same cases as JSON test input.\n\nPlease enter them in your software (or import the JSON) and send us your result files in this thread. Expected results stay with ITSG; every file you send is compared automatically.`, de: `Das Testpaket EEL 2027-01 ist fertig: ${n} Testfälle in Worten, dazu dieselben Fälle als JSON-Testeingabe.\n\nBitte in Ihrer Software eingeben (oder das JSON importieren) und die Ergebnisdateien in diesem Verlauf zurückschicken. Erwartungswerte bleiben bei ITSG; jede Datei wird automatisch verglichen.` }, [{ type: "package", ref: "EEL 2027-01" }]));
       log("examiner", L("Test package published", "Testpaket veröffentlicht"), `EEL 2027-01 → ${ids.map(id => vendorOf(id).name).join(", ")}`); toast(L("Sent through Messages to ", "Über Nachrichten verschickt an ") + ids.map(id => vendorOf(id).name).join(", ")); render();
     },
@@ -2898,7 +3001,7 @@ const APP = (() => {
     attachAdd: el => {
       const c = S.compose || (S.compose = { thread: S.selThread, body: "", attach: [] }), type = el.dataset.type, ref = el.dataset.ref;
       S.attachMenu = false;
-      if (type === "dta-disk") { const fi = $("#fileInput"); fi.accept = ""; fi.onchange = () => { const f = fi.files[0]; fi.value = ""; if (f) readLatin1(f, file => { c.attach.push({ type: "dta-new", ref: "disk", file }); render(); }); }; fi.click(); render(); return; }
+      if (type === "dta-disk") { const fi = $("#fileInput"); fi.accept = RESULT_ACCEPT; fi.onchange = () => { const f = fi.files[0]; fi.value = ""; if (f) readLatin1(f, file => { c.attach.push({ type: "dta-new", ref: "disk", file }); render(); }); }; fi.click(); render(); return; }
       c.attach.push({ type, ref }); render();
     },
     attachDel: el => { if (S.compose) S.compose.attach.splice(Number(el.dataset.i), 1); render(); },
@@ -2907,7 +3010,7 @@ const APP = (() => {
       if (!body && !c.attach.length) { toast(L("Write a message or attach something", "Nachricht schreiben oder etwas anhängen")); return; }
       let th = c.thread ? mailbox().threads.find(t => t.id === c.thread) : null;
       if (!th) th = newThread(S.role === "itsg" ? c.to : S.vendorUser, (c.subject || "").trim() || L("(no subject)", "(kein Betreff)"));
-      const verdicts = [], att = c.attach.map(a => { if (a.type !== "dta-new") return a; const r = storeResult(th.vendor, "R-3.12-B", a.ref === "disk" ? a.file : demoFile(a.ref, th.vendor)); verdicts.push(r.verdict); return r.att; });
+      const verdicts = [], att = c.attach.map(a => { if (a.type !== "dta-new") return a; const r = storeResult(th.vendor, "R-3.12-B", a.ref === "disk" ? a.file : demoFile(a.ref, th.vendor)); if (r.verdict) verdicts.push(r.verdict); return r.att; });
       post(th, S.role === "itsg" ? "itsg" : th.vendor, body, att);
       verdicts.forEach(v => post(th, "system", verdictBody, [v]));
       log(S.role === "itsg" ? "examiner" : "vendor", L("Message sent", "Nachricht gesendet"), `${vendorOf(th.vendor).name} · ${txt(th.subject)}${att.length ? ` · ${att.length} ${L("attachment(s)", "Anhang/Anhänge")}` : ""}`);
@@ -2916,7 +3019,12 @@ const APP = (() => {
     mailOpen: el => {
       const type = el.dataset.type, ref = el.dataset.ref, th = mailbox().threads.find(t => t.id === el.dataset.th), vend = S.role === "vendor";
       if (type === "package") return go(vend ? "vwork" : "inbox");
-      if (type === "dta") { const f = mailbox().files[ref]; S.customFile = { name: f.name, text: f.text }; S.sample = "custom"; S.selField = null; VAL_CACHE = null; return go("validate"); }
+      if (type === "dta") {
+        const f = mailbox().files[ref]; if (!f) return;
+        const open = text => { S.customFile = { name: f.name, text }; S.sample = "custom"; S.selField = null; VAL_CACHE = null; go("validate"); };
+        if (f.text != null) return open(f.text);
+        return xBytes(ref).then(b => { f.text = new TextDecoder("latin1").decode(b); open(f.text); }).catch(e => toast(e.message));
+      }
       if (type === "report") { if (!vend) S.vendor = ref || (th && th.vendor); return go("report"); }
       if (type === "rule") {
         const r = C.RULES.find(x => x.id === ref);
@@ -2929,6 +3037,7 @@ const APP = (() => {
       }
     },
     goSecModal: el => { $("#modalHost").innerHTML = ""; ACT.goSec(el); },
+    mailDownload: el => xDownload(el.dataset.ref),
     itsgSendReport: el => { const v = vendorOf(el.dataset.v), th = certThread(v.id), d = reportData(v); post(th, "itsg", { en: `Please find the current test report attached: ${reportSummary(d)}.`, de: `Anbei der aktuelle Prüfbericht: ${reportSummary(d)}.` }, [{ type: "report", ref: v.id }]); S.selThread = th.id; log("examiner", L("Report sent", "Bericht gesendet"), v.name); render(); },
     itsgRequestFix: el => {
       const v = vendorOf(el.dataset.v), th = certThread(v.id), d = reportData(v), w = work(v.id), fails = MSG_RULES.filter(r => w[r].status === "fail");
@@ -2942,15 +3051,17 @@ const APP = (() => {
       const v = vendorOf(el.dataset.v), th = certThread(v.id);
       if (!certifiable(v.id)) { toast(L("Only when nothing failed", "Nur wenn nichts fehlgeschlagen ist")); return; }
       mailbox().certs[v.id] = { seal: C.sha256(JSON.stringify(reportData(v)) + v.product + v.modification) };
+      xQueue(() => xCall("/api/exchange", "PATCH", { certs: { [v.id]: mailbox().certs[v.id] } }));
       post(th, "itsg", { en: `${v.productName} ${v.release} passed the system review for 2027. Your certificate is attached.`, de: `${v.productName} ${v.release} hat die Systemuntersuchung für 2027 bestanden. Ihr Zertifikat liegt bei.` }, [{ type: "certificate", ref: v.id }, { type: "report", ref: v.id }]);
       S.selThread = th.id; log("examiner", L("Certificate issued", "Zertifikat erteilt"), `${v.name} · ${v.product}/${v.modification}`); toast(L("Certificate sent to ", "Zertifikat gesendet an ") + v.name); render();
     },
     /* ---------- vendor work ---------- */
-    vEnter: el => { const w = work(S.vendorUser)[el.dataset.rule]; if (w.status === "todo") w.status = "entered"; log("vendor", L("Test case entered", "Testfall eingegeben"), `${vendorOf(S.vendorUser).name} · ${ruleCase(el.dataset.rule).id}`); render(); },
-    vImportAll: () => { const w = work(S.vendorUser), n = Object.values(w).filter(x => x.status === "todo").length; Object.values(w).forEach(x => { if (x.status === "todo") x.status = "entered"; }); log("vendor", L("Test package imported", "Testpaket importiert"), `${vendorOf(S.vendorUser).name} · ${n} ${L("cases", "Fälle")} (${L("simulated", "simuliert")})`); toast(n ? `${n} ${L("cases imported instead of typed", "Fälle importiert statt getippt")}` : L("Everything is already entered", "Alles ist bereits eingegeben")); if (S.screen === "mail") go("vwork"); else render(); },
+    vEnter: el => { const w = work(S.vendorUser)[el.dataset.rule]; if (w.status === "todo") w.status = "entered"; xWork(S.vendorUser); log("vendor", L("Test case entered", "Testfall eingegeben"), `${vendorOf(S.vendorUser).name} · ${ruleCase(el.dataset.rule).id}`); render(); },
+    vImportAll: () => { const w = work(S.vendorUser), n = Object.values(w).filter(x => x.status === "todo").length; Object.values(w).forEach(x => { if (x.status === "todo") x.status = "entered"; }); xWork(S.vendorUser); log("vendor", L("Test package imported", "Testpaket importiert"), `${vendorOf(S.vendorUser).name} · ${n} ${L("cases", "Fälle")} (${L("simulated", "simuliert")})`); toast(n ? `${n} ${L("cases imported instead of typed", "Fälle importiert statt getippt")}` : L("Everything is already entered", "Alles ist bereits eingegeben")); if (S.screen === "mail") go("vwork"); else render(); },
     vNoMsg: el => {
       const vid = S.vendorUser, rid = el.dataset.rule, th = certThread(vid), id = ruleCase(rid).id, res = { ok: true, passed: 1, total: 1, words: [] };
       Object.assign(work(vid)[rid], { status: "pass", result: res, file: L("no message created", "keine Meldung erzeugt") });
+      xWork(vid);
       post(th, vid, { en: `${id}: our software created no message 41 for this case.`, de: `${id}: Unsere Software hat für diesen Fall keine Meldung 41 erzeugt.` });
       post(th, "system", verdictBody, [{ type: "verdict", ref: Object.assign({ file: L("no message created", "keine Meldung erzeugt"), caseId: id }, res) }]);
       log(vid, L("Result confirmed", "Ergebnis bestätigt"), `${vendorOf(vid).name} · ${id} → pass`); toast(`${id}: ${L("PASS", "BESTANDEN")}`); render();
@@ -2961,12 +3072,12 @@ const APP = (() => {
     vUploadPick: el => {
       const rid = el.dataset.rule, f = el.dataset.f, vid = S.vendorUser;
       $("#modalHost").innerHTML = "";
-      const send = file => { const r = vendorSendFile(vid, rid, file); toast(`${ruleCase(rid).id}: ${r.ok ? L("PASS", "BESTANDEN") : L("FAIL", "NICHT BESTANDEN")} · ${L("sent to ITSG", "an ITSG gesendet")}`); render(); };
-      if (f === "disk") { const fi = $("#fileInput"); fi.accept = ""; fi.onchange = () => { const x = fi.files[0]; fi.value = ""; if (x) readLatin1(x, send); }; fi.click(); return; }
+      const send = file => { const r = vendorSendFile(vid, rid, file); toast(`${ruleCase(rid).id}: ${r ? (r.ok ? L("PASS", "BESTANDEN") : L("FAIL", "NICHT BESTANDEN")) + " · " : ""}${L("sent to ITSG", "an ITSG gesendet")}`); render(); };
+      if (f === "disk") { const fi = $("#fileInput"); fi.accept = RESULT_ACCEPT; fi.onchange = () => { const x = fi.files[0]; fi.value = ""; if (x) readLatin1(x, send); }; fi.click(); return; }
       send(demoFile(f, vid));
     },
     vAsk: el => { const rid = el.dataset.rule, th = certThread(S.vendorUser); S.selThread = th.id; S.attachMenu = false; S.compose = { thread: th.id, body: L(`Question about ${ruleCase(rid).id}: `, `Frage zu ${ruleCase(rid).id}: `), attach: [{ type: "case", ref: rid }, { type: "rule", ref: rid }] }; go("mail"); },
-    sendFileToItsg: () => { const vid = S.vendorUser, r = vendorSendFile(vid, "R-3.12-B", { name: S.sample === "custom" && S.customFile ? S.customFile.name : demoFile(S.sample === "gap" ? "gap" : "teel0", vid).name, text: sampleText() }); S.selThread = certThread(vid).id; toast(`${L("Sent to ITSG", "An ITSG gesendet")} · ${r.ok ? L("PASS", "BESTANDEN") : L("FAIL", "NICHT BESTANDEN")}`); go("mail"); },
+    sendFileToItsg: () => { const vid = S.vendorUser, r = vendorSendFile(vid, "R-3.12-B", { name: S.sample === "custom" && S.customFile ? S.customFile.name : demoFile(S.sample === "gap" ? "gap" : "teel0", vid).name, text: sampleText() }); S.selThread = certThread(vid).id; toast(`${L("Sent to ITSG", "An ITSG gesendet")}${r ? " · " + (r.ok ? L("PASS", "BESTANDEN") : L("FAIL", "NICHT BESTANDEN")) : ""}`); go("mail"); },
     vendor: el => { S.vendor = el.dataset.v; render(); },
     auditSet: el => { const vendor = C.VENDORS.find(v => v.id === S.vendor); auditState(vendor)[el.dataset.id].res = el.dataset.r; auditState(vendor)[el.dataset.id].auto = false; log("examiner", L("Audit result", "Prüfergebnis"), `${vendor.name} · ${el.dataset.id} → ${el.dataset.r}`); render(); },
     copyReport: () => { const d = reportData(C.VENDORS.find(v => v.id === S.vendor)); copyText(JSON.stringify(Object.assign({ seal_sha256: C.sha256(JSON.stringify(d)) }, d), null, 2), L("Report JSON copied", "Bericht-JSON kopiert")); },
@@ -2979,6 +3090,7 @@ const APP = (() => {
   /* ---------- wiring ---------- */
   function init() {
     if (IS_PRESENTER) return;
+    setInterval(() => xSync(), 4000);
     document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (!el || el.tagName === "SELECT") return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
     document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-act][role=button], .prov")) { e.preventDefault(); e.target.click(); } if (e.key === "Escape") { closeDrawer(); $("#modalHost").innerHTML = ""; } });
     document.addEventListener("change", e => { if (e.target.id === "sampleSel") { S.sample = e.target.value; S.selField = null; render(); } if (e.target.id === "mailTo" && S.compose) S.compose.to = e.target.value; });
@@ -3007,7 +3119,7 @@ const APP = (() => {
     render();
   }
 
-  return { S, C, render, renderShell, go, openProv, closeDrawer, ACT, L, T, log, init, IS_PRESENTER, FRAMED, animateExtraction, toast, vendorDemo,
+  return { S, C, render, renderShell, go, openProv, closeDrawer, ACT, L, T, log, init, IS_PRESENTER, FRAMED, animateExtraction, toast, vendorDemo, xSync, xCall,
     SCREENS, RENDER, GROUPS, ICON, ic, esc, pill, head, modal, store, copyText, downloadOrCopy };
 })();
 
@@ -3686,7 +3798,8 @@ const PIPE = (() => {
     const seg = document.getElementById("roleSeg"), b = document.getElementById("userBtn");
     if (P.session) {
       if (seg) seg.innerHTML = `<button aria-pressed="true" tabindex="-1">${S.role === "dev" ? L("Developer", "Entwickler") : S.role === "vendor" ? L("Vendor", "Hersteller") : "ITSG"}</button>`
-        + (S.role === "vendor" && A.S.vendorUser ? `<button aria-pressed="false" data-act="signInModal" title="${esc(L("Switch company", "Firma wechseln"))}">${L("as", "als")} <b>${esc((A.C.VENDORS.find(v => v.id === A.S.vendorUser) || {}).name || "")}</b> ▾</button>` : "");
+        + (S.role === "vendor" && P.session.vendor ? `<button aria-pressed="false" tabindex="-1">${L("as", "als")} <b>${esc((A.C.VENDORS.find(v => v.id === P.session.vendor) || {}).name || "")}</b></button>` : "")
+        + (S.role === "vendor" && !P.session.vendor && A.S.vendorUser ? `<button aria-pressed="false" data-act="signInModal" title="${esc(L("Switch company", "Firma wechseln"))}">${L("as", "als")} <b>${esc((A.C.VENDORS.find(v => v.id === A.S.vendorUser) || {}).name || "")}</b> ▾</button>` : "");
       if (b) { b.innerHTML = `👤 <span>${esc(P.session.user)}</span> · ${L("Log out", "Abmelden")}`; b.dataset.act = "pipeLogout"; }
       const ai = document.getElementById("aiBtn"); if (ai) ai.hidden = S.role === "dev";
     } else if (b) { b.innerHTML = `👤 <span>${L("Sign in", "Anmelden")}</span>`; b.dataset.act = "pipeLogout"; }
@@ -3974,16 +4087,16 @@ const PIPE = (() => {
       const n = ((document.getElementById("loginName") || {}).value || "").trim().toLowerCase();
       const pw = (document.getElementById("loginPw") || {}).value || "";
       const err = m => { const e = document.getElementById("loginError"); if (e) e.innerHTML = `<div class="callout bad">${esc(m)}</div>`; };
-      if (!n) { err(L("Enter your username: istg, dev or vendor.", "Benutzernamen eingeben: istg, dev oder vendor.")); return; }
+      if (!n) { err(L("Enter your username: istg, dev, sap or lexware.", "Benutzernamen eingeben: istg, dev, sap oder lexware.")); return; }
       const btn = document.getElementById("loginBtn"); if (btn) btn.disabled = true;
       try {
         const r = await fetch(API + "/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: n, password: pw }), cache: "no-store" });
         const j = await r.json().catch(() => ({}));
-        if (!r.ok) { err(j.error === "wrong password" ? L("Wrong password.", "Falsches Passwort.") : L("Unknown user. Log in as istg, dev or vendor.", "Unbekannter Benutzer. Als istg, dev oder vendor anmelden.")); const p = document.getElementById("loginPw"); if (p) { p.value = ""; p.focus(); } return; }
-        P.loginMsg = null; login(j.role, j.user, j.token);
+        if (!r.ok) { err(j.error === "wrong password" ? L("Wrong password.", "Falsches Passwort.") : L("Unknown user. Log in as istg, dev, sap or lexware.", "Unbekannter Benutzer. Als istg, dev, sap oder lexware anmelden.")); const p = document.getElementById("loginPw"); if (p) { p.value = ""; p.focus(); } return; }
+        P.loginMsg = null; login(j.role, j.user, j.token, j.vendor);
       } catch (e) {  // no server (page opened as a file): sign in locally, the pipeline screens say they are offline
-        const role = { istg: "itsg", itsg: "itsg", dev: "dev", vendor: "vendor" }[n];
-        if (!role) { err(L("Unknown user. Log in as istg, dev or vendor.", "Unbekannter Benutzer. Als istg, dev oder vendor anmelden.")); return; }
+        const role = { istg: "itsg", itsg: "itsg", dev: "dev", vendor: "vendor", sap: "vendor", lexware: "vendor", lex: "vendor" }[n];
+        if (!role) { err(L("Unknown user. Log in as istg, dev, sap or lexware.", "Unbekannter Benutzer. Als istg, dev, sap oder lexware anmelden.")); return; }
         login(role, n === "itsg" ? "istg" : n);
       } finally { if (btn) btn.disabled = false; }
     },
@@ -4051,15 +4164,16 @@ const PIPE = (() => {
     host.innerHTML = `<div class="login-scrim"><div class="login-box" role="dialog" aria-modal="true" aria-label="${esc(L("Sign in", "Anmelden"))}">
       <div class="row"><div class="brand-mark" aria-hidden="true">§</div><div><div class="brand-name">EEL Review Assistant</div><div class="muted" style="font-size:var(--fs-xs)">${L("AI-assisted system review · DTA EEL", "KI-gestützte Systemuntersuchung · DTA EEL")}</div></div></div>
       <div class="tabs" role="tablist"><button class="tab" role="tab" aria-selected="true">${L("Login", "Anmeldung")}</button></div>
-      <label class="stack" style="gap:4px"><span class="field-label">${L("Username", "Benutzername")}</span><input class="input" id="loginName" value="${esc(value)}" placeholder="istg / dev / vendor" autocomplete="username" spellcheck="false"></label>
+      <label class="stack" style="gap:4px"><span class="field-label">${L("Username", "Benutzername")}</span><input class="input" id="loginName" value="${esc(value)}" placeholder="istg / dev / sap / lexware" autocomplete="username" spellcheck="false"></label>
       <label class="stack" style="gap:4px"><span class="field-label">${L("Password", "Passwort")}</span><input class="input" id="loginPw" type="password" autocomplete="current-password"${P.status && P.status.auth === false ? ` placeholder="${esc(L("not needed on a local server", "auf einem lokalen Server nicht nötig"))}"` : ""}></label>
-      <span class="muted" style="font-size:var(--fs-xs)">${L("istg: ITSG examiner (specs, test cases, validation) · dev: developer (checklist, results) · vendor: a payroll vendor's side (package, messages)", "istg: ITSG-Prüfer (Spezifikationen, Testfälle, Validierung) · dev: Entwickler (Checkliste, Ergebnisse) · vendor: Sicht eines Herstellers (Paket, Nachrichten)")}</span>
+      <span class="muted" style="font-size:var(--fs-xs)">${L("istg: ITSG examiner (specs, test cases, validation) · dev: developer (checklist, results) · sap / lexware: that vendor's side (package, messages, result files)", "istg: ITSG-Prüfer (Spezifikationen, Testfälle, Validierung) · dev: Entwickler (Checkliste, Ergebnisse) · sap / lexware: Sicht dieses Herstellers (Paket, Nachrichten, Ergebnisdateien)")}</span>
       <div id="loginError">${P.loginMsg ? `<div class="callout warn">${esc(P.loginMsg)}</div>` : ""}</div>
       <button class="btn primary" id="loginBtn" data-act="pipeLogin" style="justify-content:center">${L("Login", "Anmelden")}</button></div></div>`;
     setTimeout(() => { const i = document.getElementById("loginName"); if (i) i.focus(); }, 30);
   }
-  function login(role, name, token) {
-    P.session = { role, user: name, token: token || null };
+  function login(role, name, token, vendor) {
+    P.session = { role, user: name, token: token || null, vendor: vendor || null };
+    if (vendor) S.vendorUser = vendor;  // a company sign-in (sap, lexware) is that company
     store.set("session", P.session);
     P.user = name; store.set("user", name);
     S.role = role; store.set("role", role);
@@ -4067,11 +4181,12 @@ const PIPE = (() => {
     const host = document.getElementById("loginHost"); if (host) host.innerHTML = "";
     S.screen = role === "dev" ? "devchecklist" : role === "vendor" ? "vhome" : "overview";
     register();
-    A.log(role === "dev" ? "developer" : "examiner", L("Signed in", "Angemeldet"), `${name} (${role === "dev" ? "Developer" : "ITSG"})`);
+    A.log(role === "dev" ? "developer" : role === "vendor" ? "vendor" : "examiner", L("Signed in", "Angemeldet"), `${name} (${role === "dev" ? "Developer" : role === "vendor" ? "Vendor" : "ITSG"})`);
     A.render();
     if (role === "vendor" && !S.vendorUser) A.ACT.signInModal();  // which vendor company
     P.needLoad = true;  // the data could not be loaded before signing in
-    connect().then(refreshSession);
+    const pick = role === "vendor" && !vendor && token ? api("/api/session/vendor", { body: { vendor: S.vendorUser } }).catch(() => {}) : Promise.resolve();
+    pick.then(connect).then(refreshSession);
   }
   function logout(preset) {
     if (P.session && P.session.token) fetch(API + "/api/logout", { method: "POST", headers: { "X-Token": P.session.token } }).catch(() => {});
@@ -4087,6 +4202,7 @@ const PIPE = (() => {
     if (!P.online || !P.session) return;
     if (S.role === "dev") await Promise.all([loadChecklists(), loadResults(), loadInbox()]);
     else if (S.role === "itsg") await loadSubs();
+    if (S.role === "itsg" || S.role === "vendor") await A.xSync();  // conversations and files with the vendors
     paintNotify();
   }
   /* ---------- notifications ---------- */
@@ -4104,6 +4220,19 @@ const PIPE = (() => {
       P.subs.filter(s => s.status === "submitted").forEach(s => out.push({ key: "sub:" + s.id, kind: "result", go: "validation", sel: s.id,
         title: L("Dev test results are here!", "Testergebnisse der Entwickler sind da!"),
         body: `${esc(s.by)} ${L("submitted", "hat")} ${s.n} ${L("values", "Werte eingereicht")} · ${esc(s.package)}` }));
+    }
+    if ((S.role === "itsg" || S.role === "vendor") && A.S.mail && P.online) {
+      const side = S.role === "itsg" ? "itsg" : "vendor", vname = id => (A.C.VENDORS.find(v => v.id === id) || {}).name || id;
+      A.S.mail.threads.forEach(th => {
+        if (side === "vendor" && th.vendor !== A.S.vendorUser) return;
+        const mine = side === "itsg" ? "itsg" : th.vendor, fresh = th.msgs.slice(th.read[side] || 0).filter(m => m.from !== mine);
+        if (!fresh.length) return;
+        const file = fresh.some(m => (m.attach || []).some(a => a.type === "dta" || a.type === "file")), last = fresh[fresh.length - 1];
+        const from = last.from === "itsg" ? "ITSG" : last.from === "system" ? vname(th.vendor) : vname(last.from);
+        out.push({ key: `mail:${th.id}:${th.msgs.length}`, kind: "new", go: "mail", sel: th.id,
+          title: file && side === "itsg" ? `${esc(vname(th.vendor))} ${L("sent a result file", "hat eine Ergebnisdatei gesendet")}` : `${L("New message from", "Neue Nachricht von")} ${esc(from)}`,
+          body: `${esc(typeof th.subject === "string" ? th.subject : A.T(th.subject))} · ${fresh.length} ${L("new", "neu")}` });
+      });
     }
     return out.filter(n => !P.dismissed.includes(n.key));
   }
@@ -4300,6 +4429,7 @@ const PIPE = (() => {
     dismiss(key);
     if (go === "devchecklist" || go === "devresults") { P.selPkg = sel; if (go === "devresults") loadResults().then(rerender); A.go(go); }
     else if (go === "validation") { P.subDetail = null; P.subReveal = 0; openSub(sel); }
+    else if (go === "mail") { A.S.selThread = sel; A.S.mailFolder = "all"; A.S.compose = null; A.go("mail"); }
   }
   async function tickDemo(n) {
     const c = P.checklists.find(x => x.id === DEV.pkg); if (!c) return;
@@ -4384,7 +4514,7 @@ const PIPE = (() => {
     }, 5000);
     register();
   }
-  return { init, upload, testButton, docsBlock, afterRender, shell, onRole, P, evHtml };
+  return { init, upload, testButton, docsBlock, afterRender, shell, onRole, P, evHtml, notifyMail: () => paintNotify() };
 })();
 window.PIPE = PIPE;
 

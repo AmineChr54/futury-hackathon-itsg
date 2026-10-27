@@ -511,7 +511,7 @@ class HttpTests(unittest.TestCase):
         server = load_server()
         cls.S = server
         cls.patches = [mock.patch.object(server, "AUTH", True),
-                       mock.patch.object(server, "PASSWORDS", {"istg": "pw-itsg", "dev": "pw-dev"}),
+                       mock.patch.object(server, "PASSWORDS", {"istg": "pw-itsg", "dev": "pw-dev", "sap": "pw-sap", "lexware": "pw-lex", "vendor": "pw-ven"}),
                        mock.patch.object(server, "start_recap", lambda pkg: None)]  # no AI calls in tests
         for p in cls.patches:
             p.start()
@@ -603,6 +603,66 @@ class HttpTests(unittest.TestCase):
         log = self.call("GET", "/api/audit", token=itsg)[1]
         self.assertFalse(log["chain_ok"])
         S.STORE["audit"].clear()  # leave a valid chain for other tests
+
+    def raw(self, method, path, data, token):
+        import urllib.error
+        import urllib.request
+        req = urllib.request.Request(self.base + path, data=data, method=method, headers={"X-Token": token, "Content-Type": "application/octet-stream"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return r.status, r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+
+    def test_itsg_and_vendor_exchange(self):
+        import json
+        S = self.S
+        S.STORE["exchange"] = {}
+        itsg, sap, lex = self.login("istg", "pw-itsg"), self.login("sap", "pw-sap"), self.login("lexware", "pw-lex")
+        dev = self.login("dev", "pw-dev")
+        self.assertEqual(self.call("GET", "/api/exchange", token=dev)[0], 403)
+        # a company sign-in cannot switch company; the generic vendor sign-in picks one
+        self.assertEqual(self.call("POST", "/api/session/vendor", {"vendor": "lex"}, token=sap)[0], 403)
+        ven = self.login("vendor", "pw-ven")
+        self.assertEqual(self.call("GET", "/api/exchange", token=ven)[0], 403)  # no company yet
+        self.assertEqual(self.call("POST", "/api/session/vendor", {"vendor": "lex"}, token=ven)[0], 200)
+        # ITSG writes to SAP; only SAP sees it
+        self.assertEqual(self.call("POST", "/api/exchange/threads", {"id": "T-sap", "vendor": "sap", "subject": "Test package"}, token=itsg)[0], 200)
+        code, th = self.call("POST", "/api/exchange/threads/T-sap/messages", {"body": "Package attached", "attach": [{"type": "package", "ref": "EEL 2027-01"}]}, token=itsg)
+        self.assertEqual((code, th["msgs"][-1]["from"]), (200, "itsg"))
+        self.assertEqual([t["id"] for t in self.call("GET", "/api/exchange", token=sap)[1]["threads"]], ["T-sap"])
+        self.assertEqual(self.call("GET", "/api/exchange", token=lex)[1]["threads"], [])
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"body": "hi"}, token=lex)[0], 404)
+        # SAP sends a DTA result file; it arrives at ITSG byte for byte
+        dta = "DSLW0123 Müller ÄÖÜ €\r\n".encode("cp1252") + bytes(range(256))
+        code, f = self.raw("POST", "/api/exchange/files?name=SAP_TC-3.12-001.dat&rule=R-3.12-B&key=Fsap1", dta, sap)
+        f = json.loads(f)
+        self.assertEqual((code, f["format"], f["vendor"], f["size"]), (200, "dta", "sap", len(dta)))
+        self.assertEqual(self.raw("POST", "/api/exchange/files?name=virus.exe", b"MZ", sap)[0], 400)  # test formats only
+        self.assertEqual(self.raw("POST", "/api/exchange/files?name=x.dat", b"x", itsg)[0], 403)  # vendors send results
+        code, th = self.call("POST", "/api/exchange/threads/T-sap/messages", {"body": "Result for TC-3.12-001", "attach": [{"type": "dta", "ref": "Fsap1"}]}, token=sap)
+        self.assertEqual((code, th["msgs"][-1]["from"]), (200, "sap"))
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"from": "system", "body": "fake"}, token=sap)[0], 400)
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"from": "system", "attach": [{"type": "verdict", "ref": {"ok": True}}]}, token=sap)[0], 200)
+        mail = self.call("GET", "/api/exchange", token=itsg)[1]
+        self.assertEqual(mail["files"]["Fsap1"]["sha256"], __import__("hashlib").sha256(dta).hexdigest())
+        self.assertEqual(self.raw("GET", "/api/exchange/files/Fsap1", None, itsg), (200, dta))
+        self.assertEqual(self.raw("GET", "/api/exchange/files/Fsap1", None, lex)[0], 404)  # another company's file
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"attach": [{"type": "dta", "ref": "Fsap1"}]}, token=lex)[0], 404)
+        # ITSG publishes and certifies; vendors record their own progress only
+        self.assertEqual(self.call("PATCH", "/api/exchange", {"publishedTo": ["sap"]}, token=sap)[0], 403)
+        self.assertEqual(self.call("PATCH", "/api/exchange", {"publishedTo": ["sap", "lex"], "certs": {"sap": {"seal": "abc"}}}, token=itsg)[0], 200)
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"attach": [{"type": "certificate", "ref": "sap"}]}, token=sap)[0], 403)
+        self.assertEqual(self.call("PATCH", "/api/exchange", {"vwork": {"sap": {"R-3.12-B": {"status": "pass"}}}}, token=sap)[0], 200)
+        self.call("PATCH", "/api/exchange", {"vwork": {"sap": {"R-3.12-B": {"status": "fail"}}}}, token=lex)  # ignored: not its company
+        seen = self.call("GET", "/api/exchange", token=itsg)[1]
+        self.assertEqual(seen["vwork"]["sap"]["R-3.12-B"]["status"], "pass")
+        mine = self.call("GET", "/api/exchange", token=lex)[1]
+        self.assertEqual((mine["published"], mine["certs"], mine["vwork"]), (True, {}, {}))
+        actions = [e["action"] for e in self.call("GET", "/api/audit", token=itsg)[1]["entries"]]
+        for a in ("sent a result file", "sent a message", "published the test package", "recorded test progress"):
+            self.assertIn(a, actions)
+        S.STORE["audit"].clear()
 
 
 if __name__ == "__main__":

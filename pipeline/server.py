@@ -61,8 +61,9 @@ CFG = {"base": os.environ.get("HAI_BASE_URL", "https://hip-gw.hessian.ai/v1").rs
 MODELS = ["vllm/Kolibri-1", "vllm/GLM-Flash:Latest"]
 # Sign-in. The username decides the role. With a password set (a hosted server: it holds the API key and
 # proxies /v1, so it must not be open), the Login tab asks for it and every API call needs the session token.
-ACCOUNTS = {"istg": "itsg", "dev": "dev", "vendor": "vendor"}  # vendor: the vendor side of the demo (in the page)
-ALIASES = {"itsg": "istg"}
+ACCOUNTS = {"istg": "itsg", "dev": "dev", "vendor": "vendor", "sap": "vendor", "lexware": "vendor"}
+ALIASES = {"itsg": "istg", "lex": "lexware"}
+VENDOR_OF = {"sap": "sap", "lexware": "lex"}  # company sign-ins; "vendor" picks its company in the page
 SESSION_DAYS = float(os.environ.get("PIPELINE_SESSION_DAYS", "7"))  # a sign-in is valid this long
 PASSWORDS = {u: os.environ.get(f"PIPELINE_PASSWORD_{u.upper()}") or os.environ.get("PIPELINE_PASSWORD", "") for u in ACCOUNTS}
 AUTH = any(PASSWORDS.values())
@@ -727,6 +728,21 @@ def describe_change(method, parts, b):
         return "validated developer results", rest[0] if rest else ""
     if r == "demo":
         return "started the developer demo", ""
+    if r == "session":
+        return "chose vendor company", b.get("vendor", "")
+    if r == "exchange":
+        what = rest[0] if rest else ""
+        if what == "seed" or act == "read":
+            return None
+        if what == "files":
+            return "sent a result file", ""
+        if what == "threads" and len(rest) == 1:
+            return "started a conversation", f"{b.get('vendor') or ''} · {b.get('subject') if isinstance(b.get('subject'), str) else ''}"
+        if act == "messages":
+            return ("posted a comparison verdict" if b.get("from") == "system" else "sent a message"), rest[1] if len(rest) > 1 else ""
+        if method == "PATCH":
+            return ("published the test package" if "publishedTo" in b else "issued a certificate" if "certs" in b else "recorded test progress"), ""
+        return None
     return f"{method.lower()} {r}", "/".join(rest)
 
 
@@ -753,6 +769,73 @@ def tracking(pkg):
              "thread": tc.get("thread", []), "open_question": open_question(tc)} for tc in cases]
     return {**{k: pkg.get(k) for k in ("id", "t", "by", "to", "note")}, "progress": progress, "cases": rows,
             "open_questions": sum(1 for r in rows if r["open_question"])}
+
+
+# ------------------------------------------------------------------ ITSG ⇄ vendor exchange (Messages)
+
+# The payroll vendors of the demo (the page's C.VENDORS). A vendor account sees only its own company's data.
+VENDORS = {"sap": "SAP", "lex": "Lexware"}
+EXCHANGE_DIR = os.path.join(DATA, "exchange")
+# DTA output files and the other formats vendors send test results in
+RESULT_EXT = (".dat", ".dta", ".txt", ".edi", ".xml", ".csv", ".json", ".zip", ".pdf")
+DTA_EXT = (".dat", ".dta", ".txt", ".edi")
+MAX_FILE = 10 * 1024 * 1024
+ATTACH_TYPES = {"package", "report", "rule", "case", "crit", "dta", "file", "verdict", "certificate"}
+
+
+def exchange():
+    x = STORE.setdefault("exchange", {})
+    for k, v in (("threads", []), ("files", {}), ("certs", {}), ("publishedTo", []), ("vwork", {})):
+        x.setdefault(k, v)
+    return x
+
+
+def text_of(v, limit=20000):
+    """Message bodies and subjects: a string, or {en, de} for the seeded texts."""
+    if isinstance(v, dict):
+        return {k: str(v.get(k) or "")[:limit] for k in ("en", "de")}
+    return str(v or "")[:limit]
+
+
+def exchange_for(role, vendor):
+    """What one side may see: ITSG everything, a vendor only its own threads, files, certificate and results."""
+    x = exchange()
+    if role == "itsg":
+        return x
+    if role != "vendor" or vendor not in VENDORS:
+        raise ApiError(403, "sign in as ITSG or as a vendor")
+    return {"threads": [t for t in x["threads"] if t["vendor"] == vendor],
+            "files": {k: f for k, f in x["files"].items() if f["vendor"] == vendor},
+            "certs": {vendor: x["certs"][vendor]} if vendor in x["certs"] else {},
+            "publishedTo": [vendor] if vendor in x["publishedTo"] else [],
+            "published": vendor in x["publishedTo"],
+            "vwork": {vendor: x["vwork"][vendor]} if vendor in x["vwork"] else {}}
+
+
+def check_attach(attach, role, vendor):
+    out = []
+    for a in attach if isinstance(attach, list) else []:
+        if not isinstance(a, dict) or a.get("type") not in ATTACH_TYPES:
+            raise ApiError(400, "unknown attachment")
+        if a["type"] == "certificate" and role != "itsg":
+            raise ApiError(403, "only ITSG issues certificates")
+        if a["type"] in ("dta", "file"):
+            f = exchange()["files"].get(str(a.get("ref")))
+            if not f or (role == "vendor" and f["vendor"] != vendor):
+                raise ApiError(400, "attached file not found")
+        out.append({k: a[k] for k in ("type", "ref") if k in a})
+    return out
+
+
+def new_message(th, frm, body, attach, msg_id=None):
+    m = {"id": str(msg_id or f"{th['id']}-{len(th['msgs']) + 1}")[:80], "from": frm, "t": now(),
+         "at": int((time.time() + time.localtime().tm_gmtoff) // 60), "body": text_of(body), "attach": attach}
+    th["msgs"].append(m)
+    if frm == "itsg":
+        th["read"]["itsg"] = len(th["msgs"])
+    elif frm != "system":
+        th["read"]["vendor"] = len(th["msgs"])
+    return m
 
 
 def export_case(tc):
@@ -1043,18 +1126,18 @@ class Handler(BaseHTTPRequestHandler):
         name = (b.get("name") or "").strip().lower()
         name = ALIASES.get(name, name)
         if name not in ACCOUNTS:
-            raise ApiError(401, "unknown user: sign in as istg, dev or vendor")
+            raise ApiError(401, "unknown user: sign in as istg, dev, sap, lexware or vendor")
         if AUTH and not hmac.compare_digest(str(b.get("password") or "").encode(), PASSWORDS[name].encode()):
             time.sleep(0.5)  # slows down guessing
             raise ApiError(401, "wrong password")
         tok = secrets.token_urlsafe(24)
         with LOCK:
-            STORE["sessions"][tok] = {"user": name, "role": ACCOUNTS[name], "t": now()}
+            STORE["sessions"][tok] = {"user": name, "role": ACCOUNTS[name], "t": now(), "vendor": VENDOR_OF.get(name), "fixed": name in VENDOR_OF}
             if len(STORE["sessions"]) > 500:  # keep the newest
                 for k in sorted(STORE["sessions"], key=lambda k: STORE["sessions"][k]["t"])[:-500]:
                     STORE["sessions"].pop(k)
             save_store()
-        self.send_json({"token": tok, "user": name, "role": ACCOUNTS[name]})
+        self.send_json({"token": tok, "user": name, "role": ACCOUNTS[name], "vendor": VENDOR_OF.get(name)})
 
     def api_post_logout(self, parts, q):
         with LOCK:
@@ -1386,6 +1469,175 @@ class Handler(BaseHTTPRequestHandler):
                 save_run(run)
             save_store()
         self.send_json({"deleted": tc["id"]})
+
+    # ---- ITSG ⇄ vendor exchange: conversations, result files, package, certificates, the vendor's progress
+    @property
+    def vendor(self):
+        """This request's vendor company: from the sign-in, or (local server without passwords) the page's choice."""
+        s = self.session
+        if s and s.get("vendor"):
+            return s["vendor"]
+        if not AUTH:
+            v = (self.headers.get("X-Vendor") or "").strip()
+            return v if v in VENDORS else None
+        return None
+
+    def side(self):
+        if self.role == "itsg":
+            return "itsg"
+        if self.role == "vendor" and self.vendor in VENDORS:
+            return "vendor"
+        raise ApiError(403, "sign in as ITSG or as a vendor")
+
+    def api_post_session(self, parts, q):
+        """A generic vendor sign-in picks its company; a company sign-in (sap, lexware) cannot switch."""
+        if parts != ["vendor"]:
+            raise ApiError(404, "unknown action")
+        v = (self.json_body().get("vendor") or "").strip()
+        if v not in VENDORS:
+            raise ApiError(400, "unknown vendor")
+        if self.role != "vendor":
+            raise ApiError(403, "only a vendor sign-in has a company")
+        s = self.session
+        if s:
+            if s.get("fixed") and s.get("vendor") != v:
+                raise ApiError(403, f"you are signed in as {VENDORS[s['vendor']]}")
+            with LOCK:
+                s["vendor"] = v
+                save_store()
+        self.send_json({"vendor": v, "name": VENDORS[v]})
+
+    def api_get_exchange(self, parts, q):
+        side = self.side()
+        if parts and parts[0] == "files" and len(parts) == 2:
+            f = exchange()["files"].get(parts[1])
+            if not f or (side == "vendor" and f["vendor"] != self.vendor):
+                raise ApiError(404, "file not found")
+            with open(os.path.join(EXCHANGE_DIR, f["key"] + ".bin"), "rb") as fh:
+                data = fh.read()
+            self._status = 200
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("Content-Disposition", "attachment; filename*=UTF-8''" + urllib.parse.quote(f["name"]))
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        if parts:
+            raise ApiError(404, "unknown exchange resource")
+        self.send_json(exchange_for(self.role, self.vendor))
+
+    def api_post_exchange(self, parts, q):
+        side, me = self.side(), self.vendor
+        x = exchange()
+        what = parts[0] if parts else ""
+        if what == "files":  # a result file from a vendor: raw bytes, any of the usual test formats
+            if side != "vendor":
+                raise ApiError(403, "vendors send result files")
+            name = os.path.basename((q.get("name") or [""])[0]).strip()[:120]
+            if not name.lower().endswith(RESULT_EXT):
+                raise ApiError(400, "send a test result file: " + ", ".join(RESULT_EXT))
+            data = self.body()
+            if not data:
+                raise ApiError(400, "empty file")
+            if len(data) > MAX_FILE:
+                raise ApiError(413, f"files up to {MAX_FILE // (1024 * 1024)} MB")
+            key = re.sub(r"[^\w-]", "", (q.get("key") or [""])[0])[:40] or "F" + uuid.uuid4().hex[:10]
+            with LOCK:
+                if key in x["files"]:
+                    raise ApiError(409, "file key already used")
+                os.makedirs(EXCHANGE_DIR, exist_ok=True)
+                with open(os.path.join(EXCHANGE_DIR, key + ".bin"), "wb") as fh:
+                    fh.write(data)
+                f = {"key": key, "name": name, "vendor": me, "by": self.user, "t": now(), "size": len(data),
+                     "sha256": hashlib.sha256(data).hexdigest(), "rule": (q.get("rule") or [None])[0],
+                     "format": "dta" if name.lower().endswith(DTA_EXT) else os.path.splitext(name)[1].lstrip(".").lower()}
+                x["files"][key] = f
+                save_store()
+            return self.send_json(f)
+        if what == "seed":  # the opening conversations, written once by the first page that finds the exchange empty
+            b = self.json_body()
+            with LOCK:
+                if x["threads"]:
+                    return self.send_json({"seeded": False})
+                for t in (b.get("threads") or [])[:50]:
+                    if not isinstance(t, dict) or t.get("vendor") not in VENDORS:
+                        continue
+                    th = {"id": str(t.get("id"))[:40], "vendor": t["vendor"], "subject": text_of(t.get("subject"), 300), "kind": str(t.get("kind") or "")[:20],
+                          "msgs": [], "read": {"itsg": 0, "vendor": 0}}
+                    for m in (t.get("msgs") or [])[:20]:
+                        if m.get("from") in ("itsg", "system"):
+                            new_message(th, m["from"], m.get("body"), [a for a in (m.get("attach") or []) if isinstance(a, dict) and a.get("type") in ("crit", "rule", "case")])
+                    x["threads"].append(th)
+                save_store()
+            return self.send_json({"seeded": True})
+        if what == "threads" and len(parts) == 1:
+            b = self.json_body()
+            vendor = b.get("vendor") if side == "itsg" else me
+            if vendor not in VENDORS:
+                raise ApiError(400, "unknown vendor")
+            tid = re.sub(r"[^\w-]", "", str(b.get("id") or ""))[:40] or "T" + uuid.uuid4().hex[:10]
+            with LOCK:
+                th = next((t for t in x["threads"] if t["id"] == tid), None)
+                if th and th["vendor"] != vendor:
+                    raise ApiError(409, "conversation id already used")
+                if not th:
+                    th = {"id": tid, "vendor": vendor, "subject": text_of(b.get("subject"), 300) or "(no subject)",
+                          "kind": str(b.get("kind") or "")[:20], "msgs": [], "read": {"itsg": 0, "vendor": 0}}
+                    x["threads"].append(th)
+                    save_store()
+            return self.send_json(th)
+        if what == "threads" and len(parts) == 3:
+            th = next((t for t in x["threads"] if t["id"] == parts[1]), None)
+            if not th or (side == "vendor" and th["vendor"] != me):
+                raise ApiError(404, "conversation not found")
+            b = self.json_body()
+            if parts[2] == "read":
+                with LOCK:
+                    th["read"][side] = max(th["read"][side], min(int(b.get("n") or len(th["msgs"])), len(th["msgs"])))
+                    save_store()
+                return self.send_json({"ok": True})
+            if parts[2] != "messages":
+                raise ApiError(404, "unknown action")
+            attach = check_attach(b.get("attach"), side, me)
+            frm = b.get("from")
+            if frm == "system":  # the automatic comparison posts its verdict
+                if not attach or any(a["type"] != "verdict" for a in attach):
+                    raise ApiError(400, "system messages carry comparison verdicts only")
+            else:
+                frm = "itsg" if side == "itsg" else th["vendor"]
+            with LOCK:
+                mid = str(b.get("id") or "")
+                if mid and any(m["id"] == mid for m in th["msgs"]):
+                    return self.send_json(th)  # sent twice (retry): keep one
+                new_message(th, frm, b.get("body"), attach, mid or None)
+                save_store()
+            return self.send_json(th)
+        raise ApiError(404, "unknown exchange resource")
+
+    def api_patch_exchange(self, parts, q):
+        """Shared state: ITSG publishes the package and issues certificates; a vendor records its own progress."""
+        side, me, b, x = self.side(), self.vendor, self.json_body(), exchange()
+        with LOCK:
+            if side == "itsg":
+                if "publishedTo" in b:
+                    x["publishedTo"] = [v for v in b.get("publishedTo") or [] if v in VENDORS]
+                for v, c in (b.get("certs") or {}).items():
+                    if v in VENDORS and isinstance(c, dict):
+                        x["certs"][v] = {"seal": str(c.get("seal") or "")[:128], "t": now(), "by": self.user}
+                if "vwork" in b:
+                    raise ApiError(403, "the vendor records its own progress")
+            else:
+                if "publishedTo" in b or "certs" in b:
+                    raise ApiError(403, "only ITSG publishes packages and issues certificates")
+                w = (b.get("vwork") or {}).get(me)
+                if isinstance(w, dict):
+                    if len(json.dumps(w)) > 200000:
+                        raise ApiError(413, "progress record too large")
+                    x["vwork"][me] = w
+            save_store()
+        self.send_json(exchange_for(self.role, me))
 
     def api_get_audit(self, parts, q):
         self.need_examiner()

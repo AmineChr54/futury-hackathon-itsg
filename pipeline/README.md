@@ -54,6 +54,17 @@ Each developer also sees the packages ITSG sent before this build, with their or
 
 Developers never receive ITSG's expected values before validation: the server strips them, including from the AI's chain of thought. The developer demo seeds a checklist from ITSG's reference case (`POST /api/demo`), so it works without the AI.
 
+## ITSG and the vendors (Messages)
+
+Vendors sign in as `sap` or `lexware`; their company is fixed by the sign-in (`vendor` signs in without a company and picks one; per-account passwords: `PIPELINE_PASSWORD_SAP`, `PIPELINE_PASSWORD_LEXWARE`). The conversations, result files, the published test package, certificates and each vendor's per-case progress live on the server (`STORE["exchange"]`, files in `pipeline/data/exchange/`), so ITSG and each vendor see the same state from different machines; the page polls every 4 seconds.
+
+- **ITSG → vendor:** *New message* (to SAP or Lexware) or a reply in a conversation, with attachments (test package, report, rules, test cases); *Publish* sends the package; *Issue certificate* once nothing failed. The vendor gets "New message from ITSG".
+- **Vendor → ITSG:** result files from *My test cases* (*Send result file*) or attached in Messages: `.dat .dta .txt .edi` (DTA output) and `.xml .csv .json .zip .pdf`, up to 10 MB, sent as the original bytes. DTA files are compared at once against ITSG's expected result (the verdict is posted in the conversation); other formats arrive as files for the examiner. ITSG gets "SAP sent a result file", can download it and opens DTA files in *Compare output*.
+- **Who sees what:** ITSG sees all vendors; a vendor only its own conversations, files, certificate and progress (the server checks each request, not the page). Only ITSG publishes and certifies; only the vendor records its progress.
+- The opening conversations are written once by the first page that finds the exchange empty. The guided demo (Demo button) plays its story in the page only and never writes to the server; afterwards the page shows the server's state again.
+
+API: `GET /api/exchange`, `POST /api/exchange/threads` (new conversation), `POST /api/exchange/threads/<id>/messages`, `POST /api/exchange/threads/<id>/read`, `POST /api/exchange/files?name=…&rule=…` (raw bytes), `GET /api/exchange/files/<key>`, `PATCH /api/exchange` (`publishedTo`, `certs` by ITSG; `vwork` by the vendor), `POST /api/session/vendor`. Every change is in the shared audit trail (`GET /api/audit`, hash-chained).
+
 ## What is compared with what
 
 | Documents | Mode |

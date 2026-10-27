@@ -15,6 +15,7 @@ The API key is read from pipeline/.env or the environment (HAI_API_KEY) and neve
 Standard library + pypdf.
 """
 import argparse
+import hashlib
 import hmac
 import secrets
 import json
@@ -62,6 +63,7 @@ MODELS = ["vllm/Kolibri-1", "vllm/GLM-Flash:Latest"]
 # proxies /v1, so it must not be open), the Login tab asks for it and every API call needs the session token.
 ACCOUNTS = {"istg": "itsg", "dev": "dev"}
 ALIASES = {"itsg": "istg"}
+SESSION_DAYS = float(os.environ.get("PIPELINE_SESSION_DAYS", "7"))  # a sign-in is valid this long
 PASSWORDS = {u: os.environ.get(f"PIPELINE_PASSWORD_{u.upper()}") or os.environ.get("PIPELINE_PASSWORD", "") for u in ACCOUNTS}
 AUTH = any(PASSWORDS.values())
 LAW_DIR = os.environ.get("LAW_DIR", os.path.join(ROOT, "docs", "law_file"))
@@ -92,7 +94,8 @@ def _load_store():
 STORE = _load_store()
 for _k in ("users", "testcases", "packages", "runs", "submissions"):
     STORE.setdefault(_k, [])
-STORE.setdefault("sessions", {})  # token → {user, role, t}; kept so a restart does not sign everyone out
+STORE.setdefault("sessions", {})
+STORE.setdefault("audit", [])  # token → {user, role, t}; kept so a restart does not sign everyone out
 if not any(u["name"] == "dev" for u in STORE["users"]):  # the developer account of this build: always a recipient
     STORE["users"].append({"name": "dev", "role": "dev", "since": "2025-11-01T09:00:00", "seen": None})
 
@@ -653,6 +656,105 @@ def default_note(cases):
     return f"{head} — " + ", ".join("§" + s for s in secs) if secs else head
 
 
+# ------------------------------------------------------------------ audit trail (shared, hash-chained)
+
+AUDIT_KEEP = 5000  # older entries are dropped from the front; the rest of the chain stays verifiable
+
+
+def _audit_hash(prev, e):
+    body = json.dumps({k: e[k] for k in ("seq", "t", "who", "role", "action", "detail")}, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256((prev + body).encode("utf-8")).hexdigest()
+
+
+def audit(who, role, action, detail=""):
+    """Append one entry. Each entry carries the previous entry's hash, so editing or removing one breaks the chain."""
+    with LOCK:
+        log = STORE["audit"]
+        prev = log[-1]["hash"] if log else "0" * 64
+        e = {"seq": log[-1]["seq"] + 1 if log else 1, "t": now(), "who": who, "role": role, "action": action,
+             "detail": str(detail or "")[:300], "prev": prev}
+        e["hash"] = _audit_hash(prev, e)
+        log.append(e)
+        if len(log) > AUDIT_KEEP:
+            del log[:len(log) - AUDIT_KEEP]
+        save_store()
+    return e
+
+
+def audit_chain(log):
+    """(True, None) when every entry links to the one before and its hash matches; else (False, first bad seq)."""
+    for i, e in enumerate(log):
+        if (i and e["prev"] != log[i - 1]["hash"]) or _audit_hash(e["prev"], e) != e["hash"]:
+            return False, e["seq"]
+    return True, None
+
+
+def describe_change(method, parts, b):
+    """What a successful change request means, in words for the audit trail; None for requests not worth logging."""
+    r, rest = parts[0], parts[1:]
+    act = rest[-1] if rest else ""
+    if r in ("users", "plan", "evaluate", "status"):
+        return None
+    if r == "login":
+        return "signed in", ""
+    if r == "logout":
+        return "signed out", ""
+    if r == "upload":
+        return ("removed document" if method == "DELETE" else "uploaded document"), (rest[0] if rest else "")
+    if r == "runs":
+        if not rest:
+            return "started AI run", ""
+        named = {"stop": "stopped AI run", "generate": "generated test cases", "decide": "decided on spec changes",
+                 "cases": "approved spec changes for test cases", "change": "edited a spec change"}
+        sec = rest[2] if len(rest) > 2 else ", ".join(b.get("secs") or [])
+        return named.get(act, "updated AI run"), f"{rest[0]}" + (f" · §{sec}" if sec else "") + (f" · {b['decision']}" if act == "decide" and b.get("decision") else "")
+    if r == "testcases":
+        tid = rest[0] if rest else ""
+        if method == "DELETE":
+            return "deleted test case", tid
+        if method == "PATCH":
+            return "edited test case", tid
+        named = {"verify": "verified test case", "reject": "rejected test case", "reopen": "reopened test case",
+                 "reply": "answered a question", "ack": "asked a question" if b.get("state") == "question" else "accepted test case"}
+        return named.get(act, act), tid
+    if r == "send":
+        return "sent test cases", f"{', '.join(b.get('ids') or [])} → {', '.join(b.get('to') or [])}"
+    if r == "checklists":
+        if act == "coverage":
+            return ("ticked" if b.get("done") else "unticked") + " a test case as tested", b.get("id", "")
+        return {"recap": "rewrote the AI recap", "submit": "submitted values"}.get(act, act), rest[0] if rest else ""
+    if r == "submissions":
+        return "validated developer results", rest[0] if rest else ""
+    if r == "demo":
+        return "started the developer demo", ""
+    return f"{method.lower()} {r}", "/".join(rest)
+
+
+# ------------------------------------------------------------------ ITSG's view of what was sent
+
+def open_question(tc):
+    """The last message on a test case is a developer's question: ITSG has not answered yet."""
+    th = [m for m in tc.get("thread") or [] if m["role"] == "itsg" or m.get("kind") == "question"]
+    return bool(th) and th[-1]["role"] == "dev"
+
+
+def tracking(pkg):
+    """A package as ITSG follows it: per developer how far they are, and per test case ticks, answers and questions."""
+    cases = [tc for tc in (tc_by_id(i) for i in pkg["ids"]) if tc]
+    cov = pkg.get("coverage") or {}
+    progress = {u: {"covered": sum(1 for tc in cases if tc["id"] in cov.get(u, {})), "total": len(cases),
+                    "last": max(cov.get(u, {}).values(), default=None),
+                    "accepted": sum(1 for tc in cases if any(a["who"] == u and a["state"] == "accepted" for a in tc.get("acks", [])))}
+                for u in pkg["to"]}
+    rows = [{"id": tc["id"], "title": tc.get("title"), "section": tc.get("section"), "kind": tc.get("kind"), "status": tc.get("status"),
+             "expected_value": tc.get("expected_value"), "result_name": (tc.get("formula") or {}).get("result_name"),
+             "ticked": {u: cov.get(u, {}).get(tc["id"]) for u in pkg["to"]},
+             "acks": {a["who"]: a["state"] for a in tc.get("acks", [])},
+             "thread": tc.get("thread", []), "open_question": open_question(tc)} for tc in cases]
+    return {**{k: pkg.get(k) for k in ("id", "t", "by", "to", "note")}, "progress": progress, "cases": rows,
+            "open_questions": sum(1 for r in rows if r["open_question"])}
+
+
 def export_case(tc):
     """The hand-over format for developers."""
     fm = tc.get("formula") or {}
@@ -781,6 +883,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User, X-Role")
 
     def send_json(self, obj, status=200):
+        self._status = status
         data = json.dumps(obj, ensure_ascii=False, default=str).encode("utf-8")
         self.send_response(status)
         self._cors()
@@ -810,7 +913,12 @@ class Handler(BaseHTTPRequestHandler):
     @property
     def session(self):
         tok = self.headers.get("X-Token") or ""
-        return STORE["sessions"].get(tok) if tok else None
+        s = STORE["sessions"].get(tok) if tok else None
+        if s and time.time() - time.mktime(time.strptime(s["t"], "%Y-%m-%dT%H:%M:%S")) > SESSION_DAYS * 86400:
+            with LOCK:
+                STORE["sessions"].pop(tok, None)
+            return None
+        return s
 
     @property
     def user(self):
@@ -863,7 +971,10 @@ class Handler(BaseHTTPRequestHandler):
             handler = getattr(self, f"api_{method.lower()}_{parts[0]}", None)
             if not handler:
                 raise ApiError(404, f"no route {method} {path}")
-            return handler(parts[1:], q)
+            who, role = self.user, self.role  # before the handler: logout removes the session
+            handler(parts[1:], q)
+            if method != "GET" and getattr(self, "_status", 500) < 400:
+                self.log_change(method, parts, who, role)
         except ApiError as e:
             self.send_json({"error": e.message}, e.status)
         except F.FormulaError as e:
@@ -871,6 +982,21 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as e:  # never crash the server on one request
             traceback.print_exc()
             self.send_json({"error": f"{type(e).__name__}: {e}"}, 500)
+
+    def log_change(self, method, parts, who, role):
+        """Every successful change goes into the shared audit trail."""
+        try:
+            b = self.json_body() if (self.headers.get("Content-Type") or "").startswith("application/json") else {}
+        except ApiError:
+            b = {}
+        d = describe_change(method, parts, b if isinstance(b, dict) else {})
+        if not d:
+            return
+        if parts[0] == "login":
+            name = (b.get("name") or "").strip().lower()
+            who = ALIASES.get(name, name)
+            role = ACCOUNTS.get(who, "")
+        audit(who, role, *d)
 
     def static(self, path, mime):
         with open(path, "rb") as f:
@@ -1149,11 +1275,22 @@ class Handler(BaseHTTPRequestHandler):
                     raise ApiError(403, "this test case was not sent to you")
                 tc["acks"] = [a for a in tc["acks"] if a["who"] != self.user] + [{"who": self.user, "t": now(), "comment": b.get("comment", ""), "state": b.get("state", "accepted")}]
                 tc["history"].append({"t": now(), "who": self.user, "action": "developer: " + b.get("state", "accepted"), "detail": b.get("comment", "")})
+                if b.get("state") == "question" or (b.get("comment") or "").strip():
+                    tc.setdefault("thread", []).append({"t": now(), "who": self.user, "role": "dev", "kind": b.get("state", "accepted"),
+                                                        "text": (b.get("comment") or "").strip()[:2000] or "(question without text)"})
                 if all(any(a["who"] == d for a in tc["acks"]) for d in tc["sent_to"]):
                     tc["status"] = "acknowledged"
                 save_store()
                 return self.send_json(tc)
             self.need_examiner()
+            if action == "reply":
+                text = (b.get("text") or "").strip()
+                if not text:
+                    raise ApiError(400, "write an answer")
+                tc.setdefault("thread", []).append({"t": now(), "who": self.user, "role": "itsg", "kind": "answer", "text": text[:2000]})
+                tc["history"].append({"t": now(), "who": self.user, "action": "answered", "detail": text[:200]})
+                save_store()
+                return self.send_json(tc)
             if action == "verify":
                 recompute(tc)
                 if tc.get("formula_error"):
@@ -1247,6 +1384,19 @@ class Handler(BaseHTTPRequestHandler):
             save_store()
         self.send_json({"deleted": tc["id"]})
 
+    def api_get_audit(self, parts, q):
+        self.need_examiner()
+        log = STORE["audit"]
+        ok, bad = audit_chain(log)
+        n = min(int((q.get("limit") or ["300"])[0]), 2000)
+        self.send_json({"entries": log[::-1][:n], "total": len(log), "chain_ok": ok, "broken_at": bad})
+
+    def api_get_tracking(self, parts, q):
+        """ITSG: the packages sent to developers, with their progress, answers and questions."""
+        self.need_examiner()
+        pkgs = sorted((p for p in STORE["packages"] if not p.get("mock")), key=lambda p: p.get("t") or "", reverse=True)
+        self.send_json([tracking(p) for p in pkgs[:100]])
+
     def api_get_packages(self, parts, q):
         if parts:
             pkg = next((p for p in STORE["packages"] if p["id"] == parts[0]), None)
@@ -1264,7 +1414,8 @@ class Handler(BaseHTTPRequestHandler):
         lst = sorted((t for t in STORE["testcases"] if user in t.get("sent_to", [])), key=lambda t: t.get("sent_at") or "", reverse=True)
         self.send_json([{**{k: t.get(k) for k in ("id", "status", "title", "kind", "section", "section_title",
                                                   "formula_changed", "formula_edited", "sent_at", "package", "document")},
-                         "my_ack": next((a for a in t.get("acks", []) if a["who"] == user), None)} for t in lst])
+                         "my_ack": next((a for a in t.get("acks", []) if a["who"] == user), None),
+                         "last_answer": next((m["t"] for m in reversed(t.get("thread", [])) if m["role"] == "itsg"), None)} for t in lst])
 
     # ---- developer checklist → submission → ITSG validation → results back to the developer
     def api_get_checklists(self, parts, q):

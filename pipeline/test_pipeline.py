@@ -274,15 +274,22 @@ class ChangelogDiffTests(unittest.TestCase):
         self.assertEqual(ch[0]["log"], ["3.12.7 „AU-Beginn“"])
 
 
+def load_server():
+    """Import the server once, on a temporary data folder (never the real pipeline/data or docs/law_file)."""
+    if "server" not in sys.modules:
+        import tempfile
+        tmp = tempfile.mkdtemp()
+        os.environ["PIPELINE_DATA"] = tmp
+        os.environ["LAW_DIR"] = os.path.join(tmp, "law")
+    import server
+    return server
+
+
 class ServerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        import tempfile
-        cls.tmp = tempfile.mkdtemp()
-        os.environ["PIPELINE_DATA"] = cls.tmp
-        os.environ["LAW_DIR"] = os.path.join(cls.tmp, "law")
-        import server
-        cls.S = server
+        server = load_server()
+        cls.S, cls.tmp = server, server.DATA
 
     def run_with(self, n_cases):
         S = self.S
@@ -491,6 +498,111 @@ class RecapTests(unittest.TestCase):
         self.assertIn("Only confirmed days count.", out["changed"])
         self.assertEqual(set(out["rows"]), {"A", "B"})
         self.assertTrue(out["todo"] and out["verify"])
+
+
+class HttpTests(unittest.TestCase):
+    """The API over real HTTP, with passwords on: sign-in, roles, the ITSG ↔ developer loop and the audit trail."""
+
+    @classmethod
+    def setUpClass(cls):
+        import threading
+        from http.server import ThreadingHTTPServer
+        from unittest import mock
+        server = load_server()
+        cls.S = server
+        cls.patches = [mock.patch.object(server, "AUTH", True),
+                       mock.patch.object(server, "PASSWORDS", {"istg": "pw-itsg", "dev": "pw-dev"}),
+                       mock.patch.object(server, "start_recap", lambda pkg: None)]  # no AI calls in tests
+        for p in cls.patches:
+            p.start()
+        cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        cls.base = f"http://127.0.0.1:{cls.httpd.server_address[1]}"
+        threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.httpd.server_close()
+        for p in cls.patches:
+            p.stop()
+
+    def call(self, method, path, body=None, token=None, headers=None):
+        import json
+        import urllib.error
+        import urllib.request
+        h = {"Content-Type": "application/json", **({"X-Token": token} if token else {}), **(headers or {})}
+        req = urllib.request.Request(self.base + path, data=json.dumps(body).encode() if body is not None else None, method=method, headers=h)
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return r.status, json.loads(r.read() or b"{}")
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}")
+
+    def login(self, name, pw):
+        code, j = self.call("POST", "/api/login", {"name": name, "password": pw})
+        self.assertEqual(code, 200, j)
+        return j["token"]
+
+    def test_sign_in_and_roles(self):
+        import urllib.request
+        with urllib.request.urlopen(self.base + "/", timeout=10) as r:
+            self.assertEqual(r.status, 200)  # the page itself is public
+        self.assertEqual(self.call("GET", "/api/testcases")[0], 401)
+        self.assertEqual(self.call("GET", "/v1/models")[0], 401)  # the AI proxy holds the key: never open
+        self.assertEqual(self.call("POST", "/api/login", {"name": "istg", "password": "nope"})[1]["error"], "wrong password")
+        self.assertEqual(self.call("POST", "/api/login", {"name": "dev", "password": "pw-itsg"})[0], 401)  # per-account passwords
+        dev = self.login("dev", "pw-dev")
+        # a developer cannot act as ITSG by claiming the role in a header
+        self.assertEqual(self.call("GET", "/api/submissions", token=dev, headers={"X-Role": "itsg", "X-User": "istg"})[0], 403)
+        itsg = self.login("ITSG", "pw-itsg")  # alias, any case
+        self.assertEqual(self.call("GET", "/api/submissions", token=itsg)[0], 200)
+        self.call("POST", "/api/logout", {}, token=itsg)
+        self.assertEqual(self.call("GET", "/api/submissions", token=itsg)[0], 401)
+
+    def test_session_expires(self):
+        tok = self.login("dev", "pw-dev")
+        self.S.STORE["sessions"][tok]["t"] = "2020-01-01T00:00:00"
+        self.assertEqual(self.call("GET", "/api/inbox", token=tok)[0], 401)
+
+    def test_send_tick_question_answer_delete_and_audit(self):
+        S = self.S
+        pkg = S.ref_package(S.DEMO_CASES[:2], "nobody", S.now(), "13.4", "13.3", "", "PKG-http", "HTTP")
+        for i in pkg["ids"]:
+            S.tc_by_id(i).update(status="verified", sent_to=[], demo=False, run="r-http", package=None)
+        a, b = pkg["ids"]
+        itsg, dev = self.login("istg", "pw-itsg"), self.login("dev", "pw-dev")
+        code, sent = self.call("POST", "/api/send", {"ids": [a, b], "to": ["dev"]}, token=itsg)
+        self.assertEqual(code, 200, sent)
+        lists = self.call("GET", "/api/checklists?user=dev", token=dev)[1]
+        mine = next(c for c in lists if c["id"] == sent["id"])
+        self.assertEqual(len(mine["rows"]), 2)
+        self.assertNotIn("expected_value", mine["rows"][0])  # developers calculate it themselves
+        self.assertEqual(self.call("POST", f"/api/checklists/{sent['id']}/coverage", {"id": a, "done": True}, token=dev)[0], 200)
+        self.assertEqual(self.call("POST", f"/api/testcases/{b}/ack", {"state": "question", "comment": "Which AU counts?"}, token=dev)[0], 200)
+        track = next(p for p in self.call("GET", "/api/tracking", token=itsg)[1] if p["id"] == sent["id"])
+        self.assertEqual(track["progress"]["dev"]["covered"], 1)
+        self.assertEqual(track["open_questions"], 1)
+        self.assertEqual(self.call("GET", "/api/tracking", token=dev)[0], 403)
+        self.assertEqual(self.call("POST", f"/api/testcases/{b}/reply", {"text": "Only certified ones."}, token=dev)[0], 403)
+        self.assertEqual(self.call("POST", f"/api/testcases/{b}/reply", {"text": "Only certified ones."}, token=itsg)[0], 200)
+        track = next(p for p in self.call("GET", "/api/tracking", token=itsg)[1] if p["id"] == sent["id"])
+        self.assertEqual(track["open_questions"], 0)
+        inbox = {t["id"]: t for t in self.call("GET", "/api/inbox?user=dev", token=dev)[1]}
+        self.assertTrue(inbox[b]["last_answer"])
+        self.assertEqual(self.call("DELETE", f"/api/testcases/{a}", token=itsg)[0], 200)
+        mine = next(c for c in self.call("GET", "/api/checklists?user=dev", token=dev)[1] if c["id"] == sent["id"])
+        self.assertEqual([r["id"] for r in mine["rows"]], [b])
+        # every step is in the shared audit trail, and the chain holds
+        log = self.call("GET", "/api/audit", token=itsg)[1]
+        self.assertTrue(log["chain_ok"])
+        actions = [(e["who"], e["action"]) for e in log["entries"]]
+        for step in [("istg", "sent test cases"), ("dev", "ticked a test case as tested"), ("dev", "asked a question"),
+                     ("istg", "answered a question"), ("istg", "deleted test case"), ("dev", "signed in")]:
+            self.assertIn(step, actions)
+        S.STORE["audit"][-2]["detail"] = "edited afterwards"
+        log = self.call("GET", "/api/audit", token=itsg)[1]
+        self.assertFalse(log["chain_ok"])
+        S.STORE["audit"].clear()  # leave a valid chain for other tests
 
 
 if __name__ == "__main__":

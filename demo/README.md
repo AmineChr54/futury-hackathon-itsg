@@ -39,8 +39,12 @@ Put the narrator window on your laptop screen and the main window on the project
 opens, the browser blocked the pop-up: allow pop-ups for this file (Firefox shows a yellow bar at
 the top), then press **P** again.
 
-During the demo the bottom bar shows **one sentence** per step. A spotlight frames what the
-sentence is about (with a slight zoom) and keeps following it while the page scrolls or changes.
+During the demo a **caption next to the spotlight** shows one sentence per step, its key words
+highlighted (above the framed element, or below it when there is no room). The controls
+(`n/17 ‹ › Narrator ✕`) sit in a small pill at the bottom right. The spotlight frames what the
+sentence is about (with a slight zoom), follows it while the page scrolls or changes, and moves
+onto any dialog that opens. The cursor, its click ring, the frame and the caption animate even
+when the system asks to reduce motion, because the presenter drives them.
 Each step sets up its own state, so stepping back and forth is safe, and each one plays its action
 once (approve, ask the AI, send, upload…).
 
@@ -67,7 +71,7 @@ turn the animations on, use either of these:
 | 2 | Slide | Patrick: "400 pages. Every year. By hand." |
 | 3 | Slide | Read the spec → extract rules → write test cases → dev types them in; "Every year. By hand. Zero error tolerance." |
 | 4 | Slide | The name, the tagline, three promises |
-| 5 | Step 1 | The cursor sweeps over the eight stages: Import · Index & highlight · Detect changes · Understand & approve · Generate test cases · Hand over · Compare · Report & certify |
+| 5 | Step 1 | The overview dashboard is visible below, greyed out. The cursor sweeps over the eight stages: Import · Index & highlight · Detect changes · Understand & approve · Generate test cases · Hand over · Compare · Report & certify |
 | 6 | Step 2 | Click **Import**, then **Import v13.4**: the original PDF is imported (168 pages, 220 sections); the archive sits next to it |
 | 7 | Step 3 | Click **Open the specification →**. The full specification: § index left, §3.12 right with the AI's highlights; the changed sentence flashes |
 | 8 | Step 4 | Click **Changes & review**. The log calls §3.12 *editorial* (only the wording changed, nothing to test); the AI says *a condition changed* (same employee, different result). A box under the pills explains both |

@@ -395,9 +395,13 @@ details.tech > .tech-body { padding: var(--s-4); display: grid; gap: var(--s-4);
 
 /* ---------- guided demo: spotlight + one-sentence bar ---------- */
 .tour-spot { position: fixed; z-index: 85; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(20, 12, 14, .38); outline: 3px solid var(--accent); outline-offset: 2px; pointer-events: none; transition: all .5s cubic-bezier(.2,.7,.2,1); }
-.tour-bar { position: fixed; z-index: 86; left: 0; right: 0; bottom: 0; background: var(--surface); color: var(--fg); border-top: 3px solid var(--accent); box-shadow: 0 -6px 24px rgba(20, 12, 14, .16);
-  padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: var(--s-5); }
-.tour-say { flex: 1; min-width: 0; margin: 0; max-width: none; font: 500 clamp(1rem, 1.6vw, 1.35rem)/1.4 var(--font-body); animation: cap-in .4s ease-out both; }
+.tour-bar { position: fixed; z-index: 86; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 6px 24px rgba(20, 12, 14, .18); padding: 6px 8px 6px 14px; display: flex; align-items: center; }
+/* the caption sits next to the framed element: dark box, accent bar on the left, key words highlighted */
+.tour-cap { --cap-hl: #ff8a9b; position: fixed; left: 0; top: 0; z-index: 87; width: max-content; max-width: min(580px, calc(100vw - 32px)); background: #121012; color: #fff; border-left: 6px solid var(--cap-hl); padding: 13px 20px; box-shadow: 0 12px 32px rgba(0, 0, 0, .38); pointer-events: none; opacity: 0; transition: transform .5s cubic-bezier(.2,.7,.2,1), opacity .3s; }
+.tour-cap.on { opacity: 1; }
+.tour-cap b { color: var(--cap-hl); font-weight: 700; }
+.tour-say { margin: 0; max-width: none; font: 500 clamp(1rem, 1.35vw, 1.22rem)/1.45 var(--font-body); animation: cap-in .4s ease-out both; }
+body.textonly .tour-bar { display: none; }
 .tour-ctrl { display: flex; align-items: center; gap: 6px; flex: none; }
 .tour-ctrl .n { font: 600 var(--fs-sm)/1 var(--font-mono); color: var(--muted); margin-right: 4px; }
 .tour-ctrl .btn { padding: 4px 10px; font-size: 1rem; }
@@ -427,8 +431,8 @@ body.touring .bar-tools > :not(#demoBtn) { display: none; }
 .tour-cursor .wheel::after { content: ""; position: absolute; left: 50%; top: 2px; width: 2px; height: 4px; margin-left: -1px; border-radius: 1px; background: #fff; animation: wheel .6s ease-in-out infinite; }
 .tour-cursor.scrolling .wheel { opacity: 1; }
 @keyframes wheel { from { transform: translateY(0); opacity: 1; } to { transform: translateY(6px); opacity: 0; } }
-.tour-ripple { position: fixed; z-index: 89; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 3px solid var(--accent); pointer-events: none; animation: ripple .45s ease-out forwards; }
-@keyframes ripple { from { transform: scale(.2); opacity: 1; } to { transform: scale(1.3); opacity: 0; } }
+.tour-ripple { position: fixed; z-index: 89; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 3px solid var(--accent); pointer-events: none; animation: ripple .6s ease-out forwards; }
+@keyframes ripple { from { transform: scale(.4); opacity: 1; } to { transform: scale(3.2); opacity: 0; } }
 body.on-slide .tour-cursor { opacity: 0; }
 .btn.cur-hover, .nav-btn.cur-hover, .pipe-step.cur-hover, .list-item.cur-hover, .mail-item.cur-hover, .drop.cur-hover, .notify .cur-hover, summary.cur-hover { filter: brightness(1.1); box-shadow: 0 0 0 3px var(--accent-soft); }
 .src-chip.cur-hover { background: var(--accent); color: var(--accent-ink); }
@@ -621,6 +625,26 @@ input.cover { width: 20px; height: 20px; accent-color: var(--ok); cursor: pointe
 .src-card { display: grid; gap: 4px; margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--accent); border-radius: var(--r-sm); background: var(--surface); }
 .src-card .field-label { display: flex; align-items: center; gap: 8px; }
 .src-card .hint { font-size: var(--fs-xs); color: var(--muted); }
+/* overview dashboard */
+.ov-status { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s-3); }
+.ov-tile { display: grid; gap: 4px; align-content: start; text-align: left; padding: 14px 16px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); color: var(--fg); cursor: pointer; font: inherit; }
+.ov-tile:hover, .ov-tile:focus-visible { border-color: var(--accent); outline: none; }
+.ov-tile.ok { border-top-color: var(--ok); } .ov-tile.warn { border-top-color: var(--warn); } .ov-tile.bad { border-top-color: var(--bad); }
+.ov-label { font: 600 var(--fs-xs)/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.ov-value { font: 600 var(--fs-xl)/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.ov-value small { font-size: .6em; color: var(--muted); font-weight: 500; }
+.ov-note { font-size: var(--fs-xs); color: var(--muted); }
+.ov-row { align-items: stretch; }
+.ov-attn { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); }
+.ov-attn:last-child { border-bottom: 0; }
+.ov-attn .btn { flex: none; }
+.ov-switches { display: grid; gap: 6px; padding: 10px 14px 12px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.ov-switch { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); cursor: pointer; }
+.ov-switch input { accent-color: var(--accent); width: 16px; height: 16px; }
+.ov-chat { min-height: 520px; }
+body.touring .ov-dash { filter: grayscale(1); opacity: .55; pointer-events: none; }
+@media (max-width: 1100px) { .ov-status { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .ov-status { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* what a change type means */
 .ct-help { font-size: var(--fs-xs); color: var(--muted); margin: 0; max-width: none; }
 .ct-explain { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: stretch; }
@@ -684,6 +708,12 @@ input.cover { width: 20px; height: 20px; accent-color: var(--ok); cursor: pointe
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  /* the guided demo is driven by the presenter: cursor, click ring, frame and caption still move */
+  .tour-cursor { transition: transform .8s cubic-bezier(.45,.05,.25,1), opacity .25s !important; }
+  .tour-cursor svg { transition: transform .12s ease !important; }
+  .tour-ripple { animation: ripple .6s ease-out forwards !important; }
+  .tour-spot { transition: all .5s cubic-bezier(.2,.7,.2,1) !important; }
+  .tour-cap { transition: transform .5s cubic-bezier(.2,.7,.2,1), opacity .3s !important; }
 }
 @media print {
   .bar, .rail, .no-print, .drawer, .toast-host, #tourHost, .notify-host { display: none !important; }
@@ -1935,8 +1965,6 @@ const APP = (() => {
 
   /* ---------- 0 · Overview ---------- */
   function vOverview() {
-    const pend = Object.values(S.rules).filter(r => r.status === "pending").length;
-    const affected = C.CATALOGUE.filter(r => rowStatus(r) !== "unchanged").length;
     const stages = [
       ["ingest", L("Import", "Import"), L("Original government PDF + our archive (last year's spec, tests, reports)", "Original-PDF der Behörde + unser Archiv (Vorjahresspezifikation, Tests, Berichte)")],
       ["specs", L("Index & highlight", "Indizieren & markieren"), L("§ index from the PDF structure; AI marks test-relevant sentences", "§-Index aus der PDF-Struktur; KI markiert prüfrelevante Sätze")],
@@ -1947,44 +1975,108 @@ const APP = (() => {
       ["validate", L("Compare", "Vergleichen"), L("Vendor's DTA file vs. expected, differences in words", "DTA-Datei des Herstellers vs. Erwartung, Abweichungen in Worten")],
       ["cert", L("Report & certify", "Bericht & Zertifikat"), L("Pass/fail per test case, certificate as PDF", "Bestanden/nicht bestanden je Testfall, Zertifikat als PDF")]
     ];
-    const P = S.params, gr = C.gates(C.GOLDEN.state, C.GOLDEN.today, P);
+    const P = S.params, gr = C.gates(C.GOLDEN.state, C.GOLDEN.today, P), o = ovState(), att = ovAttention();
+    const tile = (screen, label, value, note, cls) => `<button class="ov-tile ${cls || ""}" data-act="go" data-screen="${screen}"><span class="ov-label">${label}</span><span class="ov-value">${value}</span><span class="ov-note">${note}</span></button>`;
+    const sevPill = s => pill(s === "bad" ? L("blocking", "blockiert") : s === "warn" ? L("to do", "zu tun") : L("info", "Info"), s === "bad" ? "bad" : s === "warn" ? "warn" : "info");
+    const feed = mailbox().threads.flatMap(t => t.msgs.map(m => ({ t, m }))).sort((a, b) => b.m.at - a.m.at).slice(0, 4);
+    const sender = (m, t) => m.from === "itsg" ? `${L("You", "Sie")} → ${esc(vendorOf(t.vendor).name)}` : m.from === "system" ? L("Automatic comparison", "Automatischer Vergleich") : `${esc(vendorOf(m.from).name)} → ${L("you", "Sie")}`;
+    const nset = store.get("mailNotify", { upload: true, question: true, spec: true });
     return `${S.recap ? recapPanel() : ""}<div class="page-head"><div class="page-head-text"><h1>${L("From the new specification to a certified release", "Von der neuen Spezifikation zur zertifizierten Version")}</h1></div></div>
       <section class="panel" data-tour="pipeline"><div class="panel-body"><div class="pipe">${stages.map(([sc, t, d], i) => `<button class="pipe-step" data-act="go" data-screen="${sc}"><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="t">${t}</span><span class="d">${d}</span></button>`).join("")}</div></div></section>
-      <div class="tour-hide stack" style="gap:var(--s-5)">${head("",
-      L("The government publishes new specifications once a year, sometimes in December for 1 January. This assistant turns the change into updated, traceable test cases — the language model reads, pre-written functions calculate, examiners approve.", "Die Spezifikationen kommen einmal im Jahr, manchmal im Dezember für den 1. Januar. Dieser Assistent macht aus der Änderung aktualisierte, nachvollziehbare Testfälle — das Sprachmodell liest, vorab geschriebene Funktionen rechnen, Prüfer geben frei."),
-      `<button class="btn primary" data-act="tour">${ic("play")} ${L("Start guided demo", "Geführte Demo starten")}</button>`)}
-      <div class="grid-4" data-tour="kpis">
-        <div class="panel kpi"><div class="kpi-value">${CHANGES.filter(c => c.source !== "log-no-text").length}</div><div class="kpi-label">${L("changed sections in v13.4 (with text)", "geänderte Abschnitte in v13.4 (mit Text)")}</div><div>${pill(CHANGES.filter(c => c.source === "diff-only").length + " " + L("not in change log", "nicht im Protokoll"), "bad")}</div></div>
-        <div class="panel kpi"><div class="kpi-value">${pend}</div><div class="kpi-label">${L("rules awaiting approval", "Regeln warten auf Freigabe")}</div><div>${pill(C.RULES.length + " " + L("rules extracted", "Regeln extrahiert"), "info")}</div></div>
-        <div class="panel kpi"><div class="kpi-value">${affected}<span class="muted" style="font-size:1rem"> / ${C.CATALOGUE.length}</span></div><div class="kpi-label">${L("test cases new or affected", "Testfälle neu oder betroffen")}</div><div>${pill(L("EEL subset of ~4,000", "EEL-Teilmenge von ~4.000"), "")}</div></div>
-        <div class="panel kpi"><div class="kpi-value">${baseline().counts.obsolete + baseline().counts.missing}</div><div class="kpi-label">${L("old tests obsolete or rules without a test", "alte Tests veraltet oder Regeln ohne Test")}</div><div>${pill(L("coverage check", "Abdeckungsprüfung"), "warn")}</div></div>
-      </div>
-      <div class="grid-2">
-        <section class="panel"><div class="panel-head"><h3>${L("Today vs. with the assistant", "Heute vs. mit dem Assistenten")}</h3></div>
-          <div class="panel-body compare">
-            <div class="stack"><span class="eyebrow">${L("Today (30-year-old process)", "Heute (30 Jahre alter Prozess)")}</span><ul>
-              <li>${L("Experts read ~600 pages and highlight PDFs by hand", "Experten lesen ~600 Seiten und markieren PDFs von Hand")}</li>
-              <li>${L("~4,000 test cases with expected values calculated by hand", "~4.000 Testfälle mit von Hand berechneten Erwartungswerten")}</li>
-              <li>${L("Nothing checks that a test case fits the spec — “we wait for vendors to shout”", "Nichts prüft, ob ein Testfall zur Spezifikation passt — „wir warten, bis Hersteller sich melden“")}</li>
-              <li>${L("Vendor engineers type every test case into their software by hand", "Hersteller-Entwickler tippen jeden Testfall von Hand in ihre Software")}</li>
-              <li>${L("30 years of tests — some may be obsolete by law", "30 Jahre alte Tests — manche sind rechtlich überholt")}</li></ul></div>
-            <div class="stack"><span class="eyebrow" style="color:var(--accent)">${L("With the assistant", "Mit dem Assistenten")}</span><ul>
-              <li>${L("Starts from the original government PDF; diff catches changes the log forgot", "Startet vom Original-PDF; der Diff findet, was das Protokoll vergisst")}</li>
-              <li>${L("Rules in plain language, approved by a person, each linked to its spec quote", "Regeln in Klartext, von einem Menschen freigegeben, jeweils mit Spezifikationszitat")}</li>
-              <li>${L("One test case per rule; JSON import proposed instead of typing", "Ein Testfall je Regel; JSON-Import statt Abtippen vorgeschlagen")}</li>
-              <li>${L("Differences explained in words, not bytes", "Abweichungen in Worten erklärt, nicht in Bytes")}</li>
-              <li>${L("Baseline check flags obsolete and missing tests", "Bestandsprüfung markiert veraltete und fehlende Tests")}</li></ul></div>
-          </div></section>
-        <section class="panel"><div class="panel-head"><h3>${L("ITSG reference case, recomputed live", "ITSG-Referenzfall, live berechnet")}</h3>${pill("TC-3.12-001", "mono")}</div>
-          <div class="panel-body">${timeline(C.GOLDEN.state, C.GOLDEN.today, P)}
-            <dl class="kv">
-              <dt>${L("Periods in request", "Zeiträume in Anfrage")}</dt><dd>${prov("golden.chain", gr.chain.included.length + " " + L("periods", "Zeiträume"))}</dd>
-              <dt>${L("Days counted", "Gezählte Tage")}</dt><dd>${prov("golden.total", gr.days.total + " ≥ " + P.min_days)}</dd>
-              <dt>${L("Request 41", "Anfrage 41")}</dt><dd>${prov("golden.allowed", gr.allowed ? L("allowed", "erlaubt") : L("not allowed", "nicht erlaubt"))}</dd>
-              <dt>${L("Sick pay ends", "EFZ endet")}</dt><dd>${prov("golden.efz30", C.de(C.efzEnd(C.GOLDEN.state.current.start, 22, P).end))} → ${prov("golden.efz27", C.de(C.efzEnd(C.GOLDEN.state.current.start, 25, P).end))}</dd>
-              <dt>${L("EEL end confirmed", "EEL-Ende bestätigt")}</dt><dd>${prov("golden.eelend", C.de(C.eelEnd(C.GOLDEN.finalAuEnd, C.GOLDEN.employmentEnd).end))}</dd>
-            </dl><p class="muted" style="font-size:var(--fs-xs)">${L("Click any underlined value to see where it came from.", "Klicken Sie auf einen unterstrichenen Wert, um seine Herkunft zu sehen.")}</p></div></section>
-      </div></div>`;
+      <div class="ov-dash stack" style="gap:var(--s-5)" data-tour="ovdash">
+        <div class="ov-status" data-tour="ovstatus">
+          ${tile("cert", L("Deadline", "Frist"), `${o.days} ${L("days", "Tage")}`, L("2027 certificates due 31.12.2026", "Zertifikate 2027 fällig am 31.12.2026"), o.days < 14 ? "bad" : "warn")}
+          ${tile("ingest", L("Specification", "Spezifikation"), o.imported ? "v13.4" : L("new: v13.4", "neu: v13.4"), o.imported ? `${SF.pages} ${L("pages", "Seiten")} · ${SF.sections.length} §` : L("published 10.03.2026 · not imported yet", "veröffentlicht 10.03.2026 · noch nicht importiert"), o.imported ? "ok" : "warn")}
+          ${tile("changes", L("Changes", "Änderungen"), `${o.approved}<small> / ${o.changes}</small>`, `${L("approved", "freigegeben")} · ${o.notInLog} ${L("not in change log", "nicht im Protokoll")}`, o.approved === o.changes ? "ok" : "")}
+          ${tile("review", L("Test cases", "Testfälle"), o.generated ? `${o.sent ? o.cases : o.verified}<small> / ${o.cases}</small>` : "—", !o.generated ? L("not generated yet", "noch nicht erzeugt") : o.sent ? L("sent to the developers", "an die Entwickler gesendet") : L("verified", "verifiziert"), o.sent ? "ok" : "")}
+          ${tile("mail", L("Vendors", "Hersteller"), `${o.certified}<small> / ${C.VENDORS.length}</small>`, `${L("certified", "zertifiziert")} · ${o.last ? `SAP ${o.last.passed}/${o.last.total}` : L("no results yet", "noch keine Ergebnisse")}`, o.certified === C.VENDORS.length ? "ok" : "")}
+        </div>
+        <div class="grid-2 ov-row">
+          <div class="stack" style="gap:var(--s-4)">
+            <section class="panel" data-tour="ovattention"><div class="panel-head"><h3>${L("Needs your attention", "Braucht Ihre Aufmerksamkeit")}</h3>${pill(String(att.length), att.length ? "warn" : "ok")}</div>
+              <div class="panel-body flush">${att.length ? att.map(a => `<div class="ov-attn"><div class="stack" style="gap:3px;min-width:0"><div class="row" style="gap:6px">${sevPill(a.sev)}<b>${esc(a.title)}</b></div><span class="muted">${esc(a.text)}</span></div><button class="btn sm" data-act="${a.act}" ${a.attrs}>${esc(a.btn)} →</button></div>`).join("")
+                : `<div class="ov-attn"><span>✓ ${L("Nothing open. Every vendor is certified for 2027.", "Nichts offen. Jeder Hersteller ist für 2027 zertifiziert.")}</span></div>`}</div></section>
+            <section class="panel" data-tour="ovmail"><div class="panel-head"><h3>${ic("inbox")} ${L("E-mail notifications", "E-Mail-Benachrichtigungen")}</h3><button class="btn sm ghost" data-act="go" data-screen="mail">${L("All messages", "Alle Nachrichten")} →</button></div>
+              <div class="panel-body flush">${feed.map(({ t, m }) => { const unread = m.from !== "itsg" && t.msgs.indexOf(m) >= (t.read.itsg || 0); return `<button class="mail-item ${unread ? "unread" : ""}" data-act="openThread" data-id="${t.id}" data-go="1"><div class="row between"><b class="subj">${esc(txt(t.subject))}</b><span class="muted" style="font-size:11px">${fmtAt(m.at)}</span></div><span class="snip"><b>${sender(m, t)}:</b> ${esc((txt(m.body) || attLabel(m.attach[0] || { type: "", ref: "" })).slice(0, 120))}</span></button>`; }).join("")}
+                <div class="ov-switches"><span class="field-label">${L("E-mail me when", "Mich per E-Mail benachrichtigen, wenn")}</span>${[["upload", L("a vendor uploads a result", "ein Hersteller ein Ergebnis hochlädt")], ["question", L("a vendor asks a question", "ein Hersteller eine Frage stellt")], ["spec", L("a new specification is published", "eine neue Spezifikation erscheint")]].map(([k, t]) => `<label class="ov-switch"><input type="checkbox" data-notify="${k}" ${nset[k] !== false ? "checked" : ""}><span>${t}</span></label>`).join("")}</div></div></section>
+          </div>
+          <div class="chat ov-chat" data-tour="ovchat"><div class="chat-head"><span class="who">AI</span><div class="stack" style="gap:1px"><b>${L("AI assistant", "KI-Assistent")} · EEL 2027</b><span>${L("Knows this release: changes, test cases, vendors, deadline", "Kennt diese Version: Änderungen, Testfälle, Hersteller, Frist")}</span></div></div>
+            <div class="chat-log" id="ovChatLog">${chatLogHtml(ST.ovChat, OV_SUGGEST(), "ovSuggest", OV_INTRO())}</div>
+            <form class="chat-form" onsubmit="return false"><input class="input" id="ovChatInput" autocomplete="off" placeholder="${esc(L("e.g. What needs my attention?", "z. B. Was braucht meine Aufmerksamkeit?"))}"><button class="btn primary" data-act="ovSend" type="button">${L("Ask", "Fragen")}</button></form></div>
+        </div>
+        <div class="grid-2">
+          <section class="panel" data-tour="ovvendors"><div class="panel-head"><h3>${L("Vendors · certification 2027", "Hersteller · Zertifizierung 2027")}</h3></div>
+            <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>${L("Vendor", "Hersteller")}</th><th>${L("Package", "Paket")}</th><th>${L("Checklist", "Checkliste")}</th><th>${L("Last result", "Letztes Ergebnis")}</th><th>${L("Certificate", "Zertifikat")}</th></tr></thead><tbody>
+              ${ovVendorRows().map(r => `<tr><td><b>${esc(r.v.name)}</b><div class="muted" style="font-size:var(--fs-xs)">${esc(r.v.productName)} ${esc(r.v.release)} · ${L("on-site scope", "Vor-Ort-Umfang")} ${r.scope} · ${L("2026 failed", "2026 nicht bestanden")}: ${r.v.prev && r.v.prev.failed.length ? r.v.prev.failed.map(id => `<span class="mono">${esc(id)}</span>`).join(", ") : "—"}</div></td>
+                <td>${r.sent ? pill("✓ " + L("sent", "gesendet"), "ok") : `<span class="muted">—</span>`}</td><td class="mono">${r.checklist}</td>
+                <td>${r.last ? pill(`${r.last.ok ? "✓" : "✕"} ${r.last.passed}/${r.last.total}`, r.last.ok ? "ok" : "bad") : `<span class="muted">—</span>`}</td>
+                <td>${r.cert ? pill("✓ 2027", "ok") : `<span class="muted">${L("open", "offen")}</span>`}</td></tr>`).join("")}
+            </tbody></table></div></section>
+          <section class="panel"><div class="panel-head"><h3>${L("ITSG reference case, recomputed live", "ITSG-Referenzfall, live berechnet")}</h3>${pill("TC-3.12-001", "mono")}</div>
+            <div class="panel-body">${timeline(C.GOLDEN.state, C.GOLDEN.today, P)}
+              <dl class="kv">
+                <dt>${L("Periods in request", "Zeiträume in Anfrage")}</dt><dd>${prov("golden.chain", gr.chain.included.length + " " + L("periods", "Zeiträume"))}</dd>
+                <dt>${L("Days counted", "Gezählte Tage")}</dt><dd>${prov("golden.total", gr.days.total + " ≥ " + P.min_days)}</dd>
+                <dt>${L("Request 41", "Anfrage 41")}</dt><dd>${prov("golden.allowed", gr.allowed ? L("allowed", "erlaubt") : L("not allowed", "nicht erlaubt"))}</dd>
+                <dt>${L("Sick pay ends", "EFZ endet")}</dt><dd>${prov("golden.efz30", C.de(C.efzEnd(C.GOLDEN.state.current.start, 22, P).end))} → ${prov("golden.efz27", C.de(C.efzEnd(C.GOLDEN.state.current.start, 25, P).end))}</dd>
+                <dt>${L("EEL end confirmed", "EEL-Ende bestätigt")}</dt><dd>${prov("golden.eelend", C.de(C.eelEnd(C.GOLDEN.finalAuEnd, C.GOLDEN.employmentEnd).end))}</dd>
+              </dl><p class="muted" style="font-size:var(--fs-xs)">${L("Click any underlined value to see where it came from.", "Klicken Sie auf einen unterstrichenen Wert, um seine Herkunft zu sehen.")}</p></div></section>
+        </div>
+      </div>`;
+  }
+
+  /* ---------- overview: the release at a glance, the attention list, the vendors, the release assistant ---------- */
+  function ovState() {
+    const list = CHANGE_LIST(), cases = ST.generated ? storyCases().filter(c => caseStatus(c) !== "rejected") : [];
+    return { days: DEADLINE - today(), imported: ST.ingest === 2, changes: list.length, approved: list.filter(c => ST.decided[c.sec] === "approved").length,
+      waiting: list.filter(c => !ST.decided[c.sec]).length, notInLog: CHANGES.filter(c => c.source === "diff-only").length,
+      generated: ST.generated, cases: cases.length, verified: cases.filter(c => caseStatus(c) === "verified").length, sent: ST.sent,
+      last: ST.uploads[ST.uploads.length - 1] || null, certified: C.VENDORS.filter(v => mailbox().certs[v.id]).length };
+  }
+  function ovAttention() {
+    const o = ovState(), b = baseline().counts, out = [];
+    const add = (sev, title, text, btn, act, attrs) => out.push({ sev, title, text, btn, act, attrs });
+    const goTo = s => `data-screen="${s}"`;
+    if (!o.imported) add("warn", L("Import the new specification", "Neue Spezifikation importieren"), L("v13.4 applies from 01.01.2027. The archive already holds v13.3, the tests and last year's reports.", "v13.4 gilt ab 01.01.2027. Das Archiv hat schon v13.3, die Tests und die Vorjahresberichte."), L("Import", "Importieren"), "go", goTo("ingest"));
+    if (o.waiting) add("warn", `${o.waiting} ${L("changes wait for your approval", "Änderungen warten auf Freigabe")}`, L("§3.12 is called editorial in the change log, but the AI reads a condition change. §3.12.6 is not in the change log at all.", "§3.12 heißt im Protokoll redaktionell, die KI liest eine Bedingungsänderung. §3.12.6 fehlt im Protokoll ganz."), L("Review", "Prüfen"), "go", goTo("changes"));
+    add("info", L("v13.4 contradicts itself (§3.12)", "v13.4 widerspricht sich (§3.12)"), L("p. 135 says „nicht mehr als 6 Monate“, the insurer's paragraph on p. 136 still says „nicht mindestens“. A question for the authors.", "S. 135 sagt „nicht mehr als 6 Monate“, der Kassen-Absatz auf S. 136 noch „nicht mindestens“. Eine Frage an die Autoren."), L("Show", "Zeigen"), "goSec", `data-sec="3.12" data-q="nicht mindestens 6 Monate vergangen sind"`);
+    if (b.obsolete + b.missing) add("warn", `${b.obsolete + b.missing} ${L("old tests obsolete or rules without a test", "alte Tests veraltet oder Regeln ohne Test")}`, `${b.obsolete} ${L("obsolete by law", "rechtlich überholt")} · ${b.missing} ${L("rules without a test", "Regeln ohne Test")}`, L("Coverage check", "Abdeckungsprüfung"), "go", goTo("baseline"));
+    if (o.imported && o.approved && !o.generated) add("warn", L("Create the test cases", "Testfälle erstellen"), `${o.approved} ${L("approved changes are ready for test cases.", "freigegebene Änderungen sind bereit für Testfälle.")}`, L("Create", "Erstellen"), "go", goTo("review"));
+    if (o.generated && !o.sent) add("warn", `${o.cases - o.verified} ${L("test cases to verify", "Testfälle zu verifizieren")}`, L("Verify or edit them, then send the package to the developers.", "Verifizieren oder bearbeiten, dann das Paket an die Entwickler senden."), L("Review", "Prüfen"), "go", goTo("review"));
+    if (o.last && !o.last.ok) add("bad", `SAP: ${o.last.total - o.last.passed} ${L("of", "von")} ${o.last.total} ${L("failed", "nicht bestanden")}`, L("The reference case: the exported file still lists the 2024 period (ANZAHL-AU 05 instead of 04).", "Der Referenzfall: Die exportierte Datei enthält noch den Zeitraum von 2024 (ANZAHL-AU 05 statt 04)."), L("Open", "Öffnen"), "openThread", `data-id="${certThread("sap").id}" data-go="1"`);
+    if (o.last && o.last.ok && !mailbox().certs.sap) add("warn", L("SAP passed: issue the certificate", "SAP bestanden: Zertifikat erteilen"), L("5 of 5 test cases passed and nothing failed on site.", "5 von 5 Testfällen bestanden, vor Ort nichts offen."), L("Certificate", "Zertifikat"), "go", goTo("cert"));
+    return out;
+  }
+  function ovVendorRows() {
+    return C.VENDORS.map(v => {
+      const sap = v.id === "sap", w = Object.values(work(v.id)), fileRes = w.filter(x => x.status === "pass" || x.status === "fail");
+      const last = sap ? (ST.uploads[ST.uploads.length - 1] || null) : fileRes.length ? { passed: fileRes.filter(x => x.status === "pass").length, total: fileRes.length, ok: fileRes.every(x => x.status === "pass") } : null;
+      return { v, scope: scopeFor(v).length, sent: sap ? ST.sent : published(v.id), cert: !!mailbox().certs[v.id], last,
+        checklist: sap && ST.sent ? `${Object.keys(ST.covered).length}/${story.caseIds().length}` : "—" };
+    });
+  }
+  const OV_INTRO = () => L("Ask about this release. The answers come from its live data, with the § sources.", "Fragen Sie zu dieser Version. Die Antworten kommen aus ihren aktuellen Daten, mit den §-Quellen.");
+  const OV_SUGGEST = () => [L("What needs my attention?", "Was braucht meine Aufmerksamkeit?"), L("What changed in v13.4?", "Was hat sich in v13.4 geändert?"), L("How are the vendors doing?", "Wie stehen die Hersteller?"), L("When is the deadline?", "Wann ist die Frist?")];
+  // Recorded answers are written from the live state, so they are always current; § references become source chips.
+  function ovRecorded(q) {
+    const o = ovState(), att = ovAttention();
+    if (/attention|todo|to do|open|next|aufmerksam|offen|zu tun|nächst/i.test(q))
+      return att.length ? `${L("**" + att.length + " things** are open:", "**" + att.length + " Punkte** sind offen:")}\n${att.map(a => `- **${a.title}**: ${a.text}`).join("\n")}` : L("**Nothing is open.** Every vendor is certified for 2027.", "**Nichts ist offen.** Jeder Hersteller ist für 2027 zertifiziert.");
+    if (/chang|v13|änder|neu/i.test(q))
+      return `${L("v13.4 has **" + o.changes + " changes with text**; " + o.notInLog + " of them is **not in the change log**:", "v13.4 hat **" + o.changes + " Änderungen mit Text**; " + o.notInLog + " davon fehlt **im Änderungsprotokoll**:")}\n${CHANGE_LIST().map(c => { const sc = specChange(c.sec), page = SEC[c.sec] ? SEC[c.sec].page : null; return `- §${c.sec}${page ? `, p. ${page}` : ""} ${c.title}: **${CT()[sc.change_type] ? CT()[sc.change_type][0] : sc.change_type}**${c.source === "diff-only" ? L(" (found only by the diff)", " (nur durch den Diff gefunden)") : ""}${ST.decided[c.sec] ? " · " + (ST.decided[c.sec] === "approved" ? L("approved", "freigegeben") : L("declined", "abgelehnt")) : ""}`; }).join("\n")}\n\n${L("The one that changes results is §3.12: a gap of **exactly 6 months** now keeps the chain going.", "Die Änderung mit anderem Ergebnis ist §3.12: Eine Lücke von **genau 6 Monaten** verkettet jetzt weiter.")}\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“.`;
+    if (/vendor|hersteller|sap|lexware|certif|zertif/i.test(q))
+      return ovVendorRows().map(r => `- **${r.v.name}** (${r.v.productName} ${r.v.release}): ${r.cert ? L("**certified for 2027**", "**für 2027 zertifiziert**") : r.last ? (r.last.ok ? L("all test cases passed", "alle Testfälle bestanden") : `**${r.last.total - r.last.passed} ${L("of", "von")} ${r.last.total} ${L("failed", "nicht bestanden")}**`) : r.sent ? L("package sent, no results yet", "Paket gesendet, noch keine Ergebnisse") : L("no package yet", "noch kein Paket")}. ${L("On site", "Vor Ort")}: ${r.scope} ${L("criteria", "Kriterien")}${r.v.prev && r.v.prev.failed.length ? `, ${L("including last year's failed", "darunter aus dem Vorjahr")} \`${r.v.prev.failed.join("`, `")}\`` : ""}.`).join("\n");
+    if (/deadline|when|day|frist|wann|tag/i.test(q))
+      return `${L("**" + o.days + " days left.** 2027 certificates must be issued by **31.12.2026**; without one, a program cannot transmit from 01.01.2027.", "**Noch " + o.days + " Tage.** Die Zertifikate 2027 müssen bis **31.12.2026** erteilt sein; ohne Zertifikat darf ein Programm ab 01.01.2027 nicht übermitteln.")}\n\n${L("Still open", "Noch offen")}: ${o.certified}/${C.VENDORS.length} ${L("vendors certified", "Hersteller zertifiziert")}${att.length ? ", " + att.length + " " + L("open items", "offene Punkte") : ""}.`;
+    return `${L("Release EEL 2027: **" + o.days + " days** to the deadline, **" + att.length + " open items**, " + o.certified + "/" + C.VENDORS.length + " vendors certified.", "Version EEL 2027: **" + o.days + " Tage** bis zur Frist, **" + att.length + " offene Punkte**, " + o.certified + "/" + C.VENDORS.length + " Hersteller zertifiziert.")}\n\n${L("Ask me what needs your attention, what changed, how the vendors are doing or about the deadline.", "Fragen Sie mich, was offen ist, was sich geändert hat, wie die Hersteller stehen oder nach der Frist.")}`;
+  }
+  async function ovAsk(q) {
+    q = String(q || "").trim(); if (!q) return;
+    ST.ovChat.push({ who: "you", text: q });
+    const ctx = JSON.stringify({ state: ovState(), attention: ovAttention().map(a => a.title + ": " + a.text), changes: CHANGE_LIST().map(c => ({ sec: c.sec, title: c.title, type: specChange(c.sec).change_type, source: c.source, decision: ST.decided[c.sec] || null })), vendors: ovVendorRows().map(r => ({ name: r.v.name, sent: r.sent, last: r.last, certified: r.cert, scope: r.scope })) });
+    const answer = liveChat("You are the assistant of an ITSG examiner for the EEL 2027 release. Answer only from the data given, briefly, in Markdown. Cite § numbers.", `${ctx}\n\nQuestion: ${q}`).then(a => a || ovRecorded(q));
+    await streamInto(ST.ovChat, "ovChatLog", answer, () => chatLogHtml(ST.ovChat, OV_SUGGEST(), "ovSuggest", OV_INTRO()));
+    log("AI", L("Assistant answered", "Assistent hat geantwortet"), q);
   }
 
   /* What the guided demo did, chapter by chapter (closing step). */
@@ -2789,7 +2881,7 @@ const APP = (() => {
   function resetStory() {
     Object.keys(CASE_ORIG).forEach(id => { const { obj, orig } = CASE_ORIG[id]; Object.assign(obj, orig); delete obj.edited; delete CASE_ORIG[id]; });
     Object.assign(ST, { ingest: 0, pct: 0, selChange: "3.12", decided: {}, edits: {}, chEdit: null, reasonOpen: false, chat: [], generated: false, genBusy: false, genLines: [],
-      selCase: FOLLOWED, focus: null, status: {}, caseEdit: null, caseFilter: "all", sent: false, notify: false, covered: {}, clOpen: null, uploads: [], asked: false, fixed: false, certAt: null });
+      selCase: FOLLOWED, focus: null, status: {}, caseEdit: null, ovChat: [], caseFilter: "all", sent: false, notify: false, covered: {}, clOpen: null, uploads: [], asked: false, fixed: false, certAt: null });
     S.mail = null; S.published = false; S.publishedTo = []; S.vwork = {}; S.audit = {}; S.compose = null; S.attachMenu = false; S.selThread = null; S.mailFolder = "inbox";
   }
   resetStory();
@@ -2888,20 +2980,22 @@ const APP = (() => {
     { k: /test|affect|betroffen|case/i, a: () => `Every test that has a gap of exactly 6 months between two sick periods. In the catalogue that is ${C.CATALOGUE.filter(r => r.sec === "3.12").length} rows citing §3.12; one old test (\`ALT-3.12-031\`, “exactly 6 months stops the chain”) is **now wrong** and should be retired. I will write one new test that sits **right on the boundary**.\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“.` },
     { k: /insurer|krankenkasse|kasse|consist|widerspr|contradict/i, a: () => "On p. 136, the insurer's paragraph still reads „…nicht mindestens 6 Monate vergangen sind“. The employer's paragraph on p. 135 says „nicht mehr als 6 Monate“. I can't decide which one the authors meant, so I **flagged it as a question for ITSG** instead of guessing.\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“." }
   ];
+  // With “Live” in the AI settings, a question goes to the hessian.AI chat endpoint; null means: use the recorded answer.
+  async function liveChat(system, user) {
+    if (S.ai.mode !== "live") return null;
+    try {
+      const key = store.get("aikey", ""), headers = { "Content-Type": "application/json" };
+      if (key) headers.Authorization = "Bearer " + key;
+      const body = { model: S.ai.model, temperature: 0, messages: [{ role: "system", content: system }, { role: "user", content: user }] };
+      const r = await fetch(S.ai.base.replace(/\/$/, "") + "/chat/completions", { method: "POST", headers, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return (await r.json()).choices[0].message.content;
+    } catch (e) { log("system", L("Live chat failed, recorded answer used", "Live-Chat fehlgeschlagen, Aufzeichnung genutzt"), String(e.message)); return null; }
+  }
   async function chatAnswer(question, ctx) {
-    // Hook for a live model: with “Live” in the AI settings, the question goes to the hessian.AI chat
-    // endpoint together with the section text, the extracted change and the reasoning above.
-    if (S.ai.mode === "live") {
-      try {
-        const key = store.get("aikey", ""), headers = { "Content-Type": "application/json" };
-        if (key) headers.Authorization = "Bearer " + key;
-        const body = { model: S.ai.model, temperature: 0, messages: [{ role: "system", content: "You explain a change in a German social-insurance specification to an examiner. Answer only from the text given. Quote the German source verbatim with its § number. Short answers." }, { role: "user", content: `${ctx}\n\nQuestion: ${question}` }] };
-        const r = await fetch(S.ai.base.replace(/\/$/, "") + "/chat/completions", { method: "POST", headers, body: JSON.stringify(body) });
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        const j = await r.json();
-        return j.choices[0].message.content;
-      } catch (e) { log("system", L("Live chat failed, recorded answer used", "Live-Chat fehlgeschlagen, Aufzeichnung genutzt"), String(e.message)); }
-    }
+    // The live model gets the section text, the extracted change and the reasoning above.
+    const live = await liveChat("You explain a change in a German social-insurance specification to an examiner. Answer only from the text given. Quote the German source verbatim with its § number. Short answers.", `${ctx}\n\nQuestion: ${question}`);
+    if (live) return live;
     const hit = CHAT_SCRIPT.find(x => x.k.test(question));
     const sc = specChange(ST.selChange);
     return hit && ST.selChange === "3.12" ? hit.a() : `${sc.summary}\n\nSource: §${ST.selChange}${SEC[ST.selChange] && SEC[ST.selChange].page ? `, p. ${SEC[ST.selChange].page}` : ""}${(sc.quotes_new || [])[0] ? `, „${sc.quotes_new[0]}“` : ""}.`;
@@ -2910,18 +3004,24 @@ const APP = (() => {
     q = String(q || "").trim(); if (!q) return;
     ST.chat.push({ who: "you", text: q });
     const ctx = `§${ST.selChange} ${SEC[ST.selChange] ? SEC[ST.selChange].title : ""}\n${(secText(ST.selChange) || []).join("\n")}\n\nExtracted change: ${JSON.stringify(specChange(ST.selChange))}`;
-    const msg = { who: "ai", text: "", busy: true }; ST.chat.push(msg); paintChat();
-    const answer = await chatAnswer(q, ctx), words = answer.split(/(\s+)/);
-    let i = 0;
-    await new Promise(done => { const tick = () => { msg.text += words.slice(i, i + 3).join(""); i += 3; paintChat(); if (i < words.length) setTimeout(tick, 28); else done(); }; tick(); });
-    msg.busy = false; paintChat();
+    await streamInto(ST.chat, "chatLog", chatAnswer(q, ctx), () => chatLogHtml());
     log("AI", L("Question answered", "Frage beantwortet"), `§${ST.selChange}: ${q}`);
   }
   const CHAT_SUGGEST = () => [L("Why is this not just editorial?", "Warum ist das nicht nur redaktionell?"), L("Which tests are affected?", "Welche Tests sind betroffen?"), L("Is the spec consistent here?", "Ist die Spezifikation hier widerspruchsfrei?")];
-  const chatLogHtml = () => ST.chat.length ? ST.chat.map(m => m.who === "ai"
+  // A "typing" bubble first, then the answer streams in a few words at a time.
+  async function streamInto(list, logId, answerP, html) {
+    const msg = { who: "ai", text: "", busy: true }; list.push(msg);
+    const paint = () => { const el = document.getElementById(logId); if (el) { el.innerHTML = html(); el.scrollTop = el.scrollHeight; } };
+    paint();
+    const words = String(await answerP).split(/(\s+)/);
+    let i = 0;
+    await new Promise(done => { const tick = () => { msg.text += words.slice(i, i + 3).join(""); i += 3; paint(); if (i < words.length) setTimeout(tick, 28); else done(); }; tick(); });
+    msg.busy = false; paint();
+  }
+  const chatLogHtml = (list = ST.chat, sugg = CHAT_SUGGEST(), act = "chatSuggest", intro = L("Ask the AI about this change. It answers only from the specification and quotes it.", "Fragen Sie die KI zu dieser Änderung. Sie antwortet nur aus der Spezifikation und zitiert sie.")) => list.length ? list.map(m => m.who === "ai"
     ? `<div class="chat-msg ai"><span class="who">AI</span><div class="txt md ${m.busy ? "typing" : ""}">${richText(m.text)}</div></div>`
     : `<div class="chat-msg you"><div class="txt">${esc(m.text)}</div><span class="who">${L("YOU", "SIE")}</span></div>`).join("")
-    : `<div class="chat-empty"><span>${L("Ask the AI about this change. It answers only from the specification and quotes it.", "Fragen Sie die KI zu dieser Änderung. Sie antwortet nur aus der Spezifikation und zitiert sie.")}</span><div class="chat-sugg">${CHAT_SUGGEST().map(q => `<button type="button" data-act="chatSuggest" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div></div>`;
+    : `<div class="chat-empty"><span>${intro}</span><div class="chat-sugg">${sugg.map(q => `<button type="button" data-act="${act}" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div></div>`;
   function paintChat() { const el = document.getElementById("chatLog"); if (el) { el.innerHTML = chatLogHtml(); el.scrollTop = el.scrollHeight; } }
 
   /* ---------- screen: Changes (log + diff, review, reasoning, chat) ---------- */
@@ -3581,6 +3681,8 @@ const APP = (() => {
     chCancel: () => { ST.chEdit = null; render(); },
     chSave: el => { const sec = el.dataset.sec; ST.edits[sec] = { summary: $("#chSummary").value.trim(), old_rule: $("#chOld").value.trim() || undefined, new_rule: $("#chNew").value.trim(), change_type: $("#chType").value }; ST.chEdit = null; if (el.dataset.approve) ST.decided[sec] = "approved"; else delete ST.decided[sec]; log("examiner", L("Spec change edited", "Änderung bearbeitet"), "§" + sec + (el.dataset.approve ? " · " + L("approved", "freigegeben") : "")); render(); },
     chatSuggest: el => story.chatAsk(el.dataset.q),
+    ovSuggest: el => ovAsk(el.dataset.q),
+    ovSend: () => { const inp = $("#ovChatInput"); if (!inp) return; const q = inp.value; inp.value = ""; ovAsk(q); },
     chatSend: () => { const inp = $("#chatInput"); if (!inp) return; const q = inp.value; inp.value = ""; story.chatAsk(q); },
     genCases: () => story.generateCases(),
     caseFilter: el => { ST.caseFilter = el.dataset.f; render(); },
@@ -3620,8 +3722,8 @@ const APP = (() => {
     if (location.hash === "#presenter") return; // the narrator window: TOUR draws its own page
     document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (!el || el.tagName === "SELECT") return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
     document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-act][role=button], .prov")) { e.preventDefault(); e.target.click(); } if (e.key === "Escape") { closeDrawer(); $("#modalHost").innerHTML = ""; } });
-    document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "chatInput") { e.preventDefault(); ACT.chatSend(); } });
-    document.addEventListener("change", e => { if (e.target.dataset && e.target.dataset.cover) { const id = e.target.dataset.cover; if (e.target.checked) ST.covered[id] = fmtAt(S.clock || CLOCK0); else delete ST.covered[id]; render(); return; } if (e.target.id === "sampleSel") { S.sample = e.target.value; S.selField = null; render(); } if (e.target.id === "mailTo" && S.compose) S.compose.to = e.target.value; });
+    document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "chatInput") { e.preventDefault(); ACT.chatSend(); } if (e.key === "Enter" && e.target.id === "ovChatInput") { e.preventDefault(); ACT.ovSend(); } });
+    document.addEventListener("change", e => { if (e.target.dataset && e.target.dataset.notify) { const n = store.get("mailNotify", {}); n[e.target.dataset.notify] = e.target.checked; store.set("mailNotify", n); toast(L("Notification setting saved", "Benachrichtigung gespeichert")); return; } if (e.target.dataset && e.target.dataset.cover) { const id = e.target.dataset.cover; if (e.target.checked) ST.covered[id] = fmtAt(S.clock || CLOCK0); else delete ST.covered[id]; render(); return; } if (e.target.id === "sampleSel") { S.sample = e.target.value; S.selField = null; render(); } if (e.target.id === "mailTo" && S.compose) S.compose.to = e.target.value; });
     // Keep the examiner's wording across re-renders; it is only committed (and logged) on approval.
     document.addEventListener("input", e => {
       const d = e.target.dataset || {}, id = d.ruleText;
@@ -3692,29 +3794,30 @@ const TOUR = (() => {
      `via` are the clicks that lead from the previous step's screen here; they only play when you go forward. */
   const STEPS = [
     { title: "The pipeline", screen: "overview", sel: '[data-tour="pipeline"]', before: () => { S.role = "itsg"; },
-      after: async alive => { await wait(600); for (let i = 1; i <= 8; i++) { if (!alive()) return; await cur.move(`.pipe-step:nth-child(${i})`, { rest: 120 }); } },
-      say: "One pipeline in eight stages: from the new government PDF to a certified payroll release.",
-      notes: ["Eight stages, from the government PDF to the certificate.", "The AI reads and drafts; tested code calculates; a person decides."] },
+      after: async alive => { await wait(600); for (let i = 1; i <= 8; i++) { if (!alive()) return; await cur.move(`.pipe-step:nth-child(${i})`, { rest: 120 }); }
+        if (!alive()) return; await wait(400); if (alive()) await cur.hover('[data-tour="ovattention"] h3', 900, { rest: 0 }); },
+      say: "**One pipeline, eight stages:** from the new government PDF to a certified payroll release.",
+      notes: ["Eight stages, from the government PDF to the certificate.", "The AI reads and drafts; tested code calculates; a person decides.", "Below: the release at a glance. The deadline, what needs attention, e-mail notifications from the vendors, and an AI assistant for the whole release."] },
     { title: "Import", screen: "ingest", sel: '[data-tour="drop"]', via: [{ sel: '.pipe-step[data-screen="ingest"]' }], before: () => { S.role = "itsg"; },
       after: async alive => { if (S.story.ingest) return; await wait(500); if (!alive()) return; await cur.click('[data-act="simDrop"]'); await until(() => S.story.ingest === 2, 8000); if (alive()) spotOn('[data-tour="drop"]', true); },
-      say: "December: version 13.4 arrives. We import the original PDF; the archive already holds last year's version and tests.",
+      say: "**December:** version 13.4 arrives. We import the original PDF; the archive already holds last year's version and tests.",
       notes: ["We start from the original PDF, not a prepared copy.", "168 pages, 220 sections, a change log with 10 entries; the archive holds last year's spec, the catalogue and the audit reports."] },
     { title: "Specification", screen: "specs", sel: '[data-tour="spectext"]', noZoom: true, via: [{ sel: '[data-tour="drop"] [data-act="go"][data-screen="specs"]' }],
       before: () => { S.role = "itsg"; X.ensureDrop(); S.selSec = "3.12"; S.selHl = null; S.specVersion = "13.4"; S.flashQuote = "nicht mehr als 6 Monate vergangen sind"; },
       after: async alive => { await wait(900); if (alive()) await cur.hover("#flashQuote", 600); },
-      say: "Every section of the spec, indexed. The AI highlights each test-relevant sentence, the way ITSG experts do by hand.",
+      say: "**Every section, indexed.** The AI highlights each test-relevant sentence, the way ITSG experts do by hand.",
       notes: ["All 220 sections, full text, indexed from the PDF's own structure.", "Highlights are verbatim spans: conditions, numbers, required fields, exceptions.", "The flashing sentence is the one that changed: „nicht mehr als 6 Monate“."] },
     { title: "The change", screen: "changes", sel: '[data-tour="chcard"]', via: [{ sel: '#rail [data-screen="changes"]' }],
       before: () => { S.role = "itsg"; X.ensureDrop(); S.story.selChange = "3.12"; S.story.reasonOpen = false; S.story.chEdit = null; },
       after: async alive => { await wait(700); if (!alive()) return; await cur.hover('[data-tour="chcard"] .callout', 1400); if (!alive()) return;
         await cur.hover('[data-tour="chcard"] > .row .pill', 900); if (!alive()) return; await cur.hover('[data-tour="ctexplain"] .ai', 600); },
-      say: "The change log calls §3.12 “editorial”: only the wording changed. The AI finds a condition change: the same employee now gets a different result.",
+      say: "**“Editorial”**, says the change log: only the wording changed. The AI finds **a condition change**: the same employee now gets a different result.",
       notes: ["Editorial means only the wording changed: every test gives the same result, nothing to test.", "A condition change means the rule decides differently: same employee, different result, so tests change.", "Here: exactly 6 months used to stop the chain, now it continues. §3.12.6 is not in the change log at all; only the diff found it."] },
     { title: "Edit & approve", screen: "changes", sel: '[data-tour="chcard"]', before: () => { S.role = "itsg"; X.ensureDrop(); S.story.selChange = "3.12"; S.story.reasonOpen = false; },
       after: async alive => { if (S.story.edits["3.12"]) return; await wait(900); if (!alive()) return; await cur.click('[data-tour="chcard"] [data-act="chEdit"]'); if (!alive()) return; spotOn('[data-tour="chcard"]', true);
         await cur.click("#chNew"); if (!alive()) return; await X.appendType(document.getElementById("chNew"), X.EDIT_SUFFIX); if (!alive()) return;
         await wait(500); if (!alive()) return; await cur.click('[data-act="chSave"][data-approve]'); if (alive()) spotOn('[data-tour="chcard"]', true); },
-      say: "The examiner can correct the AI's reading in plain words, then approve it once for the rule.",
+      say: "**The examiner corrects** the AI's reading in plain words, then approves it once for the rule.",
       notes: ["The examiner stays in control: the AI's wording can be corrected in plain language.", "Approve once per rule, not once per test case."] },
     { title: "Reasoning & chat", screen: "changes", sel: '[data-tour="why"]', noZoom: true, before: () => { S.role = "itsg"; X.ensureEdited(); S.story.selChange = "3.12"; S.story.reasonOpen = false; S.story.chEdit = null; },
       after: async alive => { await wait(700); if (!alive()) return; await cur.click("#whyPanel > summary"); if (!alive()) return; spotOn('[data-tour="why"]');
@@ -3722,11 +3825,11 @@ const TOUR = (() => {
         await cur.click("#chatInput"); if (!alive()) return; await X.typeInto($("#chatInput"), X.QUESTION); if (!alive()) return;
         await cur.click('[data-act="chatSend"]'); if (document.activeElement) document.activeElement.blur();
         await until(() => S.story.chat.length && !S.story.chat[S.story.chat.length - 1].busy, 15000); if (alive()) await cur.hover("#chatLog .src-chip", 600); },
-      say: "Every conclusion is traceable: the AI's reasoning, its check in a terminal, and you can ask it why. Its source is one click away.",
+      say: "**Every conclusion is traceable:** the AI's reasoning, its check in a terminal, and you can ask it why. Its source is one click away.",
       notes: ["What went to the model: one section and its links, about 5,000 tokens, nothing else.", "It checked its claim in a terminal: same dates, v13.3 False, v13.4 True.", "The source chip opens §3.12 at the exact sentence. It also found that v13.4 contradicts itself on p. 136."] },
     { title: "Generate test cases", screen: "review", sel: '[data-tour="review"]', via: [{ sel: '.page-head .btn.primary[data-screen="review"]' }], before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); S.story.focus = null; },
       after: async alive => { if (S.story.generated) return; await wait(700); if (!alive()) return; await cur.click('[data-act="genCases"]'); await until(() => S.story.generated && !S.story.genBusy, 15000); if (alive()) spotOn('[data-tour="review"]'); },
-      say: "From the approved changes, the AI writes one test case per rule, grouped by rule. Tested code computes every expected result.",
+      say: "**One test case per rule**, written from the approved changes. Tested code computes every expected result.",
       notes: ["One case per rule, grouped by the rule it tests.", "The expected value comes from tested code. Checks G1–G5: quotes verbatim, formula safe, oracle equals AI, parameters quoted, formula run."] },
     { title: "The case we follow", screen: "review", sel: '[data-tour="casedetail"]', noZoom: true,
       before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.caseIds().find(id => id !== X.FOLLOWED) || X.FOLLOWED; S.story.focus = null; S.story.caseFilter = "all"; S.story.caseEdit = null; },
@@ -3736,22 +3839,22 @@ const TOUR = (() => {
         await cur.click("#tcOutcome"); if (!alive()) return; const ta = document.getElementById("tcOutcome"); if (ta) { ta.selectionStart = ta.selectionEnd = ta.value.length; ta.scrollTop = ta.scrollHeight; }
         await X.appendType(ta, X.CASE_SUFFIX); if (!alive()) return; await wait(500); if (!alive()) return;
         await cur.click('[data-act="caseSave"][data-verify]'); if (alive()) spotOn('[data-tour="casedetail"]', true); },
-      say: "This is the case we follow: ITSG's reference employee. The examiner can reword any test case, then verify it.",
+      say: "**The case we follow:** ITSG's reference employee. The examiner can reword any test case, then verify it.",
       notes: ["ITSG's own reference employee, Peter Mustermann, plus an older sick period from November 2024.", "Expected: request 41 with exactly 4 periods; the 2024 one stays out.", "Edit: the examiner adds “ANZAHL-AU must be 04.” The expected value itself stays with tested code."] },
     { title: "Send to developers", screen: "review", sel: '[data-tour="sendbtn"]', before: () => { S.role = "itsg"; S.story.caseEdit = null; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.FOLLOWED; S.story.focus = X.FOLLOWED; },
       after: async alive => { if (S.story.sent) return; await wait(600); if (!alive()) return; await cur.click('[data-act="sendOpen"]'); if (!alive()) return; spotOn(".modal");
         await cur.hover('.modal .sendTo[value="sap"]', 900); if (!alive()) return; await cur.click('[data-act="sendNow"]'); if (alive()) spotOn('[data-tour="sendbtn"]'); },
-      say: "One click sends the package to the vendor's developers. ITSG keeps the expected file and compares every upload.",
+      say: "**One click** sends the package to the vendor's developers. ITSG keeps the expected file and compares every upload.",
       notes: ["One click to SAP's developers.", "They get each case in words and as JSON, with what should happen; ITSG keeps the expected file."] },
     { title: "SAP: notification", screen: "vhome", sel: ".notify", noZoom: true, via: [{ sel: '#roleSeg [data-v="vendor"]', run: () => { X.toVendor(); A.go("vhome"); } }],
       before: () => { X.ensureSent(); X.toVendor(); S.story.notify = true; },
       after: async alive => { await wait(1800); if (!alive() || !S.story.notify) return; await cur.click(".notify .stack"); if (!alive()) return; setTimeout(() => { X.scrollThread(); spotOn('[data-tour="mail"]'); }, 120); },
-      say: "On SAP's side, the developer gets a notification, and the package lands in their e-mail inbox.",
+      say: "**On SAP's side**, the developer gets a notification, and the package lands in their e-mail inbox.",
       notes: ["Now we are SAP's developer.", "A notification, then the package arrives as an e-mail in Messages."] },
     { title: "Checklist", screen: "vcheck", sel: '[data-tour="recap"]', via: [{ sel: '.mail-msgs [data-act="mailOpen"][data-type="package"]' }],
       before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.clOpen = null; },
       after: async alive => { await wait(700); if (alive()) await cur.hover('[data-tour="recap"] h4', 600); },
-      say: "The package opens as a checklist. An AI recap tells the developer what changed and what to do.",
+      say: "**The package opens as a checklist.** An AI recap tells the developer what changed and what to do.",
       notes: ["The AI recap: what changed in v13.4 and what the developer has to do.", "Below it, the 5 test cases to run, grouped by rule."] },
     { title: "Run each test", screen: "vcheck", sel: '[data-tour="cltable"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.covered = {}; S.story.clOpen = null; },
       after: async alive => { await wait(800); for (const id of X.caseIds()) { if (!alive()) return; if (S.story.covered[id]) continue;
@@ -3760,37 +3863,37 @@ const TOUR = (() => {
           if (main) { await cur.hover(`[data-row="${id}"] .tc-sheet`, 1100); if (!alive()) return; await cur.hover(`[data-row="${id}"] .cl-soll`, 1600); if (!alive()) return; }
           else { await wait(400); if (!alive()) return; }
           await cur.click(`[data-act="clPass"][data-id="${id}"]`); } if (alive()) spotOn('[data-tour="cltable"]', true); },
-      say: "The developer runs each test case in SAP, following its steps, and checks it against what should happen.",
+      say: "**Test by test:** the developer runs each case in SAP, following its steps, and checks it against what should happen.",
       notes: ["How to run it: the setup and the steps, like ITSG's Testkonstellation.", "What should happen: in words, with the key values. They check it on screen and tick it off.", "The exact file stays with ITSG: it is compared after the upload."] },
     { title: "Upload", screen: "vcheck", sel: '[data-tour="upload"]', before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.clOpen = null; X.tickAll(); },
       after: async alive => { if (S.story.uploads.length) return; await wait(900); if (!alive()) return; await cur.click('[data-act="uploadPick"]'); if (!alive()) return; spotOn(".modal");
         await cur.click('[data-act="uploadNow"][data-f="gap"]'); if (alive()) spotOn('[data-tour="upload"]'); },
-      say: "They upload the DTA file their software produced. It is e-mailed to ITSG and compared automatically.",
+      say: "**Upload the result:** the DTA file their software produced. It is e-mailed to ITSG and compared automatically.",
       notes: ["They upload the DTA file their payroll software produced.", "It goes to ITSG as an automatic e-mail and is compared at once."] },
     { title: "It fails", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, via: [{ sel: '#rail [data-screen="mail"]' }, { sel: () => `.mail-list [data-act="openThread"][data-id="${A.certThread("sap").id}"]` }],
       before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; X.tickAll(); X.ensureUpload(); S.selThread = A.certThread("sap").id; },
       after: async alive => { await wait(80); X.scrollThread(); await wait(500); if (alive()) await cur.hover(".mail-msgs .att.bad", 600); },
-      say: "One test fails: SAP's screen looked right, but the exported file still lists the 2024 period.",
+      say: "**One test fails:** SAP's screen looked right, but the exported file still lists the 2024 period.",
       notes: ["1 of 5 failed: the reference case. On screen it showed 4 periods.", "The file has 5: the period from November 2024, and ANZAHL-AU 05 instead of 04.", "That is why ITSG compares the file, not the screen."] },
     { title: "Follow-up question", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); X.tickAll(); X.ensureUpload(); S.selThread = A.certThread("sap").id; },
       after: async alive => { setTimeout(X.scrollThread, 60); if (S.story.asked) return; await wait(1200); if (!alive()) return;
         await cur.click(".mail-compose textarea"); if (!alive()) return; await X.typeInto(document.querySelector(".mail-compose textarea"), X.DEV_QUESTION, 26); if (!alive()) return;
         await cur.click('.mail-compose [data-act="mailSend"]'); S.story.asked = true; if (document.activeElement) document.activeElement.blur(); X.scrollThread();
         await wait(1800); if (!alive()) return; X.itsgAnswer(); X.scrollThread(); await wait(300); if (alive()) await cur.hover(".mail-msgs .mail-msg:last-child .src-chip", 600); },
-      say: "The developer asks why right in the thread, and ITSG answers with the exact quote and a link to the spec.",
+      say: "**Ask why, right in the thread.** ITSG answers with the exact quote and a link to the spec.",
       notes: ["The developer asks: our screen shows 4 periods, why does the file have 5?", "ITSG answers with the exact quote and page: the export ignores the chain. The § chip opens the spec. Everything on record."] },
     { title: "Retest", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); X.tickAll(); X.ensureUpload(); X.ensureAsked(); S.selThread = A.certThread("sap").id; },
       after: async alive => { setTimeout(X.scrollThread, 60); if (S.story.fixed) return; await wait(900); if (!alive()) return; timeSkip("Two days later"); await wait(2500); if (!alive()) return;
         await cur.click('#rail [data-screen="vcheck"]', { spot: true }); if (!alive()) return; await cur.click('[data-act="uploadPick"]'); if (!alive()) return; spotOn(".modal");
         await cur.click('[data-act="uploadNow"][data-f="teel0"]'); if (!alive()) return; await cur.click('#rail [data-screen="mail"]', { spot: true }); if (!alive()) return;
         spotOn('[data-tour="mail"]'); await wait(80); X.scrollThread(); await wait(400); if (alive()) await cur.hover(".mail-msgs .att.ok", 600); },
-      say: "The team fixes the program and uploads again: all 5 test cases pass.",
+      say: "**Two days later:** the team fixes the program and uploads again. All 5 test cases pass.",
       notes: ["Two days later: the team fixed it.", "New upload from the checklist: 5 of 5 pass."] },
     { title: "Report & certificate", screen: "cert", sel: '[data-tour="cert"]', noZoom: true, via: [{ sel: '#roleSeg [data-v="itsg"]', run: () => { S.role = "itsg"; A.go("overview"); } }, { sel: '#rail [data-screen="cert"]' }],
       before: () => { X.ensureSent(); X.tickAll(); X.ensureUpload(); X.ensureAsked(); X.ensureFixed(); S.role = "itsg"; },
       after: async alive => { await wait(1200); if (!alive()) return; if (!X.certIssued()) { await cur.click('[data-act="certIssue"]'); if (!alive()) return; spotOn('[data-tour="cert"]', true); }
         await wait(500); if (alive()) await cur.hover('[data-act="certPdf"]', 600); },
-      say: "The final report passes. The certificate goes out by e-mail, and the PDF is one click away.",
+      say: "**Certified.** The final report passes, the certificate goes out by e-mail, and the PDF is one click away.",
       notes: ["The final report passes: the test cases and the on-site criteria.", "The certificate goes out by e-mail, sealed with SHA-256, and as a PDF."] }
   ];
   const SEQ = [...SLIDES.slice(0, 4).map((_, i) => ({ slide: i })), ...STEPS.map((_, i) => ({ step: i })), { slide: 4 }];
@@ -3801,9 +3904,22 @@ const TOUR = (() => {
   const host = () => $("#tourHost");
   const CLOCK_SVG = `<svg class="skip-clock" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="52"/>${Array.from({ length: 12 }, (_, i) => `<line class="tick" x1="60" y1="${i % 3 ? 14 : 12}" x2="60" y2="20" transform="rotate(${i * 30} 60 60)"/>`).join("")}<line class="hh" x1="60" y1="60" x2="60" y2="36"/><line class="mh" x1="60" y1="60" x2="60" y2="22"/><circle class="pin" cx="60" cy="60" r="4"/></svg>`;
   function timeSkip(text) { const d = document.createElement("div"); d.className = "timeskip"; d.innerHTML = `<div class="skip-in">${CLOCK_SVG}<span></span></div>`; d.querySelector("span").textContent = text; document.body.appendChild(d); setTimeout(() => d.remove(), 2400); }
+  const capHtml = t => String(t || "").replace(/\*\*(.+?)\*\*/g, "<b>$1</b>"); // say texts are our own literals
+  // Above the frame if it fits, else below it, else inside its top edge; with no frame, bottom centre.
+  function placeCap(f) {
+    const cap = document.getElementById("tourCap"); if (!cap) return;
+    const w = cap.offsetWidth, h = cap.offsetHeight, topB = $("#bar").getBoundingClientRect().bottom + 10, botB = innerHeight - 16;
+    let left, top;
+    if (!f) { left = (innerWidth - w) / 2; top = botB - h - (($("#tourBar") || { offsetHeight: 0 }).offsetHeight) - 12; }
+    else {
+      left = Math.min(Math.max(16, f.left + 20), innerWidth - w - 16);
+      top = f.top - h - 14 >= topB ? f.top - h - 14 : f.bottom + 14 + h <= botB ? f.bottom + 14 : Math.max(topB, f.top + 14);
+    }
+    cap.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`; cap.classList.add("on");
+  }
   function bar(i) {
     const s = STEPS[i];
-    host().innerHTML = `<div class="tour-spot" id="tourSpot" style="opacity:0"></div><div class="tour-bar" id="tourBar" role="status" aria-live="polite"><p class="tour-say">${s.say}</p>
+    host().innerHTML = `<div class="tour-spot" id="tourSpot" style="opacity:0"></div><div class="tour-cap" id="tourCap" role="status" aria-live="polite"><p class="tour-say">${capHtml(s.say)}</p></div><div class="tour-bar" id="tourBar">
       <div class="tour-ctrl"><span class="n">${i + 1}/${STEPS.length}</span><button class="btn" data-tour-act="prev" aria-label="Back">‹</button><button class="btn primary" data-tour-act="next" aria-label="Next">›</button><button class="btn ghost" data-tour-act="narrator" title="P">${L("Narrator", "Sprecher")}</button><button class="btn ghost" data-tour-act="end" aria-label="End the demo" title="Esc">✕</button></div></div>`;
   }
   function slide(i) {
@@ -3818,13 +3934,14 @@ const TOUR = (() => {
     const topB = fixed ? 4 : $("#bar").getBoundingClientRect().bottom + 4, botB = innerHeight - (($("#tourBar") || { offsetHeight: 0 }).offsetHeight) - 4;
     const top = Math.max(topB, r.top - 6), bottom = Math.min(botB, r.bottom + 6);
     Object.assign(sp.style, { opacity: bottom > top + 8 ? "1" : "0", left: Math.max(4, r.left - 6) + "px", top: top + "px", width: Math.min(innerWidth - 8, r.width + 12) + "px", height: Math.max(0, bottom - top) + "px" });
+    placeCap(bottom > top + 8 ? { left: Math.max(4, r.left - 6), top, bottom } : null);
   }
   function respot() {
     const sp = document.getElementById("tourSpot"), dlg = document.querySelector("#modalHost .modal");
     if (sp && dlg) { place(dlg, sp); return; }
     if (!sp || !spotSel) return;
     if (!spotEl || !document.contains(spotEl)) spotEl = document.querySelector(spotSel);
-    if (spotEl) place(spotEl, sp); else sp.style.opacity = "0";
+    if (spotEl) place(spotEl, sp); else { sp.style.opacity = "0"; placeCap(null); }
   }
   function follow() { cancelAnimationFrame(raf); const tick = () => { respot(); if (performance.now() < followUntil) raf = requestAnimationFrame(tick); }; tick(); }
   function spotOn(sel, keepScroll, zoomIn) {
@@ -3832,11 +3949,12 @@ const TOUR = (() => {
     spotSel = sel; spotEl = sel ? document.querySelector(sel) : null;
     main.style.transition = "none"; main.style.transform = ""; void main.offsetWidth; // measure unzoomed
     if (!sp) return;
-    if (!spotEl) { sp.style.opacity = "0"; main.style.transition = ""; return; }
+    if (!spotEl) { sp.style.opacity = "0"; placeCap(null); main.style.transition = ""; return; }
     const still = reduced(), fixed = !!spotEl.closest(".modal, .notify-host, #bar");
     if (!keepScroll && !fixed) {
       const r = spotEl.getBoundingClientRect(), top = $("#bar").offsetHeight, barH = ($("#tourBar") || { offsetHeight: 0 }).offsetHeight, room = innerHeight - top - barH;
-      window.scrollTo({ top: Math.max(0, scrollY + r.top - top - Math.max(12, (room - r.height) / 2)), behavior: still ? "auto" : "smooth" });
+      const capH = (($("#tourCap") || { offsetHeight: 0 }).offsetHeight || 80) + 28, off = r.height + capH < room ? Math.max(capH, (room - r.height + capH) / 2) : 12;
+      window.scrollTo({ top: Math.max(0, scrollY + r.top - top - off), behavior: still ? "auto" : "smooth" });
     }
     if (zoomIn && !fixed && innerWidth >= 900) {
       const r = spotEl.getBoundingClientRect(), mr = main.getBoundingClientRect();
@@ -3864,15 +3982,15 @@ const TOUR = (() => {
     // smooth scrolling has no end event: wait until the position stops changing
     async function settle(get) { let last = get(), same = 0; const t0 = performance.now(); while (performance.now() - t0 < 1500) { await wait(50); const v = get(); if (Math.abs(v - last) < .5) { if (++same >= 3) break; } else same = 0; last = v; } }
     function glide(nx, ny) {
-      const ms = reduced() ? 0 : Math.round(Math.min(1300, Math.max(500, 420 + Math.hypot(nx - x, ny - y) * .85)));
-      x = nx; y = ny; const c = node(); c.style.transitionDuration = `${ms}ms, .25s`; c.style.transform = `translate(${x - 3}px, ${y - 3}px)`;
+      const ms = Math.round(Math.min(1300, Math.max(550, 450 + Math.hypot(nx - x, ny - y) * .85)));
+      x = nx; y = ny; const c = node(); c.style.setProperty("transition-duration", `${ms}ms, .25s`, "important"); c.style.transform = `translate(${x - 3}px, ${y - 3}px)`;
       return ms;
     }
     function scrollBox(n) { for (let p = n.parentElement; p && p !== document.body; p = p.parentElement) { const o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight + 2) return p; } return null; }
     // scroll the inner box first (thread, case list, chat), then the page, so the target sits between the top bar and the tour bar
     async function scrollTo(t) {
       const n = find(t); if (!n || isFixed(n)) return;
-      const still = reduced(), c = node(); let moved = false;
+      const still = false, c = node(); let moved = false;
       const box = scrollBox(n), barH = ($("#tourBar") || { offsetHeight: 0 }).offsetHeight;
       if (box) {
         const r = n.getBoundingClientRect(), b = box.getBoundingClientRect(), bBot = Math.min(b.bottom, innerHeight - barH);
@@ -3895,15 +4013,15 @@ const TOUR = (() => {
       document.querySelectorAll(".cur-hover").forEach(e => e.classList.remove("cur-hover")); n.classList.add("cur-hover");
       const r = n.getBoundingClientRect();
       const ms = glide(r.left + (r.width > 140 ? Math.min(r.width * .3, 70) : r.width / 2), r.top + Math.min(r.height / 2, 22));
-      await wait(ms + (reduced() ? 30 : o.rest != null ? o.rest : 220));
+      await wait(ms + (o.rest != null ? o.rest : 220));
       return n;
     }
     async function click(t, o = {}) {
       let n = await move(t, o); if (!n) return false;
       if (typeof t === "string" && !document.contains(n)) n = find(t); if (!n) return false;
       const c = node(); c.classList.add("down");
-      if (!reduced()) { const rp = document.createElement("span"); rp.className = "tour-ripple"; rp.style.left = x + "px"; rp.style.top = y + "px"; document.body.appendChild(rp); setTimeout(() => rp.remove(), 500); }
-      await wait(200); c.classList.remove("down");
+      const rp = document.createElement("span"); rp.className = "tour-ripple"; rp.style.left = x + "px"; rp.style.top = y + "px"; document.body.appendChild(rp); setTimeout(() => rp.remove(), 700);
+      await wait(220); c.classList.remove("down");
       if (o.run) o.run(); else if (n.matches("input, textarea")) n.focus(); else n.click();
       await wait(o.after != null ? o.after : 380);
       return true;
@@ -3944,7 +4062,7 @@ const TOUR = (() => {
       const b = at >= 0 ? beat(at) : null, next = at + 1 < SEQ.length ? beat(at + 1) : null;
       document.body.innerHTML = `<div class="presenter"><div class="row between"><div class="stack" style="gap:4px"><span class="eyebrow">${at >= 0 ? `${at + 1} / ${SEQ.length} · ${beatLabel(at)}` : L("Not started", "Nicht gestartet")}</span><h1>${b ? b.title : L("Press › or D in the main window to start", "› oder im Hauptfenster D drücken, um zu starten")}</h1></div><span class="clock" id="pClock">${clock()}</span></div>
         <div class="row"><button class="btn" data-p="prev">‹ ${L("Back", "Zurück")}</button><button class="btn primary" data-p="next">${L("Next", "Weiter")} ›</button><button class="btn ghost" data-p="reset">${L("Reset clock", "Uhr zurücksetzen")}</button><button class="btn ghost" data-p="end">${L("End demo", "Demo beenden")}</button></div>
-        <div class="stack" style="gap:var(--s-4);align-content:start">${b && b.say ? `<div class="callout accent"><b>${L("On screen", "Auf dem Bildschirm")}</b><span style="font-size:1.1rem">${b.say}</span></div>` : ""}
+        <div class="stack" style="gap:var(--s-4);align-content:start">${b && b.say ? `<div class="callout accent"><b>${L("On screen", "Auf dem Bildschirm")}</b><span style="font-size:1.1rem">${capHtml(b.say)}</span></div>` : ""}
           ${b ? `<ul class="notes">${b.notes.map(n => `<li>${n}</li>`).join("")}</ul>` : ""}</div>
         <div class="next">${next ? `${L("Next", "Als Nächstes")}: <b>${next.title}</b>` : L("Last beat", "Letzter Schritt")}</div></div>`;
     }

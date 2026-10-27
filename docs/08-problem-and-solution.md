@@ -17,8 +17,8 @@ is **zero**: one wrong field or one wrong cent, and the software is off the mark
 flowchart LR
     GOV["Authorities publish specs<br/>(PDF, German, ~1,000 pages)<br/>often in December"]
     READ["ITSG experts read the specs<br/>and 'think about it'"]
-    TC["~600-page sheet<br/>~3,000 test cases<br/>written by hand"]
-    VEND["Vendor enters each scenario<br/>in their payroll software<br/>(SAP, DATEV, Lexware … ×100)"]
+    TC["~600-page sheet<br/>~3,000 test cases<br/>written by hand<br/>expected results by hand"]
+    VEND["Vendor engineer types each scenario<br/>into their payroll software by hand<br/>(SAP, DATEV, Lexware … ×100)"]
     MSG["Software produces<br/>DTA data files"]
     DEV["ITSG testing device<br/>compares with known solutions<br/>(monthly, automated)"]
     AUDIT["Yearly on-site inspection<br/>'show me in your program…'"]
@@ -32,10 +32,11 @@ flowchart LR
     CERT -- "no (even 1 error)" --> NO
 
     classDef pain fill:#fde2e2,stroke:#c0392b,color:#000;
-    class READ,TC,AUDIT pain;
+    class READ,TC,VEND,AUDIT pain;
 ```
 
-Red marks the manual steps that hurt most.
+Red marks the manual steps that hurt most. Nothing checks that a test case actually fits the
+spec: ITSG waits "to see if [vendors] shout that a test is wrong" (demo review, 26.10.2026 evening).
 
 ### Where it hurts
 
@@ -47,6 +48,8 @@ flowchart TD
     P4["Zero tolerance<br/>1 cent wrong = software off the market<br/>800M messages a year"]
     P5["Gaming risk<br/>vendors can fit messages<br/>to the known solutions"]
     P6["~100 different programs<br/>UI automation not realistic"]
+    P7["Manual input<br/>every test case typed in by hand<br/>→ only a few tests per rule are feasible"]
+    P8["30 years of history<br/>~4,000 scenarios, some maybe<br/>obsolete by law, some missing"]
 
     P1 --> CORE(("Test creation and maintenance<br/>is the bottleneck"))
     P2 --> CORE
@@ -54,6 +57,8 @@ flowchart TD
     P4 --> CORE
     P5 --> CORE
     P6 --> CORE
+    P7 --> CORE
+    P8 --> CORE
 ```
 
 ## The solution: an AI review assistant
@@ -78,7 +83,7 @@ flowchart LR
     end
 
     subgraph HUMAN["3 · Human sign-off"]
-        H["Examiner approves rule<br/>once, not 3,000 cases"]
+        H["Examiner reads the rule in plain language<br/>approves / edits / declines<br/>once, not 3,000 cases"]
     end
 
     subgraph CAT["4 · Criteria catalogue"]
@@ -86,12 +91,12 @@ flowchart LR
     end
 
     subgraph GEN["5 · Test generation"]
-        G["Scenarios: positive,<br/>negative, boundary"]
+        G["1 case per rule by default<br/>expand to positive,<br/>negative, boundary"]
         O["Deterministic oracle<br/>computes expected records"]
     end
 
     subgraph RUN["6 · Vendor"]
-        V["Runs cases in payroll SW<br/>→ DTA files"]
+        V["Enters cases in payroll SW<br/>(by hand today, JSON import proposed)<br/>→ DTA files"]
     end
 
     subgraph VAL["7 · Validation"]
@@ -156,6 +161,38 @@ flowchart LR
     NEWC["New criteria"] --> SCOPE
     SCOPE --> VISIT["On-site checklist"] --> REP["Sealed report<br/>pass/fail per criterion"]
     REP -. failed items carry over .-> PREV
+```
+
+### Proposal: automatic test input
+
+The step ITSG asked us to think about most (demo review, 26.10.2026 evening). Today every test
+case is typed into the vendor's software by hand, which caps how many tests are feasible.
+
+```mermaid
+flowchart LR
+    TC["Approved test case<br/>(rule + scenario)"] --> J["Test input as JSON<br/>(new, standard format)"]
+    J --> IMP["Vendor's import interface<br/>(requires a spec change)"]
+    IMP --> SW["Payroll software<br/>pilot: SAP"]
+    SW --> DTA["DTA file<br/>(unchanged standard)"]
+    DTA --> CMP["Automatic comparison<br/>→ pass/fail report"]
+    classDef new fill:#e2f0fd,stroke:#2563eb,color:#000;
+    class J,IMP new;
+```
+
+Until vendors support it, the default is **one test case per rule**. Once input is automatic, more
+cases cost nothing: "more is better".
+
+### Baseline check: is the old catalogue still the law?
+
+```mermaid
+flowchart LR
+    CAT["Existing catalogue<br/>~4,000 scenarios, 30 years old"] --> MAP{"Map each test<br/>to a current rule"}
+    SPEC["Current government PDF"] --> MAP
+    MAP --> OK["OK: maps to a current rule"]
+    MAP --> OBS["Obsolete: rule removed by law"]
+    MAP --> MISS["Missing: rule without a test"]
+    classDef bad fill:#fde2e2,stroke:#c0392b,color:#000;
+    class OBS,MISS bad;
 ```
 
 ### Killer feature 2: fresh variants against gaming
@@ -233,3 +270,7 @@ sequenceDiagram
 | *(From the meeting)* Spec changes | Diff → affected criteria → affected tests → regenerated tests |
 | *(From the meeting)* Zero tolerance | LLM never decides a pass; dual extraction; human sign-off per rule |
 | *(From the meeting)* Gaming | Fresh variants each cycle |
+| *(Demo review)* Manual input is the bottleneck | One case per rule by default; JSON import proposal (SAP pilot) |
+| *(Demo review)* Rules must be readable | Plain-language rule between spec and test, approved / edited / declined by a person |
+| *(Demo review)* Obsolete tests after 30 years | Baseline check of the catalogue against the current spec |
+| *(Demo review)* Report per customer | Pass/fail per test case and vendor, printable and as JSON |

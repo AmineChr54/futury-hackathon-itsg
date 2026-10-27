@@ -61,7 +61,7 @@ CFG = {"base": os.environ.get("HAI_BASE_URL", "https://hip-gw.hessian.ai/v1").rs
 MODELS = ["vllm/Kolibri-1", "vllm/GLM-Flash:Latest"]
 # Sign-in. The username decides the role. With a password set (a hosted server: it holds the API key and
 # proxies /v1, so it must not be open), the Login tab asks for it and every API call needs the session token.
-ACCOUNTS = {"istg": "itsg", "dev": "dev"}
+ACCOUNTS = {"istg": "itsg", "dev": "dev", "vendor": "vendor"}  # vendor: the vendor side of the demo (in the page)
 ALIASES = {"itsg": "istg"}
 SESSION_DAYS = float(os.environ.get("PIPELINE_SESSION_DAYS", "7"))  # a sign-in is valid this long
 PASSWORDS = {u: os.environ.get(f"PIPELINE_PASSWORD_{u.upper()}") or os.environ.get("PIPELINE_PASSWORD", "") for u in ACCOUNTS}
@@ -1038,7 +1038,7 @@ class Handler(BaseHTTPRequestHandler):
         name = (b.get("name") or "").strip().lower()
         name = ALIASES.get(name, name)
         if name not in ACCOUNTS:
-            raise ApiError(401, "unknown user: sign in as istg or dev")
+            raise ApiError(401, "unknown user: sign in as istg, dev or vendor")
         if AUTH and not hmac.compare_digest(str(b.get("password") or "").encode(), PASSWORDS[name].encode()):
             time.sleep(0.5)  # slows down guessing
             raise ApiError(401, "wrong password")

@@ -17,26 +17,78 @@ Optional extras that need the internet:
 
 | Key | What it does |
 |---|---|
-| **D** or the **Demo** button | Start the guided demo (13 steps with spotlight and zoom) |
+| **D** or the **Demo** button | Start the guided demo (15 steps, about 5 minutes, with spotlight and zoom) |
 | **→** / **Space** · **←** | Next / previous step |
+| **N** | Show or hide the speaker notes in the demo bar at the bottom |
 | **P** | Open the presenter window: speaker notes, timer, next step, synced with the main window |
 | **Esc** | End the demo, close the drawer |
 
-Put the presenter window on your laptop screen and the main window on the projector. If the
-browser blocks pop-ups, the speaker notes appear in the demo card instead.
+Put the presenter window on your laptop screen and the main window on the projector. While the
+presenter window is open, the projector's demo bar drops the script and the notes. It shows only
+the chapter, the step title, the ITSG objective it covers, and a short audience caption
+("Today: … → With the assistant: …"). The presenter window shows the script, the notes, the
+timer and what the audience is reading. If the browser blocks pop-ups, press **N** to open the
+notes in the demo bar instead (collapsed by default, so the bar stays slim).
+
+**The story.** The tour follows one sentence of §3.12 ("nicht mindestens 6 Monate" became
+"nicht mehr als 6 Monate") from the new PDF to a vendor's verdict, in four chapters:
+
+| Chapter | Steps |
+|---|---|
+| Start | December: v13.4 lands; the pipeline |
+| Specification | The change log missed one change · the §3.12 boundary flips, 18 tests affected |
+| Requirements | The sentence becomes a readable rule · approved once, after five automatic checks |
+| Testing | **The test that changed** (exactly 6 months: no request 41 under v13.3 → request 41 under v13.4) · its provenance trail · one case per rule · coverage, where the old test `ALT-3.12-031` is flagged obsolete · publish + JSON import |
+| Results | SAP's vendor home · Messages · a wrong file explained in words · pass/fail report per vendor |
+| Close | Recap of the session, today vs. with the assistant, and our asks |
+
+Each step is tagged with the ITSG challenge objective it shows (1 Identify … 6 Deliver reports).
 
 - **ITSG / Vendor** (top right) switches the role.
 - **EN / DE** switches the language.
 - Every underlined value opens its **provenance trail**.
+
+## Screens
+
+Reworked after ITSG's review on 26.10.2026 ([docs/11-demo-feedback-itsg.md](../docs/11-demo-feedback-itsg.md)).
+
+| Screen | What it shows |
+|---|---|
+| Overview | The pipeline, today vs. with the assistant, ITSG's reference case |
+| 1 Inputs & archive | The original government PDF as the only external input, plus our archive |
+| Coverage check | How many test-relevant spec sentences have a test; existing tests vs. the current spec: obsolete (rule or wording removed) and missing (statement without a test) |
+| Specification | AI highlights; each lists the tests that cover it |
+| 2 Change impact | Change log + section diff, reconciled |
+| 3 Rules (criteria) | Spec quote → rule in plain language → its test case; approve, edit or decline. Function, five checks and both AI runs sit in a collapsed "Technical details" fold |
+| 4 Test cases | **The test that changed** (the §3.12 boundary, v13.3 vs v13.4 expected result, both computed), then **per rule** (default): one case per rule in human words, expected result, JSON download, expandable boundary set. Also: catalogue, fresh variants, ITSG reference case |
+| 5 Publish | Publish the package (sent through Messages); **automatic input proposal** (JSON import, SAP pilot); the AG ⇄ KK dialogue as ITSG's table |
+| 6 Compare output | Differences **in words** (field, expected vs actual, §), checks; bytes in a second tab. Uploading a file runs the comparison |
+| 7 On-site audit · Report | Audit checklist; all vendors at a glance, summary in words, print and JSON per vendor |
+| Messages | E-mail-like inbox: folders, one thread per vendor and topic, reply box with attachments (test package, result files, reports, certificate, rules, test cases). Result files are compared on arrival and the verdict is posted in words. ITSG quick actions: send report, request fix & resend, issue certificate (only when nothing failed) |
+| Evidence | Function library, coverage, audit trail |
+
+**Vendor role.** Switching to *Vendor* asks which company you are (SAP or Lexware — illustrative
+examples; every result shown for them is imagined, and the screens say so). A vendor sees only
+its own data:
+
+| Screen | What it shows |
+|---|---|
+| Home | Progress (package → entered → results sent → ITSG review → certificate), next step, days left until 31.12.2026, what ITSG will check on site, latest messages |
+| Messages | Its own threads with ITSG |
+| 1 My test cases | Each case in words; mark as entered or import all (JSON); send a result file (demo picker: real or broken file, or from disk); "Ask ITSG". Expected results are never shown |
+| 2 Upload & compare | Compare any file, then send it to ITSG |
+| 3 My results | Own result files and own audit report only |
+| Specification | The public spec |
 
 ## What's real and what's simulated
 
 | Real | Simulated or illustrative |
 |---|---|
 | Spec excerpts, page numbers and change log of the Verfahrensbeschreibung v13.4 | The v13.3 wording (reconstructed from the change log; labelled in the UI) |
-| ITSG's reference case (Peter Mustermann), its 4 criteria and UUIDs, the message chain | The test catalogue (46-row EEL subset) and vendors (fictional) |
+| ITSG's reference case (Peter Mustermann), its 4 criteria and UUIDs, the message chain | The test catalogue (46-row EEL subset), the three historic ALT-… rows in the baseline check, and all vendor results (SAP and Lexware are illustrative; results imagined) |
+| ITSG's negative example from the review (earlier illness > 6 months back → no 41) | The JSON test-input format (a proposal; no vendor imports it yet) |
 | The sample file `TEEL0-Test1-DBVO`, parsed with the spec's field offsets | The broken file variants (derived from the real file) |
-| Rule functions, guards, diff, parser, SHA-256: all running code with 26 unit tests | AI extraction runs (recorded; live mode makes real calls) |
+| Rule functions, guards, diff, parser, difference explainer, baseline check, SHA-256: all running code with 32 unit tests | AI extraction runs and rule wording (recorded; live mode makes real calls) |
 
 ## Live AI mode (hessian.AI)
 
@@ -66,7 +118,8 @@ are blocked by the sandbox; recorded mode still works there.
    ```bash
    node -e "const s=require('fs').readFileSync('demo/index.html','utf8');const c=s.slice(s.indexOf('/*CORE-START*/'),s.indexOf('/*CORE-END*/'));const C=new Function(c+';return CORE')();const t=C.selfTest(C.PARAMS_DEFAULT);console.log(t.filter(x=>x.ok).length+'/'+t.length)"
    ```
-3. **APP.** The screens, the provenance drawer and all actions.
+3. **APP.** The screens, the provenance drawer and all actions. `ruleCase()` defines the one
+   representative test case per rule; `describeCase()` writes a scenario in human words.
 4. **TOUR.** The guided demo and the presenter window.
 
 Run the upload and rerun regression checks with `node demo/test_demo.cjs`.

@@ -109,6 +109,11 @@ The benefit ends on 31.03.2026, when the employment ends, so the reason is "99".
 
 - The Hinweise doc says "die AU vom **01.03.2025** bis 03.03.2026". That's a typo for
   **01.03.2026**.
+- **The KK replies (61, 62) are given input, not output.** The software under test doesn't produce
+  them; it has to handle them. The IDs only show the vendor where its DSID reappears in the reply
+  (as REF-ID). ITSG, evening of 26.10.2026; see [11-demo-feedback-itsg.md](11-demo-feedback-itsg.md).
+- ITSG's own verdict on this document: hard to understand, "forget about it… automatic test cases
+  might be better than that."
 - The sample file `TEEL0-Test1-DBVO` covers **step 1 only** (the AG 41 request). See
   [05-data-format.md](05-data-format.md).
 - The sample file's creation timestamp is **14.02.2026**, before the AU it reports (11.03.2026).

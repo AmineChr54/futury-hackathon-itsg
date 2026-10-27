@@ -1808,7 +1808,7 @@ const APP = (() => {
     { id: "inbox", group: "tests", step: 5, icon: "inbox", roles: ["itsg"], t: () => L("Publish", "Veröffentlichen") },
     { id: "validate", group: () => S.role === "vendor" ? "mine" : "tests", step: 6, vstep: 2, icon: "check", roles: ["itsg", "vendor"], t: () => S.role === "vendor" ? L("Upload & compare", "Hochladen & prüfen") : L("Compare output", "Ausgabe prüfen") },
     { id: "audit", group: "cert", step: 7, icon: "test", roles: ["itsg"], t: () => L("On-site audit", "Vor-Ort-Prüfung") },
-    { id: "report", group: () => S.role === "vendor" ? "mine" : "cert", step: null, vstep: 3, icon: "report", roles: ["itsg", "vendor"], t: () => S.role === "vendor" ? L("My results", "Meine Ergebnisse") : L("Report & next scope", "Bericht & nächster Umfang") },
+    { id: "report", group: () => S.role === "vendor" ? "mine" : "cert", step: null, vstep: 3, icon: "report", roles: ["itsg", "vendor"], t: () => S.role === "vendor" ? L("My results", "Meine Ergebnisse") : L("Reports & certificates", "Berichte & Zertifikate") },
     { id: "mail", group: () => S.role === "vendor" ? "mine" : "cert", step: null, icon: "inbox", roles: ["itsg", "vendor"], t: () => L("Messages", "Nachrichten"), badge: () => { const n = unreadCount(); return n ? { n, hot: true } : null; } },
     { id: "functions", group: "evidence", step: null, icon: "fn", roles: ["itsg"], t: () => L("Function library", "Funktionsbibliothek"), badge: () => ({ n: `${TESTS.filter(t => t.ok).length}/${TESTS.length}` }) },
     { id: "coverage", group: "evidence", step: null, icon: "grid", roles: ["itsg"], t: () => L("Coverage by §", "Abdeckung je §") },
@@ -2278,6 +2278,64 @@ const APP = (() => {
       ${auto}</div>${dialogue}`;
   }
 
+  /* ---------- expected DTA files: what a correct payroll program must produce, written by ITSG's oracle ----------
+     The same DTA format as the vendor's file: ITSG's sample envelope (TEEL0) with the DBVO block the oracle
+     computes for the scenario. For ITSG's reference case this is TEEL0 byte for byte. */
+  function expectedText(sc) {
+    const lines = C.TEEL0_LINES.slice(), dslw = lines[2], p = dslw.indexOf("DBVO"), n = Number(dslw.slice(p + 30, p + 32));
+    lines[2] = dslw.slice(0, p) + C.dbvoBlock(sc.state, S.params) + dslw.slice(p + 32 + 50 * n);
+    return lines.join("\r\n") + "\r\n";
+  }
+  function expectedSet() {  // the message test cases of the package: scenarios that must produce request 41
+    return [[C.GOLDEN, "R-3.12-B"], [C.BOUNDARY_6M, "R-3.12-B"]]
+      .filter(([sc]) => C.gates(sc.state, sc.today, S.params).allowed)
+      .map(([sc, rule]) => ({ name: `EXPECTED_${sc.id}_DBVO.dta`, scenario_id: sc.id, title: `${sc.id} · ${sc.name}`, rule,
+        scenario: C.scenarioJSON(sc, rule, S.params), text: expectedText(sc) }));
+  }
+  const EXP = () => (window.PIPE && PIPE.P.expected) || [];
+  const BUILTIN = () => ({ id: "builtin", name: L("ITSG reference TC-3.12-001 (built in)", "ITSG-Referenz TC-3.12-001 (eingebaut)"), scenario_id: "TC-3.12-001", package: "", sha256: "" });
+  const expSelected = () => (S.expSel && EXP().find(e => e.id === S.expSel)) || BUILTIN();
+  const scenarioOf = e => (e.id !== "builtin" && e.scenario ? C.scenarioFromJSON(e.scenario) : C.GOLDEN);
+  const detectVendor = v => (C.VENDORS.find(x => x.product === String(v.meta.product || "").trim()) || {}).id || null;
+  async function sha256Hex(bytes) {
+    try { return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map(b => b.toString(16).padStart(2, "0")).join(""); }
+    catch (e) { return C.sha256(String.fromCharCode(...bytes.slice(0, 200000))); }
+  }
+  function downloadBytes(name, bytes, type) {
+    const url = URL.createObjectURL(new Blob([bytes], { type: type || "application/octet-stream" })), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  const REPS = vid => ((window.PIPE && PIPE.P.reports) || []).filter(r => !vid || r.vendor === vid);
+  const CERTS = vid => ((window.PIPE && PIPE.P.certificates) || []).filter(c => !vid || c.vendor === vid);
+  function certStatus(vid) {  // every expected file of the latest package needs a passing report (the latest one counts)
+    const pkg = EXP().length ? EXP()[0].package : null;
+    const req = pkg ? EXP().filter(e => e.package === pkg) : [BUILTIN()];
+    const rows = req.map(e => ({ e, r: REPS(vid).find(r => r.scenario_id === e.scenario_id) }));
+    return { rows, ok: rows.length > 0 && rows.every(x => x.r && x.r.verdict === "pass"), ids: rows.filter(x => x.r).map(x => x.r.id) };
+  }
+  function reportsPanel(vendor) {
+    const reps = REPS(vendor.id), st = certStatus(vendor.id), certs = CERTS(vendor.id);
+    const when = t => esc((t || "").replace("T", " ").slice(0, 16));
+    const list = reps.length ? `<table class="tbl" id="repTable"><thead><tr><th>${L("Created", "Erstellt")}</th><th>${L("Test case", "Testfall")}</th><th>${L("Expected file", "Erwartete Datei")}</th><th>${L("Vendor file", "Herstellerdatei")}</th><th>${L("Checks", "Prüfungen")}</th><th>${L("Differences", "Abweichungen")}</th><th>${L("Result", "Ergebnis")}</th><th></th></tr></thead><tbody>
+      ${reps.map(r => `<tr><td class="muted" style="font-size:var(--fs-xs);white-space:nowrap">${when(r.created)}</td><td class="mono">${esc(r.scenario_id)}</td><td style="font-size:var(--fs-sm)">${esc(r.expected_name)}</td><td style="font-size:var(--fs-sm)">${esc(r.file.name)}</td>
+        <td class="num">${r.passed}/${r.total}</td><td class="num">${r.findings.length}</td><td>${okPill(r.verdict === "pass")}</td>
+        <td style="white-space:nowrap"><button class="btn sm ghost" data-act="repView" data-id="${esc(r.id)}">${L("Open", "Öffnen")}</button><button class="btn sm ghost" data-act="repJson" data-id="${esc(r.id)}">JSON</button></td></tr>`).join("")}</tbody></table>`
+      : `<div class="empty">${L("No test reports for this vendor yet. In Compare output, choose the expected file, load the vendor's DTA file and press Create test report.", "Noch keine Prüfberichte für diesen Hersteller. Unter Ausgabe prüfen die erwartete Datei wählen, die DTA-Datei des Herstellers laden und Prüfbericht erstellen drücken.")}
+          <div style="margin-top:8px"><button class="btn sm" data-act="go" data-screen="validate">${L("Compare output", "Ausgabe prüfen")}</button></div></div>`;
+    const need = st.rows.map(x => `<div class="row between" style="font-size:var(--fs-sm)"><span><span class="mono">${esc(x.e.scenario_id)}</span> · ${esc(x.e.name)}</span>${x.r ? okPill(x.r.verdict === "pass") : pill(L("no report yet", "noch kein Bericht"), "warn")}</div>`).join("");
+    const certList = certs.map(c => `<div class="att cert" style="max-width:none"><div class="row between"><b>${ic("check")} ${esc(c.id)}</b><span class="muted" style="font-size:var(--fs-xs)">${L("issued", "erteilt")} ${when(c.issued)} · ${esc(c.by)}</span></div>
+        <span>${L("Valid", "Gültig")} ${C.de(C.D(c.valid_from))} – ${C.de(C.D(c.valid_to))} · ${c.reports.length} ${L("test report(s)", "Prüfbericht(e)")}${(c.emailed || []).length ? ` · ${L("e-mailed to", "gemailt an")} ${esc(c.emailed.map(x => x.to).join(", "))}` : ""}</span>
+        <span class="mono muted" style="font-size:11px">${L("seal", "Siegel")} ${c.seal.slice(0, 40)}…</span>
+        <div class="actions"><button class="btn sm primary" data-act="certEmail" data-id="${esc(c.id)}" data-v="${vendor.id}">${ic("inbox")} ${L("E-mail", "Per E-Mail senden")}</button><button class="btn sm" data-act="certDownload" data-id="${esc(c.id)}">${ic("download")} ${L("Download", "Herunterladen")}</button></div></div>`).join("");
+    return `<section class="panel no-print" id="testReports"><div class="panel-head"><h3>${L("Test reports", "Prüfberichte")} · ${esc(vendor.name)}</h3>${pill(`${reps.filter(r => r.verdict === "pass").length} ✓ · ${reps.filter(r => r.verdict === "fail").length} ✕`, "")}</div>
+        <div class="panel-body flush tbl-wrap">${list}</div></section>
+      <section class="panel no-print" id="certPanel"><div class="panel-head"><h3>${L("Certificate", "Zertifikat")} · ${esc(vendor.name)} ${esc(vendor.release)}</h3>${st.ok ? pill("✓ " + L("all tests passed", "alle Tests bestanden"), "ok") : pill(L("not all tests passed yet", "noch nicht alle Tests bestanden"), "warn")}</div>
+        <div class="panel-body stack"><span class="field-label">${L("Expected files of the latest package — the latest report for each counts", "Erwartete Dateien des letzten Pakets — es zählt jeweils der letzte Bericht")}</span>${need}
+          <div class="row"><button class="btn primary" id="issueCertBtn" data-act="issueCert" data-v="${vendor.id}" data-ids="${esc(st.ids.join(","))}" ${st.ok ? "" : "disabled"} title="${esc(st.ok ? "" : L("Only when every test passed", "Nur wenn jeder Test bestanden hat"))}">${ic("check")} ${L("Issue certificate", "Zertifikat erteilen")}</button>
+            <span class="muted" style="font-size:var(--fs-xs)">${L("Sealed, delivered in the vendor's Messages, and ready to e-mail.", "Versiegelt, in den Nachrichten des Herstellers zugestellt und bereit zum Mailen.")}</span></div>
+          ${certList}</div></section>`;
+  }
+
   /* ---------- 7 · Compare output ---------- */
   function sampleText() {
     if (S.sample === "teel0") return C.TEEL0;
@@ -2287,7 +2345,11 @@ const APP = (() => {
   }
   function sampleLabel() { if (S.sample === "teel0") return "TEEL0-Test1-DBVO"; if (S.sample === "custom" && S.customFile) return S.customFile.name; const b = C.brokenVariants().find(x => x.id === S.sample); return b ? T(b.label) : ""; }
   let VAL_CACHE = null;
-  function currentValidation() { const key = S.sample + (S.customFile ? S.customFile.name : "") + JSON.stringify(S.params); if (!VAL_CACHE || VAL_CACHE.key !== key) VAL_CACHE = { key, v: C.validateMessage(sampleText(), C.GOLDEN, S.params) }; return VAL_CACHE.v; }
+  function currentValidation() {
+    const itsg = S.role === "itsg", e = itsg ? expSelected() : null, key = S.sample + (S.customFile ? S.customFile.name : "") + JSON.stringify(S.params) + (e ? e.id : "");
+    if (!VAL_CACHE || VAL_CACHE.key !== key) VAL_CACHE = { key, v: C.validateMessage(sampleText(), e ? scenarioOf(e) : C.GOLDEN, S.params) };
+    return VAL_CACHE.v;
+  }
   function byteView(rec, badNames) {
     if (!rec) return "";
     const spans = [];
@@ -2310,6 +2372,8 @@ const APP = (() => {
     const findings = v.meta.expected && v.meta.actual ? C.explainDbvo(v.meta.expected, v.meta.actual, S.params) : [];
     const samples = [["teel0", L("Real ITSG file TEEL0-Test1-DBVO", "Echte ITSG-Datei TEEL0-Test1-DBVO")], ...C.brokenVariants().map(b => [b.id, L("Broken: ", "Fehlerhaft: ") + T(b.label)])];
     if (S.customFile) samples.push(["custom", S.customFile.name]);
+    const itsg = S.role === "itsg", exp = expSelected(), vid = S.repVendor || detectVendor(v) || S.vendor;
+    if (itsg) Object.values(mailbox().files).filter(f => f.format === "dta" && !(S.customFile && S.customFile.name === f.name)).forEach(f => samples.push(["rx:" + f.key, `${L("Received", "Empfangen")}: ${vendorOf(f.vendor).name} · ${f.name}`]));
     let fieldInfo = "";
     if (S.selField && dslw) {
       const all = [...dslw.fields, ...dslw.blocks.flatMap(b => [...b.fields, ...(b.groups || []).flatMap(g => g.fields)])];
@@ -2319,10 +2383,14 @@ const APP = (() => {
     }
     const diffLine = (a, b) => { let o = ""; for (let i = 0; i < Math.max(a.length, b.length); i++) { const x = b[i] || " "; o += a[i] === b[i] ? esc(x) : `<span style="background:var(--bad);color:var(--surface)">${esc(x)}</span>`; } return o; };
     return `${head(S.role === "vendor" ? L("Upload & compare", "Hochladen & prüfen") : L("Compare output", "Ausgabe prüfen"), L("The vendor's standardized output file is compared field by field with the expected output, as soon as it is uploaded. Every difference is explained in words, with its field and §. ITSG has its own comparator; our expected file uses the same DTA format, and ITSG said ours could replace theirs if it is better.", "Die standardisierte Ausgabedatei wird beim Hochladen sofort Feld für Feld mit dem Erwartungswert verglichen. Jede Abweichung wird in Worten erklärt, mit Feld und §. ITSG hat einen eigenen Vergleicher; unsere Erwartungsdatei hat dasselbe DTA-Format, und laut ITSG könnte unserer ihn ersetzen, wenn er besser ist."),
-      `<button class="btn" data-act="pickDta">${ic("upload")} ${L("Upload DTA file", "DTA-Datei hochladen")}</button>${S.role === "vendor" ? `<button class="btn primary" data-act="sendFileToItsg">${ic("inbox")} ${L("Send this file to ITSG", "Diese Datei an ITSG senden")}</button>` : ""}`)}
+      `<button class="btn" data-act="pickDta">${ic("upload")} ${L("Upload DTA file", "DTA-Datei hochladen")}</button>${S.role === "vendor" ? `<button class="btn primary" data-act="sendFileToItsg">${ic("inbox")} ${L("Send this file to ITSG", "Diese Datei an ITSG senden")}</button>` : ""}${itsg ? `<button class="btn primary" id="createReportBtn" data-act="createReport">${ic("report")} ${L("Create test report", "Prüfbericht erstellen")}</button>` : ""}`)}
+      ${itsg && S.lastReport && VAL_CACHE && S.lastReport.key === VAL_CACHE.key ? `<div class="callout ${S.lastReport.verdict === "pass" ? "ok" : "bad"}"><b>${L("Test report saved", "Prüfbericht gespeichert")}: ${esc(S.lastReport.id)}</b><span>${esc(vendorOf(S.lastReport.vendor).name)} · ${S.lastReport.verdict === "pass" ? L("PASS", "BESTANDEN") : L("FAIL", "NICHT BESTANDEN")} · ${L("kept in Reports & certificates", "abgelegt unter Berichte & Zertifikate")}</span><div class="row"><button class="btn sm" data-act="go" data-screen="report">${ic("report")} ${L("Open Reports & certificates", "Berichte & Zertifikate öffnen")}</button></div></div>` : ""}
       <div class="grid-2">
         <section class="panel"><div class="panel-head"><h4>${L("File", "Datei")}</h4></div><div class="panel-body">
+          ${itsg ? `<label class="stack" style="gap:4px"><span class="field-label">${L("Expected output (ITSG's oracle)", "Erwartete Ausgabe (Orakel von ITSG)")}</span><div class="row" style="flex-wrap:nowrap"><select class="select" id="expSel">${[BUILTIN(), ...EXP()].map(e => `<option value="${esc(e.id)}" ${exp.id === e.id ? "selected" : ""}>${esc(e.id === "builtin" ? e.name : `${e.scenario_id} · ${e.name}${e.note ? " · " + e.note : ""}`)}</option>`).join("")}</select><button class="btn sm ghost" data-act="expDownload" title="${esc(L("Download the expected file", "Erwartete Datei herunterladen"))}">${ic("download")}</button></div></label>
+          <span class="field-label">${L("Vendor file", "Herstellerdatei")}</span>` : ""}
           <select class="select" id="sampleSel" data-act="sample">${samples.map(([k, t]) => `<option value="${k}" ${S.sample === k ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>
+          ${itsg ? `<div class="row" style="font-size:var(--fs-sm)"><span class="field-label">${L("Vendor", "Hersteller")}</span><select class="select" id="repVendor" style="max-width:200px">${C.VENDORS.map(x => `<option value="${x.id}" ${vid === x.id ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select><span class="muted" style="font-size:var(--fs-xs)">${detectVendor(v) && !S.repVendor ? L("recognised from PRODUKT-IDENTIFIER", "erkannt an PRODUKT-IDENTIFIER") : L("choose the sender", "Absender wählen")}</span></div>` : ""}
           <div class="drop" id="dtaDrop" data-act="pickDta" role="button" tabindex="0">${ic("upload")}<span>${L("Drop a vendor DTA file (ISO-8859-1, fixed-width)", "Hersteller-DTA-Datei ablegen (ISO-8859-1, feste Länge)")}</span></div></div></section>
         <section class="panel" data-tour="verdict"><div class="panel-head"><h4>${L("Verdict", "Ergebnis")}</h4>${v.ok ? `<span class="verdict ok" style="font-size:var(--fs-lg)">✓ ${L("PASS", "BESTANDEN")}</span>` : `<span class="verdict bad" style="font-size:var(--fs-lg)">✕ ${L("FAIL", "NICHT BESTANDEN")}</span>`}</div>
           <div class="panel-body"><dl class="kv"><dt>${L("Product ID", "Produkt-ID")}</dt><dd class="mono">${esc(v.meta.product || "—")}</dd><dt>${L("Modification ID", "Modifikations-ID")}</dt><dd class="mono">${esc(v.meta.modification || "—")}</dd><dt>Abgabegrund</dt><dd class="mono">${esc(v.meta.abgabegrund || "—")}</dd><dt>DSID</dt><dd class="mono" style="font-size:var(--fs-xs)">${esc(v.meta.dsid || "—")}</dd><dt>${L("Checks", "Prüfungen")}</dt><dd>${v.checks.filter(c => c.ok).length}/${v.checks.length} ${L("passed", "bestanden")}</dd></dl></div></section>
@@ -2392,10 +2460,10 @@ const APP = (() => {
     const w = work(vendor.id), sentRows = MSG_RULES.filter(r => w[r].result);
     const myTests = isV ? `<section class="panel no-print"><div class="panel-head"><h3>${L("Result files you sent", "Gesendete Ergebnisdateien")}</h3>${pill(`${sentRows.length}/${MSG_RULES.length}`, "")}</div>
         <div class="panel-body flush tbl-wrap">${sentRows.length ? `<table class="tbl"><tbody>${sentRows.map(r => { const x = w[r]; return `<tr><td class="mono">${ruleCase(r).id}</td><td>${esc(x.file)}${x.result.ok ? "" : x.result.words.map(y => `<br><span class="muted" style="font-size:var(--fs-xs)">• ${esc(T(y))}</span>`).join("")}</td><td>${okPill(x.result.ok)}</td></tr>`; }).join("")}</tbody></table>` : `<div class="empty">${L("No result files sent yet.", "Noch keine Ergebnisdateien gesendet.")} <button class="btn sm" data-act="go" data-screen="vwork">${L("My test cases", "Meine Testfälle")}</button></div>`}</div></section>` : "";
-    return `${head(isV ? L("My results", "Meine Ergebnisse") : L("Report & next scope", "Bericht & nächster Umfang"), isV ? L("Your own results only: the files you sent, and ITSG's on-site audit report. Printable and as JSON.", "Nur Ihre eigenen Ergebnisse: Ihre gesendeten Dateien und der Prüfbericht von ITSG. Druckbar und als JSON.") : L("Pass/fail per vendor, per test case — printable and as JSON for each customer. The seal is a SHA-256 over the full record, so any later change is detectable.", "Bestanden/nicht bestanden je Hersteller und Testfall — druckbar und als JSON für jeden Kunden. Das Siegel ist ein SHA-256 über den ganzen Datensatz, spätere Änderungen sind erkennbar."),
+    return `${head(isV ? L("My results", "Meine Ergebnisse") : L("Reports & certificates", "Berichte & Zertifikate"), isV ? L("Your own results only: the files you sent, and ITSG's on-site audit report. Printable and as JSON.", "Nur Ihre eigenen Ergebnisse: Ihre gesendeten Dateien und der Prüfbericht von ITSG. Druckbar und als JSON.") : L("Pass/fail per vendor, per test case — printable and as JSON for each customer. The seal is a SHA-256 over the full record, so any later change is detectable.", "Bestanden/nicht bestanden je Hersteller und Testfall — druckbar und als JSON für jeden Kunden. Das Siegel ist ein SHA-256 über den ganzen Datensatz, spätere Änderungen sind erkennbar."),
       `${isV ? "" : vendorSeg()}${FRAMED ? "" : `<button class="btn" data-act="print">${ic("printer")} ${L("Print", "Drucken")}</button>`}<button class="btn" data-act="reportJson">${ic(FRAMED ? "copy" : "download")} ${L("JSON for", "JSON für")} ${esc(vendor.name)}</button>`)}
-      ${demoNote()}${myTests}
-      ${isV ? "" : `<section class="panel no-print" data-tour="allvendors"><div class="panel-head"><h3>${L("All vendors", "Alle Hersteller")}</h3><span class="muted" style="font-size:var(--fs-xs)">${L("click a row to open its report", "Zeile anklicken für den Bericht")}</span></div>
+      ${demoNote()}${myTests}${isV ? "" : reportsPanel(vendor)}
+      ${isV ? "" : `<section class="panel no-print" data-tour="allvendors"><div class="panel-head"><h3>${L("On-site audit · all vendors", "Vor-Ort-Prüfung · alle Hersteller")}</h3><span class="muted" style="font-size:var(--fs-xs)">${L("click a row to open its report", "Zeile anklicken für den Bericht")}</span></div>
         <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>${L("Vendor", "Hersteller")}</th><th>${L("In scope", "Im Umfang")}</th><th>${L("Passed", "Bestanden")}</th><th>${L("Failed", "Nicht bestanden")}</th><th>${L("Summary", "Zusammenfassung")}</th><th>${L("Verdict", "Ergebnis")}</th></tr></thead><tbody>
         ${all.map(({ v, d: r }) => `<tr class="clickable" data-act="vendor" data-v="${v.id}" ${v.id === vendor.id ? 'style="background:var(--accent-soft)"' : ""}><td><b>${esc(v.name)}</b> ${esc(v.release)}</td><td class="num">${r.in_scope}</td><td class="num" style="color:var(--ok)">${r.passed}</td><td class="num" style="color:${r.failed.length ? "var(--bad)" : "var(--muted)"}">${r.failed.length}</td><td style="font-size:var(--fs-sm)">${esc(summary(r))}</td><td>${r.failed.length ? pill(L("not certified", "nicht zertifiziert"), "bad") : pill(L("certified 2027", "zertifiziert 2027"), "ok")}</td></tr>`).join("")}</tbody></table></div></section>`}
       <article class="report" data-tour="report">
@@ -2885,7 +2953,7 @@ const APP = (() => {
   function readDta(file) {
     const r = new FileReader();
     r.onload = () => {
-      const text = new TextDecoder("latin1").decode(new Uint8Array(r.result)); S.customFile = { name: file.name, text }; S.sample = "custom"; S.selField = null; VAL_CACHE = null;
+      const text = new TextDecoder("latin1").decode(new Uint8Array(r.result)); S.customFile = { name: file.name, text }; S.sample = "custom"; S.selField = null; S.repVendor = null; VAL_CACHE = null;
       log("vendor", L("Output file uploaded", "Ausgabedatei hochgeladen"), file.name);
       const v = currentValidation();
       log("system", L("Comparison ran automatically", "Vergleich automatisch ausgeführt"), `${file.name}: ${v.checks.filter(c => c.ok).length}/${v.checks.length}`);
@@ -3038,6 +3106,75 @@ const APP = (() => {
     },
     goSecModal: el => { $("#modalHost").innerHTML = ""; ACT.goSec(el); },
     mailDownload: el => xDownload(el.dataset.ref),
+    expDownload: async () => {
+      const e = expSelected();
+      try { const text = e.id === "builtin" ? expectedText(C.GOLDEN) : (await xCall(`/api/expected/${encodeURIComponent(e.id)}`, "GET")).text; downloadBytes(e.id === "builtin" ? "EXPECTED_TC-3.12-001_DBVO.dta" : e.name, enc1252(text)); }
+      catch (err) { toast(err.message); }
+    },
+    createReport: async () => {
+      if (!(window.PIPE && PIPE.P.online && PIPE.P.session)) { toast(L("Test reports are kept on the pipeline server: sign in first", "Prüfberichte liegen auf dem Pipeline-Server: zuerst anmelden")); return; }
+      const v = currentValidation(), e = expSelected(), vid = S.repVendor || detectVendor(v) || S.vendor, bytes = enc1252(sampleText());
+      const findings = v.meta.expected && v.meta.actual ? C.explainDbvo(v.meta.expected, v.meta.actual, S.params) : v.checks.filter(c => !c.ok).map(c => ({ en: c.msg.en, de: c.msg.de, sec: c.sec, field: (c.where || [])[0] }));
+      const btn = document.getElementById("createReportBtn"); if (btn) btn.disabled = true;
+      try {
+        const r = await xCall("/api/reports", "POST", { vendor: vid, expected_id: e.id, expected_name: e.name, expected_sha256: e.sha256 || "", scenario_id: e.scenario_id, package: e.package || "",
+          file: { name: sampleLabel(), sha256: await sha256Hex(bytes), size: bytes.length }, product: v.meta.product, modification: v.meta.modification, abgabegrund: v.meta.abgabegrund,
+          spec: `${C.SPEC.doc} v${C.SPEC.version}`, checks: v.checks.map(c => ({ id: c.id, ok: c.ok, sec: c.sec, msg: c.msg })),
+          findings: findings.map(f => ({ en: f.en, de: f.de, field: f.field, sec: f.sec, kind: f.kind, expected: f.expected, actual: f.actual })), verdict: v.ok ? "pass" : "fail" });
+        log("examiner", L("Test report saved", "Prüfbericht gespeichert"), `${vendorOf(vid).name} · ${r.scenario_id} · ${r.file.name} → ${r.verdict}`);
+        S.lastReport = { id: r.id, key: VAL_CACHE && VAL_CACHE.key, verdict: r.verdict, vendor: vid }; S.vendor = vid;
+        await PIPE.loadCertData();
+        toast(`${L("Test report saved", "Prüfbericht gespeichert")} · ${vendorOf(vid).name} · ${r.verdict === "pass" ? L("PASS", "BESTANDEN") : L("FAIL", "NICHT BESTANDEN")}`);
+        render();
+      } catch (err) { toast(err.message); } finally { if (btn) btn.disabled = false; }
+    },
+    repView: el => {
+      const r = REPS().find(x => x.id === el.dataset.id); if (!r) return;
+      modal(`${L("Test report", "Prüfbericht")} ${r.id}`, `<div class="stack"><div class="row between"><b>${esc(r.vendor_name)} · ${esc(r.scenario_id)}</b>${okPill(r.verdict === "pass")}</div>
+        <dl class="kv"><dt>${L("Expected file", "Erwartete Datei")}</dt><dd>${esc(r.expected_name)}</dd><dt>${L("Vendor file", "Herstellerdatei")}</dt><dd>${esc(r.file.name)} <span class="mono muted" style="font-size:11px">sha256 ${esc((r.file.sha256 || "").slice(0, 16))}…</span></dd>
+        <dt>${L("Product / modification", "Produkt / Modifikation")}</dt><dd class="mono">${esc(r.product || "—")} / ${esc(r.modification || "—")}</dd><dt>${L("Checks", "Prüfungen")}</dt><dd>${r.passed}/${r.total} ${L("passed", "bestanden")}</dd><dt>${L("Created", "Erstellt")}</dt><dd>${esc(r.created.replace("T", " "))} · ${esc(r.by)}</dd></dl>
+        <span class="field-label">${L("Differences, in words", "Abweichungen, in Worten")}</span>${r.findings.length ? r.findings.map(f => `<div class="find"><span class="gi">✕</span><span>${esc(T(f))}${f.field ? ` <code>${esc(f.field)}</code>` : ""}</span></div>`).join("") : `<span>${L("None: the file matches the expected output in every field.", "Keine: Die Datei stimmt in jedem Feld mit der erwarteten Ausgabe überein.")}</span>`}
+        <span class="field-label">${L("Checks", "Prüfungen")}</span><div class="tbl-wrap"><table class="tbl"><tbody>${r.checks.map(c => `<tr><td>${c.ok ? `<span style="color:var(--ok)">✓</span>` : `<span style="color:var(--bad)">✕</span>`}</td><td class="mono">${esc(c.id)}</td><td style="font-size:var(--fs-sm)">${esc(T(c.msg || { en: "", de: "" }))}</td><td class="mono">§${esc(c.sec || "")}</td></tr>`).join("")}</tbody></table></div>
+        <span class="field-label">${L("Seal (SHA-256 of this report)", "Siegel (SHA-256 dieses Berichts)")}</span><div class="seal">${esc(r.seal)}</div></div>`, null,
+        `<button class="btn" data-act="closeModal">${L("Close", "Schließen")}</button><button class="btn" data-act="repJson" data-id="${esc(r.id)}">${ic("download")} JSON</button>`);
+    },
+    repJson: el => { const r = REPS().find(x => x.id === el.dataset.id); if (r) downloadBytes(`${r.id}.json`, new TextEncoder().encode(JSON.stringify(r, null, 2)), "application/json"); },
+    issueCert: async el => {
+      const vid = el.dataset.v, v = vendorOf(vid), ids = (el.dataset.ids || "").split(",").filter(Boolean);
+      el.disabled = true;
+      try {
+        const c = await xCall("/api/certificates", "POST", { vendor: vid, reports: ids, product_name: v.productName, release: v.release });
+        mailbox().certs[vid] = { seal: c.seal, id: c.id };  // delivered in the vendor's Messages, like the on-site certificate
+        xQueue(() => xCall("/api/exchange", "PATCH", { certs: { [vid]: { seal: c.seal } } }));
+        post(certThread(vid), "itsg", { en: `${v.productName} ${v.release} passed the system review for 2027: every output file matches the expected output field by field. Certificate ${c.id} is attached (seal ${c.seal.slice(0, 16)}…).`,
+          de: `${v.productName} ${v.release} hat die Systemuntersuchung für 2027 bestanden: Jede Ausgabedatei stimmt Feld für Feld mit der erwarteten Ausgabe überein. Zertifikat ${c.id} liegt bei (Siegel ${c.seal.slice(0, 16)}…).` }, [{ type: "certificate", ref: vid }]);
+        log("examiner", L("Certificate issued", "Zertifikat erteilt"), `${v.name} · ${c.id}`);
+        await PIPE.loadCertData();
+        toast(`${L("Certificate issued", "Zertifikat erteilt")}: ${c.id} · ${L("sent to", "gesendet an")} ${v.name} ${L("in Messages", "in Nachrichten")}`);
+        render();
+      } catch (err) { toast(err.message); el.disabled = false; }
+    },
+    certEmail: el => modal(L("E-mail the certificate", "Zertifikat per E-Mail senden"), `<div class="stack"><p class="muted" style="font-size:var(--fs-sm)">${esc(el.dataset.id)} · ${L("sent as an HTML attachment with its seal", "als HTML-Anhang mit Siegel")}</p>
+        <label class="stack"><span class="field-label">${L("To", "An")}</span><input class="input" id="certTo" type="email" value="${esc(`zertifizierung@${el.dataset.v}.example`)}"></label></div>`, null,
+      `<button class="btn" data-act="closeModal">${L("Cancel", "Abbrechen")}</button><button class="btn primary" data-act="certEmailSend" data-id="${esc(el.dataset.id)}">${ic("inbox")} ${L("Send", "Senden")}</button>`),
+    certEmailSend: async el => {
+      const id = el.dataset.id, to = ((document.getElementById("certTo") || {}).value || "").trim();
+      try {
+        await xCall(`/api/certificates/${encodeURIComponent(id)}/email`, "POST", { to });
+        $("#modalHost").innerHTML = ""; toast(L("Certificate e-mailed to ", "Zertifikat gemailt an ") + to); await PIPE.loadCertData(); render();
+      } catch (err) {
+        if (!/not configured/.test(err.message)) { toast(err.message); return; }
+        // no mail server on this machine: download the certificate and open the mail program with the text
+        const c = CERTS().find(x => x.id === id), html = await xCall(`/api/certificates/${encodeURIComponent(id)}/html`, "GET", null, "bytes");
+        downloadBytes(`${id}.html`, new Uint8Array(html), "text/html");
+        const subject = `Zertifikat DTA EEL ${c ? c.vendor_name : ""} · ${id}`;
+        const body = `${c ? c.vendor_name : ""}: Zertifikat ${id}, gültig ${c ? C.de(C.D(c.valid_from)) + " – " + C.de(C.D(c.valid_to)) : ""}.\nSiegel (SHA-256): ${c ? c.seal : ""}\n\nDas Zertifikat liegt als HTML-Datei bei (${id}.html).\nITSG Systemuntersuchung`;
+        const a = document.createElement("a"); a.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`; document.body.appendChild(a); a.click(); a.remove();
+        $("#modalHost").innerHTML = "";
+        toast(L("No mail server on this server: your mail program opens — attach the downloaded certificate", "Kein Mailserver auf diesem Server: Ihr Mailprogramm öffnet sich — das heruntergeladene Zertifikat anhängen"));
+      }
+    },
+    certDownload: async el => { try { downloadBytes(`${el.dataset.id}.html`, new Uint8Array(await xCall(`/api/certificates/${encodeURIComponent(el.dataset.id)}/html`, "GET", null, "bytes")), "text/html"); } catch (err) { toast(err.message); } },
     itsgSendReport: el => { const v = vendorOf(el.dataset.v), th = certThread(v.id), d = reportData(v); post(th, "itsg", { en: `Please find the current test report attached: ${reportSummary(d)}.`, de: `Anbei der aktuelle Prüfbericht: ${reportSummary(d)}.` }, [{ type: "report", ref: v.id }]); S.selThread = th.id; log("examiner", L("Report sent", "Bericht gesendet"), v.name); render(); },
     itsgRequestFix: el => {
       const v = vendorOf(el.dataset.v), th = certThread(v.id), d = reportData(v), w = work(v.id), fails = MSG_RULES.filter(r => w[r].status === "fail");
@@ -3093,7 +3230,17 @@ const APP = (() => {
     setInterval(() => xSync(), 4000);
     document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (!el || el.tagName === "SELECT") return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
     document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-act][role=button], .prov")) { e.preventDefault(); e.target.click(); } if (e.key === "Escape") { closeDrawer(); $("#modalHost").innerHTML = ""; } });
-    document.addEventListener("change", e => { if (e.target.id === "sampleSel") { S.sample = e.target.value; S.selField = null; render(); } if (e.target.id === "mailTo" && S.compose) S.compose.to = e.target.value; });
+    document.addEventListener("change", e => { if (e.target.id === "sampleSel") {
+      const val = e.target.value;
+      if (val.startsWith("rx:")) {  // a file a vendor sent in Messages
+        const key = val.slice(3), f = mailbox().files[key];
+        xBytes(key).then(b => { f.text = new TextDecoder("latin1").decode(b); S.customFile = { name: f.name, text: f.text }; S.sample = "custom"; S.repVendor = f.vendor; S.selField = null; VAL_CACHE = null; render(); }).catch(err => toast(err.message));
+        return;
+      }
+      S.sample = val; S.repVendor = null; S.selField = null; render();
+    }
+    if (e.target.id === "expSel") { S.expSel = e.target.value; VAL_CACHE = null; render(); }
+    if (e.target.id === "repVendor") S.repVendor = e.target.value; if (e.target.id === "mailTo" && S.compose) S.compose.to = e.target.value; });
     // Keep the examiner's wording across re-renders; it is only committed (and logged) on approval.
     document.addEventListener("input", e => {
       const d = e.target.dataset || {}, id = d.ruleText;
@@ -3119,7 +3266,7 @@ const APP = (() => {
     render();
   }
 
-  return { S, C, render, renderShell, go, openProv, closeDrawer, ACT, L, T, log, init, IS_PRESENTER, FRAMED, animateExtraction, toast, vendorDemo, xSync, xCall,
+  return { S, C, render, renderShell, go, openProv, closeDrawer, ACT, L, T, log, init, IS_PRESENTER, FRAMED, animateExtraction, toast, vendorDemo, xSync, xCall, expectedSet, expectedText,
     SCREENS, RENDER, GROUPS, ICON, ic, esc, pill, head, modal, store, copyText, downloadOrCopy };
 })();
 
@@ -4074,6 +4221,10 @@ const PIPE = (() => {
         document.getElementById("modalHost").innerHTML = "";
         A.log("examiner", L("Test cases sent to developers", "Testfälle an Entwickler gesendet"), `${pkg.id}: ${pkg.ids.length} → ${to.join(", ")}`);
         A.toast(`${pkg.ids.length} ${L("test case(s) sent to", "Testfall/-fälle gesendet an")} ${to.join(", ")}`);
+        try {  // ITSG's oracle writes the expected DTA output for the package's message test cases
+          await api("/api/expected", { body: { package: pkg.id, note: pkg.note, files: A.expectedSet() } });
+          await loadCertData();
+        } catch (e) { A.toast(e.message); }
         P.sel.clear(); await loadCases(); if (P.selCase) await openCase(P.selCase); else rerender();
       } catch (e) { A.toast(e.message); }
     },
@@ -4154,7 +4305,7 @@ const PIPE = (() => {
   });
 
   /* ---------- session: sign in as ITSG or Developer ---------- */
-  Object.assign(P, { session: store.get("session", null), checklists: [], selPkg: null, results: [],
+  Object.assign(P, { session: store.get("session", null), checklists: [], selPkg: null, results: [], expected: [], reports: [], certificates: [],
     subs: [], selSub: null, subDetail: null, subReveal: 0, subVerdicts: {}, dismissed: store.get("dismissed", []) });
   function loginGate(preset) {
     let host = document.getElementById("loginHost");
@@ -4202,6 +4353,7 @@ const PIPE = (() => {
     if (!P.online || !P.session) return;
     if (S.role === "dev") await Promise.all([loadChecklists(), loadResults(), loadInbox()]);
     else if (S.role === "itsg") await loadSubs();
+    if (S.role === "itsg") await loadCertData();
     if (S.role === "itsg" || S.role === "vendor") await A.xSync();  // conversations and files with the vendors
     paintNotify();
   }
@@ -4220,6 +4372,13 @@ const PIPE = (() => {
       P.subs.filter(s => s.status === "submitted").forEach(s => out.push({ key: "sub:" + s.id, kind: "result", go: "validation", sel: s.id,
         title: L("Dev test results are here!", "Testergebnisse der Entwickler sind da!"),
         body: `${esc(s.by)} ${L("submitted", "hat")} ${s.n} ${L("values", "Werte eingereicht")} · ${esc(s.package)}` }));
+    }
+    if (S.role === "itsg") {  // expected DTA files of the packages ITSG sent
+      const byPkg = {};
+      (P.expected || []).forEach(e => (byPkg[e.package] = byPkg[e.package] || []).push(e));
+      Object.entries(byPkg).slice(0, 3).forEach(([pkg, files]) => out.push({ key: "dta:" + pkg, kind: "result", go: "validate", sel: files[0].id,
+        title: L("Your .DTA file is ready", "Ihre .DTA-Datei ist fertig"),
+        body: `${files.length} ${L("expected file(s)", "erwartete Datei(en)")} · ${esc(files[0].note || pkg)} · ${L("compare a vendor file in Compare output", "Herstellerdatei unter Ausgabe prüfen vergleichen")}` }));
     }
     if ((S.role === "itsg" || S.role === "vendor") && A.S.mail && P.online) {
       const side = S.role === "itsg" ? "itsg" : "vendor", vname = id => (A.C.VENDORS.find(v => v.id === id) || {}).name || id;
@@ -4260,6 +4419,15 @@ const PIPE = (() => {
       if (c && c.recap && c.recap.status !== "pending") return;
       await new Promise(ok => setTimeout(ok, 1000)); await loadChecklists();
     }
+  }
+  async function loadCertData() {  // ITSG: expected DTA files, test reports, certificates
+    if (!P.online || S.role !== "itsg" || !P.session) return;
+    try {
+      const [ex, rp, ce] = await Promise.all([api("/api/expected"), api("/api/reports"), api("/api/certificates")]);
+      const changed = JSON.stringify([ex.length, rp.length, ce.length, (ce[0] || {}).emailed]) !== JSON.stringify([P.expected.length, P.reports.length, P.certificates.length, (P.certificates[0] || {}).emailed]);
+      P.expected = ex; P.reports = rp; P.certificates = ce;
+      if (changed && onScreen("report", "validate") && !editing() && !document.querySelector("#modalHost .modal")) rerender(); else { A.renderShell(); paintNotify(); }
+    } catch (e) { /* offline */ }
   }
   async function loadResults() {
     if (!P.online || !P.user) return;
@@ -4429,6 +4597,7 @@ const PIPE = (() => {
     dismiss(key);
     if (go === "devchecklist" || go === "devresults") { P.selPkg = sel; if (go === "devresults") loadResults().then(rerender); A.go(go); }
     else if (go === "validation") { P.subDetail = null; P.subReveal = 0; openSub(sel); }
+    else if (go === "validate") { A.S.expSel = sel; A.go("validate"); }
     else if (go === "mail") { A.S.selThread = sel; A.S.mailFolder = "all"; A.S.compose = null; A.go("mail"); }
   }
   async function tickDemo(n) {
@@ -4510,11 +4679,11 @@ const PIPE = (() => {
     setInterval(() => {
       if (!P.online || !P.session) return;
       if (S.role === "dev") { loadChecklists(); loadResults(); }
-      else if (S.role === "itsg") { loadSubs(); if (!onScreen("review")) loadCases(); }
+      else if (S.role === "itsg") { loadSubs(); loadCertData(); if (!onScreen("review")) loadCases(); }
     }, 5000);
     register();
   }
-  return { init, upload, testButton, docsBlock, afterRender, shell, onRole, P, evHtml, notifyMail: () => paintNotify() };
+  return { init, upload, testButton, docsBlock, afterRender, shell, onRole, P, evHtml, notifyMail: () => paintNotify(), loadCertData };
 })();
 window.PIPE = PIPE;
 

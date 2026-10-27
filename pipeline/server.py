@@ -96,7 +96,9 @@ STORE = _load_store()
 for _k in ("users", "testcases", "packages", "runs", "submissions"):
     STORE.setdefault(_k, [])
 STORE.setdefault("sessions", {})
-STORE.setdefault("audit", [])  # token → {user, role, t}; kept so a restart does not sign everyone out
+STORE.setdefault("audit", [])
+for _k in ("expected", "reports", "certificates"):  # expected DTA files, test reports, certificates
+    STORE.setdefault(_k, [])  # token → {user, role, t}; kept so a restart does not sign everyone out
 if not any(u["name"] == "dev" for u in STORE["users"]):  # the developer account of this build: always a recipient
     STORE["users"].append({"name": "dev", "role": "dev", "since": "2025-11-01T09:00:00", "seen": None})
 
@@ -730,6 +732,12 @@ def describe_change(method, parts, b):
         return "started the developer demo", ""
     if r == "session":
         return "chose vendor company", b.get("vendor", "")
+    if r == "expected":
+        return "prepared expected DTA files", f"{b.get('package') or ''} · {', '.join(f.get('name', '') for f in (b.get('files') or []) if isinstance(f, dict))}"
+    if r == "reports":
+        return "saved a test report", f"{b.get('vendor') or ''} · {(b.get('file') or {}).get('name') or ''} → {b.get('verdict') or ''}"
+    if r == "certificates":
+        return ("e-mailed a certificate", f"{rest[0]} → {b.get('to') or ''}") if act == "email" else ("issued a certificate", b.get("vendor", ""))
     if r == "exchange":
         what = rest[0] if rest else ""
         if what == "seed" or act == "read":
@@ -836,6 +844,62 @@ def new_message(th, frm, body, attach, msg_id=None):
     elif frm != "system":
         th["read"]["vendor"] = len(th["msgs"])
     return m
+
+
+# ------------------------------------------------------------------ expected DTA files, test reports, certificates
+# The expected files and the field-by-field comparison come from ITSG's oracle in the page (the same code that
+# reproduces ITSG's own TEEL0 file byte for byte); the server keeps them, seals them and issues certificates.
+
+SMTP = {k: os.environ.get("SMTP_" + k.upper(), "") for k in ("host", "port", "user", "password", "from")}
+EMAIL_RE = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
+
+
+def seal_of(record):
+    """SHA-256 over the canonical record: any later change to a report or certificate is detectable."""
+    body = {k: v for k, v in record.items() if k not in ("seal", "emailed")}
+    return hashlib.sha256(json.dumps(body, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+
+
+def certificate_html(c):
+    rows = "".join(f"<tr><td>{html_esc(r['scenario_id'])}</td><td>{html_esc(r['expected_name'])}</td><td>{html_esc(r['file'])}</td>"
+                   f"<td>PASS</td><td style='font:11px monospace'>{r['seal'][:16]}…</td></tr>" for r in c["reports"])
+    return f"""<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>Zertifikat {html_esc(c['id'])}</title>
+<style>body{{font:15px/1.5 system-ui,sans-serif;max-width:760px;margin:40px auto;color:#111}}h1{{font-size:26px;margin:0}}
+table{{border-collapse:collapse;width:100%;margin:16px 0}}td,th{{border-bottom:1px solid #ddd;padding:6px;text-align:left;font-size:13px}}
+.seal{{font:12px monospace;word-break:break-all;background:#f4f4f4;padding:8px}}</style></head><body>
+<p style="letter-spacing:.1em;text-transform:uppercase;color:#a00;font-weight:700">ITSG · Systemuntersuchung DTA EEL</p>
+<h1>Zertifikat / Certificate {html_esc(c['id'])}</h1>
+<p><b>{html_esc(c['vendor_name'])}</b> {html_esc(c.get('product_name') or '')} {html_esc(c.get('release') or '')}<br>
+Produkt-ID <code>{html_esc(c.get('product') or '—')}</code> · Modifikation <code>{html_esc(c.get('modification') or '—')}</code></p>
+<p>Gültig / valid {html_esc(c['valid_from'])} – {html_esc(c['valid_to'])} · ausgestellt / issued {html_esc(c['issued'][:10])} von / by {html_esc(c['by'])}</p>
+<p>Alle Ausgabedateien stimmen Feld für Feld mit der erwarteten Ausgabe überein. / Every output file matches the expected output field by field.</p>
+<table><tr><th>Testfall</th><th>Erwartete Datei</th><th>Herstellerdatei</th><th>Ergebnis</th><th>Bericht-Siegel</th></tr>{rows}</table>
+<p>Siegel / seal (SHA-256):</p><div class="seal">{c['seal']}</div></body></html>"""
+
+
+def html_esc(s):
+    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def send_certificate_mail(c, to):
+    """Send the certificate by e-mail when the server has an SMTP account (SMTP_HOST, SMTP_PORT, SMTP_USER,
+    SMTP_PASSWORD, SMTP_FROM in pipeline/.env)."""
+    import smtplib
+    from email.message import EmailMessage
+    msg = EmailMessage()
+    msg["Subject"] = f"Zertifikat DTA EEL {c['vendor_name']} · {c['id']}"
+    msg["From"] = SMTP["from"] or SMTP["user"]
+    msg["To"] = to
+    msg.set_content(f"{c['vendor_name']}: Zertifikat {c['id']}, gültig {c['valid_from']} – {c['valid_to']}.\n"
+                    f"Siegel (SHA-256): {c['seal']}\n\nDas Zertifikat liegt als HTML-Datei bei.\nITSG Systemuntersuchung")
+    msg.add_attachment(certificate_html(c).encode("utf-8"), maintype="text", subtype="html", filename=f"{c['id']}.html")
+    port = int(SMTP["port"] or 587)
+    with (smtplib.SMTP_SSL(SMTP["host"], port, timeout=20) if port == 465 else smtplib.SMTP(SMTP["host"], port, timeout=20)) as s:
+        if port != 465:
+            s.starttls()
+        if SMTP["user"]:
+            s.login(SMTP["user"], SMTP["password"])
+        s.send_message(msg)
 
 
 def export_case(tc):
@@ -1638,6 +1702,141 @@ class Handler(BaseHTTPRequestHandler):
                     x["vwork"][me] = w
             save_store()
         self.send_json(exchange_for(self.role, me))
+
+    # ---- expected DTA files (built when ITSG sends a package), test reports, certificates
+    def api_get_expected(self, parts, q):
+        self.need_examiner()
+        if parts:
+            e = next((x for x in STORE["expected"] if x["id"] == parts[0]), None)
+            if not e:
+                raise ApiError(404, "expected file not found")
+            return self.send_json(e)
+        pkg = (q.get("package") or [None])[0]
+        self.send_json([{k: v for k, v in e.items() if k != "text"} for e in STORE["expected"] if not pkg or e["package"] == pkg])
+
+    def api_post_expected(self, parts, q):
+        self.need_examiner()
+        b = self.json_body()
+        files = [f for f in (b.get("files") or []) if isinstance(f, dict)][:20]
+        if not files:
+            raise ApiError(400, "no expected files")
+        out = []
+        with LOCK:
+            stamp = time.strftime("%Y%m%d-%H%M%S")
+            for n, f in enumerate(files, start=1):
+                name = os.path.basename(str(f.get("name") or ""))[:120]
+                text = str(f.get("text") or "")
+                if not name.lower().endswith((".dta", ".dat")) or not text.strip():
+                    raise ApiError(400, "expected files are .dta files with content")
+                e = {"id": f"EXP-{stamp}-{n}-{uuid.uuid4().hex[:4]}", "package": str(b.get("package") or "")[:80], "note": str(b.get("note") or "")[:200],
+                     "name": name, "scenario_id": str(f.get("scenario_id") or "")[:60], "title": str(f.get("title") or "")[:200],
+                     "rule": str(f.get("rule") or "")[:40], "scenario": f.get("scenario") if isinstance(f.get("scenario"), dict) else None,
+                     "text": text[:200000], "size": len(text), "created": now(), "by": self.user}
+                e["sha256"] = hashlib.sha256(text.encode("latin-1", "replace")).hexdigest()
+                out.append(e)
+            STORE["expected"][0:0] = out  # newest package first, its files in their order
+            save_store()
+        out = [{k: v for k, v in e.items() if k != "text"} for e in out]
+        self.send_json(out)
+
+    def api_get_reports(self, parts, q):
+        self.need_examiner()
+        if parts:
+            r = next((x for x in STORE["reports"] if x["id"] == parts[0]), None)
+            if not r:
+                raise ApiError(404, "report not found")
+            return self.send_json(r)
+        vendor = (q.get("vendor") or [None])[0]
+        self.send_json([r for r in STORE["reports"] if not vendor or r["vendor"] == vendor][:500])
+
+    def api_post_reports(self, parts, q):
+        """A test report: one vendor file compared field by field with one expected file."""
+        self.need_examiner()
+        b = self.json_body()
+        if b.get("vendor") not in VENDORS:
+            raise ApiError(400, "choose the vendor the file comes from")
+        if b.get("verdict") not in ("pass", "fail"):
+            raise ApiError(400, "verdict must be pass or fail")
+        f = b.get("file") if isinstance(b.get("file"), dict) else {}
+        clean = lambda items, keys: [{k: x.get(k) for k in keys if k in x} for x in (items or [])[:200] if isinstance(x, dict)]
+        r = {"id": f"REP-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:4]}", "created": now(), "by": self.user,
+             "vendor": b["vendor"], "vendor_name": VENDORS[b["vendor"]],
+             "expected_id": str(b.get("expected_id") or "builtin")[:60], "expected_name": str(b.get("expected_name") or "")[:120],
+             "expected_sha256": str(b.get("expected_sha256") or "")[:64], "scenario_id": str(b.get("scenario_id") or "")[:60],
+             "package": str(b.get("package") or "")[:80],
+             "file": {"name": str(f.get("name") or "")[:120], "sha256": str(f.get("sha256") or "")[:64], "size": int(f.get("size") or 0)},
+             "product": str(b.get("product") or "")[:20], "modification": str(b.get("modification") or "")[:20],
+             "abgabegrund": str(b.get("abgabegrund") or "")[:4], "spec": str(b.get("spec") or "")[:80],
+             "checks": clean(b.get("checks"), ("id", "ok", "sec", "msg")),
+             "findings": clean(b.get("findings"), ("en", "de", "field", "sec", "kind", "expected", "actual")),
+             "passed": sum(1 for c in b.get("checks") or [] if isinstance(c, dict) and c.get("ok")),
+             "total": len(b.get("checks") or []), "verdict": b["verdict"]}
+        r["seal"] = seal_of(r)
+        with LOCK:
+            STORE["reports"].insert(0, r)
+            save_store()
+        self.send_json(r)
+
+    def api_get_certificates(self, parts, q):
+        self.need_examiner()
+        if len(parts) == 2 and parts[1] == "html":
+            c = next((x for x in STORE["certificates"] if x["id"] == parts[0]), None)
+            if not c:
+                raise ApiError(404, "certificate not found")
+            data = certificate_html(c).encode("utf-8")
+            self._status = 200
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+        self.send_json(STORE["certificates"])
+
+    def api_post_certificates(self, parts, q):
+        self.need_examiner()
+        b = self.json_body()
+        if parts and len(parts) == 2 and parts[1] == "email":
+            c = next((x for x in STORE["certificates"] if x["id"] == parts[0]), None)
+            if not c:
+                raise ApiError(404, "certificate not found")
+            to = str(b.get("to") or "").strip()
+            if not EMAIL_RE.match(to):
+                raise ApiError(400, "enter a valid e-mail address")
+            if not SMTP["host"]:
+                raise ApiError(501, "e-mail is not configured on this server (SMTP_HOST in pipeline/.env)")
+            try:
+                send_certificate_mail(c, to)
+            except Exception as e:  # noqa: BLE001 — report the mail server's answer
+                raise ApiError(502, f"the mail server refused: {e}")
+            with LOCK:
+                c.setdefault("emailed", []).append({"to": to, "t": now(), "by": self.user})
+                save_store()
+            return self.send_json(c)
+        vendor = b.get("vendor")
+        if vendor not in VENDORS:
+            raise ApiError(400, "unknown vendor")
+        ids = [i for i in (b.get("reports") or []) if isinstance(i, str)]
+        reps = [next((r for r in STORE["reports"] if r["id"] == i), None) for i in ids]
+        if not reps or any(r is None for r in reps):
+            raise ApiError(400, "certify on the basis of saved test reports")
+        if any(r["vendor"] != vendor for r in reps):
+            raise ApiError(400, "every report must be for this vendor")
+        failed = [r["id"] for r in reps if r["verdict"] != "pass"]
+        if failed:
+            raise ApiError(409, "not every test passed: " + ", ".join(failed))
+        if any(r["seal"] != seal_of(r) for r in reps):
+            raise ApiError(409, "a test report was changed after it was sealed")
+        c = {"id": f"CERT-{time.strftime('%Y%m%d-%H%M%S')}-{vendor.upper()}", "vendor": vendor, "vendor_name": VENDORS[vendor],
+             "product": reps[0]["product"], "modification": reps[0]["modification"],
+             "product_name": str(b.get("product_name") or "")[:80], "release": str(b.get("release") or "")[:20],
+             "issued": now(), "by": self.user, "valid_from": str(b.get("valid_from") or "2027-01-01")[:10], "valid_to": str(b.get("valid_to") or "2027-12-31")[:10],
+             "reports": [{"id": r["id"], "scenario_id": r["scenario_id"], "expected_name": r["expected_name"], "file": r["file"]["name"], "seal": r["seal"]} for r in reps]}
+        c["seal"] = seal_of(c)
+        with LOCK:
+            STORE["certificates"].insert(0, c)
+            save_store()
+        self.send_json(c)
 
     def api_get_audit(self, parts, q):
         self.need_examiner()

@@ -65,6 +65,18 @@ Vendors sign in as `sap` or `lexware`; their company is fixed by the sign-in (`v
 
 API: `GET /api/exchange`, `POST /api/exchange/threads` (new conversation), `POST /api/exchange/threads/<id>/messages`, `POST /api/exchange/threads/<id>/read`, `POST /api/exchange/files?name=…&rule=…` (raw bytes), `GET /api/exchange/files/<key>`, `PATCH /api/exchange` (`publishedTo`, `certs` by ITSG; `vwork` by the vendor), `POST /api/session/vendor`. Every change is in the shared audit trail (`GET /api/audit`, hash-chained).
 
+## Expected DTA files, test reports and certificates
+
+> The vendor's standardized output file is compared field by field with the expected output, as soon as it is uploaded. Every difference is explained in words, with its field and §. ITSG has its own comparator; our expected file uses the same DTA format, and ITSG said ours could replace theirs if it is better.
+
+1. **Send to developers** (Test-case review) also writes the package's **expected DTA files** with ITSG's oracle: ITSG's sample envelope with the DBVO block the oracle computes for each message test case (TC-3.12-001 ITSG's reference case, EEL-3.12-006 the 6-month boundary v13.4 flipped). For the reference case the file is ITSG's own `TEEL0-Test1-DBVO` byte for byte. ITSG gets **"Your .DTA file is ready"**.
+2. **Compare output**: choose the expected file (the new ones are added automatically), then the vendor's file — dropped, uploaded, or one the vendor sent in Messages ("Received: SAP · …"). The vendor is recognised from PRODUKT-IDENTIFIER. **Create test report** saves the result: verdict, every check, every difference in words with field and §, the SHA-256 of both files, sealed.
+3. **Reports & certificates** keeps every test report per vendor. When the latest report for each expected file of the latest package passes, **Issue certificate** creates a sealed certificate (it lists the reports it rests on; a report changed after sealing blocks it), delivers it in the vendor's Messages, and offers **E-mail** (HTML attachment with the seal) and **Download**.
+
+E-mail is sent by the server when `SMTP_HOST` (and `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`) are set in `pipeline/.env`; without them the page downloads the certificate and opens your mail program with the text, to attach it.
+
+API (ITSG only): `GET/POST /api/expected`, `GET /api/expected/<id>`, `GET/POST /api/reports`, `GET /api/reports/<id>`, `GET/POST /api/certificates`, `GET /api/certificates/<id>/html`, `POST /api/certificates/<id>/email`. The comparison runs in the page (the same oracle and comparator as Compare output); the server stores, seals and certifies.
+
 ## What is compared with what
 
 | Documents | Mode |

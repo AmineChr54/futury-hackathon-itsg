@@ -665,6 +665,72 @@ class HttpTests(unittest.TestCase):
         except urllib.error.HTTPError as e:
             return e.code, e.read()
 
+    def test_expected_files_reports_and_certificate(self):
+        from unittest import mock
+        S = self.S
+        itsg, dev, sap = self.login("istg", "pw-itsg"), self.login("dev", "pw-dev"), self.login("sap", "pw-sap")
+        files = [{"name": "EXPECTED_TC-3.12-001_DBVO.dta", "scenario_id": "TC-3.12-001", "text": "DSLW…DBVO…"},
+                 {"name": "EXPECTED_EEL-3.12-006_DBVO.dta", "scenario_id": "EEL-3.12-006", "text": "DSLW…DBVO…"}]
+        self.assertEqual(self.call("POST", "/api/expected", {"package": "PKG-1", "files": files}, token=dev)[0], 403)
+        code, exp = self.call("POST", "/api/expected", {"package": "PKG-1", "files": files}, token=itsg)
+        self.assertEqual(code, 200)
+        self.assertEqual([e["scenario_id"] for e in self.call("GET", "/api/expected", token=itsg)[1][:2]], ["TC-3.12-001", "EEL-3.12-006"])  # package order
+        self.assertNotIn("text", exp[0])
+        self.assertEqual(self.call("GET", f"/api/expected/{exp[0]['id']}", token=itsg)[1]["text"], "DSLW…DBVO…")
+        rep = lambda sc, verdict, vendor="sap": self.call("POST", "/api/reports", {"vendor": vendor, "scenario_id": sc, "expected_name": sc + ".dta", "verdict": verdict,
+                                                                                    "file": {"name": "SAP.dta", "sha256": "ab", "size": 9}, "product": "7654321",
+                                                                                    "checks": [{"id": "V-ORACLE", "ok": verdict == "pass", "sec": "3.12"}],
+                                                                                    "findings": [] if verdict == "pass" else [{"en": "ANZAHL-AU expected 04, got 05 (§3.12.6)", "field": "ANZAHL-AU", "sec": "3.12.6"}]}, token=itsg)
+        self.assertEqual(self.call("POST", "/api/reports", {"vendor": "sap", "verdict": "pass"}, token=sap)[0], 403)  # ITSG writes reports
+        code, bad = rep("TC-3.12-001", "fail")
+        self.assertEqual((code, bad["seal"]), (200, S.seal_of(bad)))
+        ok1, ok2, lex = rep("TC-3.12-001", "pass")[1], rep("EEL-3.12-006", "pass")[1], rep("EEL-3.12-006", "pass", "lex")[1]
+        self.assertEqual(self.call("POST", "/api/certificates", {"vendor": "sap", "reports": [bad["id"], ok2["id"]]}, token=itsg)[0], 409)  # a failed test
+        self.assertEqual(self.call("POST", "/api/certificates", {"vendor": "sap", "reports": [ok1["id"], lex["id"]]}, token=itsg)[0], 400)  # another vendor's report
+        stored = next(r for r in S.STORE["reports"] if r["id"] == ok1["id"])
+        stored["verdict_note"] = "x"; stored["file"]["name"] = "edited.dta"  # changed after sealing
+        self.assertEqual(self.call("POST", "/api/certificates", {"vendor": "sap", "reports": [ok1["id"], ok2["id"]]}, token=itsg)[0], 409)
+        stored["file"]["name"] = "SAP.dta"; del stored["verdict_note"]
+        code, cert = self.call("POST", "/api/certificates", {"vendor": "sap", "reports": [ok1["id"], ok2["id"]], "release": "2027.1"}, token=itsg)
+        self.assertEqual((code, cert["seal"], len(cert["reports"])), (200, S.seal_of(cert), 2))
+        status, html = self.raw("GET", f"/api/certificates/{cert['id']}/html", None, itsg)
+        self.assertEqual(status, 200)
+        self.assertIn(cert["seal"].encode(), html)
+        # e-mail: without an SMTP server the page falls back to the mail program; with one, it is sent
+        with mock.patch.dict(S.SMTP, {"host": ""}):
+            self.assertEqual(self.call("POST", f"/api/certificates/{cert['id']}/email", {"to": "cert@sap.example"}, token=itsg)[0], 501)
+        self.assertEqual(self.call("POST", f"/api/certificates/{cert['id']}/email", {"to": "not an address"}, token=itsg)[0], 400)
+        sent = []
+        with mock.patch.dict(S.SMTP, {"host": "smtp.example", "port": "587", "from": "itsg@example"}), \
+                mock.patch.object(S, "send_certificate_mail", lambda c, to: sent.append((c["id"], to))):
+            code, c2 = self.call("POST", f"/api/certificates/{cert['id']}/email", {"to": "cert@sap.example"}, token=itsg)
+        self.assertEqual((code, sent, c2["emailed"][0]["to"]), (200, [(cert["id"], "cert@sap.example")], "cert@sap.example"))
+        self.assertEqual(S.seal_of(c2), cert["seal"])  # e-mailing does not change the sealed certificate
+        S.STORE["audit"].clear()
+
+    def test_certificate_mail_message(self):
+        import smtplib
+        from unittest import mock
+        S = self.S
+        cert = {"id": "CERT-1-SAP", "vendor_name": "SAP", "valid_from": "2027-01-01", "valid_to": "2027-12-31", "issued": "2026-12-14T10:00:00", "by": "istg",
+                "product": "7654321", "modification": "66666XXX", "reports": [{"scenario_id": "TC-3.12-001", "expected_name": "E.dta", "file": "S.dta", "seal": "f" * 64}], "seal": "a" * 64}
+        box = {}
+        class FakeSMTP:
+            def __init__(self, host, port, timeout=None): box["server"] = (host, port)
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def starttls(self): box["tls"] = True
+            def login(self, u, p): box["login"] = u
+            def send_message(self, m): box["msg"] = m
+        with mock.patch.dict(S.SMTP, {"host": "smtp.example", "port": "587", "user": "itsg", "password": "x", "from": "itsg@example"}), mock.patch.object(smtplib, "SMTP", FakeSMTP):
+            S.send_certificate_mail(cert, "cert@sap.example")
+        m = box["msg"]
+        self.assertEqual((box["server"], box["tls"], box["login"], m["To"]), (("smtp.example", 587), True, "itsg", "cert@sap.example"))
+        self.assertIn("CERT-1-SAP", m["Subject"])
+        att = next(p for p in m.iter_attachments())
+        self.assertEqual(att.get_filename(), "CERT-1-SAP.html")
+        self.assertIn("a" * 64, att.get_content())
+
     def test_itsg_and_vendor_exchange(self):
         import json
         S = self.S

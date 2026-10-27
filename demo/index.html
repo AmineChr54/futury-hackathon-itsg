@@ -3205,7 +3205,7 @@ const APP = (() => {
   }
   function modal(title, html, node, foot) {
     const host = $("#modalHost");
-    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}" onclick="event.stopPropagation()"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
+    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
     if (node) host.querySelector(".modal-body").appendChild(node);
   }
   function aiSettings() {
@@ -3489,7 +3489,8 @@ const APP = (() => {
     uploadNow: el => { $("#modalHost").innerHTML = ""; if (el.dataset.f === "disk") { const fi = $("#fileInput"); fi.accept = ""; fi.onchange = () => { const x = fi.files[0]; fi.value = ""; if (x) readLatin1(x, f => story.uploadResult(null, f)); }; fi.click(); return; } story.uploadResult(el.dataset.f); },
     certIssue: () => { story.issueCert(); go("cert"); },
     certPdf: () => story.certPdf(),
-    closeModal: () => { $("#modalHost").innerHTML = ""; },
+    // the scrim closes the dialog only when the click is on the scrim itself, not inside the dialog
+    closeModal: (el, e) => { if (el && el.classList && el.classList.contains("modal-scrim") && e && e.target !== el) return; $("#modalHost").innerHTML = ""; },
     aiMode: el => { S.ai.mode = el.dataset.v; document.querySelectorAll('[data-act="aiMode"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === S.ai.mode))); },
     saveAi: () => { S.ai.base = $("#aiBase").value.trim() || S.ai.base; S.ai.model = $("#aiModel").value; store.set("ai", S.ai); store.set("aikey", $("#aiKey").value.trim()); $("#modalHost").innerHTML = ""; toast(L("AI settings saved in this browser", "KI-Einstellungen in diesem Browser gespeichert")); render(); }
   };

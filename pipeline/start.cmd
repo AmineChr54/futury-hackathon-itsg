@@ -11,5 +11,5 @@ if not exist pipeline\.env (
   exit /b 1
 )
 %PY% -c "import pypdf" 2>nul || %PY% -m pip install -q -r pipeline\requirements.txt
-start "" http://localhost:8787/pipeline
+start "" http://localhost:8787/
 %PY% pipeline\server.py %*

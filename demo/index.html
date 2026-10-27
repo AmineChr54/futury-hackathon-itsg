@@ -1697,6 +1697,8 @@ const APP = (() => {
     set(k, v) { try { localStorage.setItem("eelra:" + k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } }
   };
   const FRAMED = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+  // Served by pipeline/server.py at / the page runs on the server's data; at /demo, as a file or on GitHub Pages it is recorded.
+  const LIVE = window.SPECS_MODE === "live" && !/^#(demo|presenter)/.test(location.hash);
 
   /* ---------- state ---------- */
   const S = {
@@ -1821,7 +1823,9 @@ const APP = (() => {
     "confirmed": { cls: "ok", en: "in log + diff", de: "Protokoll + Diff" },
     "diff-only": { cls: "bad", en: "diff only — not in change log", de: "nur Diff — fehlt im Protokoll" },
     "log-only": { cls: "warn", en: "log only — no text change found", de: "nur Protokoll — kein Textunterschied" },
-    "log-no-text": { cls: "", en: "log only — text not loaded in demo", de: "nur Protokoll — Text im Demo nicht geladen" }
+    "log-no-text": { cls: "", en: "log only — text not loaded in demo", de: "nur Protokoll — Text im Demo nicht geladen" },
+    "log": { cls: "", en: "change log entry", de: "Eintrag im Änderungsprotokoll" },
+    "signals": { cls: "", en: "rule wording (no change log)", de: "Regelwortlaut (kein Protokoll)" }
   };
   const typeLabel = t => ({ condition: L("condition changed", "Bedingung geändert"), parameter: L("parameter changed", "Parameter geändert"), new_rule: L("new rule", "neue Regel"), removed_rule: L("removed rule", "Regel entfernt"), format: L("format / field", "Format / Feld"), clarification: L("clarification", "Klarstellung"), editorial: L("editorial", "redaktionell") }[t] || t);
   const riskPill = r => pill({ high: L("high risk", "hohes Risiko"), medium: L("medium risk", "mittleres Risiko"), low: L("low risk", "geringes Risiko") }[r], { high: "bad", medium: "warn", low: "" }[r]);
@@ -1957,7 +1961,7 @@ const APP = (() => {
     { id: "ingest", group: "spec", step: 1, icon: "archive", roles: ["itsg"], t: () => L("Inputs & archive", "Eingaben & Archiv") },
     { id: "baseline", group: "spec", step: null, icon: "grid", roles: ["itsg"], t: () => L("Coverage check", "Abdeckungsprüfung"), badge: () => { const c = baseline().counts; return c.obsolete + c.missing ? { n: c.obsolete + c.missing, hot: true } : null; } },
     { id: "specs", group: () => S.role === "vendor" ? "mine" : "spec", step: 2, icon: "doc", roles: ["itsg", "vendor"], t: () => L("Specification", "Spezifikation") },
-    { id: "changes", group: "spec", step: 3, icon: "diff", roles: ["itsg"], t: () => L("Changes & review", "Änderungen & Prüfung"), badge: () => { const n = CHANGE_LIST().filter(c => !ST.decided[c.sec]).length; return n ? { n, hot: true } : null; } },
+    { id: "changes", group: "spec", step: 3, icon: "diff", roles: ["itsg"], t: () => L("Changes & review", "Änderungen & Prüfung"), badge: () => { const n = CHANGE_LIST().filter(c => !ST.decided[c.sec] && (!LIVE || (c.item.status === "review" && c.item.spec_change))).length; return n ? { n, hot: true } : null; } },
     { id: "extract", group: "rules", step: null, icon: "ai", roles: ["itsg"], t: () => L("Rules (criteria)", "Regeln (Prüfkriterien)"), badge: () => { const n = Object.values(S.rules).filter(r => r.status === "pending").length; return n ? { n, hot: true } : null; } },
     { id: "review", group: "tests", step: 4, icon: "test", roles: ["itsg"], t: () => L("Test-case review", "Testfall-Prüfung"), badge: () => ST.generated && !ST.sent ? { n: CASES.length, hot: true } : null },
     { id: "tests", group: "tests", step: null, icon: "grid", roles: ["itsg"], t: () => L("Test catalogue", "Testkatalog") },
@@ -1987,6 +1991,7 @@ const APP = (() => {
       ["validate", L("Compare", "Vergleichen"), L("Vendor's DTA file vs. expected, differences in words", "DTA-Datei des Herstellers vs. Erwartung, Abweichungen in Worten")],
       ["cert", L("Report & certify", "Bericht & Zertifikat"), L("Pass/fail per test case, certificate as PDF", "Bestanden/nicht bestanden je Testfall, Zertifikat als PDF")]
     ];
+    if (LIVE) return vOverviewLive(stages);
     const P = S.params, gr = C.gates(C.GOLDEN.state, C.GOLDEN.today, P), o = ovState(), att = ovAttention();
     const tile = (screen, label, value, note, cls) => `<button class="ov-tile ${cls || ""}" data-act="go" data-screen="${screen}"><span class="ov-label">${label}</span><span class="ov-value">${value}</span><span class="ov-note">${note}</span></button>`;
     const sevPill = s => pill(s === "bad" ? L("blocking", "blockiert") : s === "warn" ? L("to do", "zu tun") : L("info", "Info"), s === "bad" ? "bad" : s === "warn" ? "warn" : "info");
@@ -2085,8 +2090,9 @@ const APP = (() => {
   async function ovAsk(q) {
     q = String(q || "").trim(); if (!q) return;
     ST.ovChat.push({ who: "you", text: q });
-    const ctx = JSON.stringify({ state: ovState(), attention: ovAttention().map(a => a.title + ": " + a.text), changes: CHANGE_LIST().map(c => ({ sec: c.sec, title: c.title, type: specChange(c.sec).change_type, source: c.source, decision: ST.decided[c.sec] || null })), vendors: ovVendorRows().map(r => ({ name: r.v.name, sent: r.sent, last: r.last, certified: r.cert, scope: r.scope })) });
-    const answer = liveChat("You are the assistant of an ITSG examiner for the EEL 2027 release. Answer only from the data given, briefly, in Markdown. Cite § numbers.", `${ctx}\n\nQuestion: ${q}`).then(a => a || ovRecorded(q));
+    const ctx = JSON.stringify(LIVE ? { state: lvState(), attention: lvAttention().map(a => a.title + ": " + a.text), changes: CHANGE_LIST().map(c => ({ sec: c.sec, title: c.title, type: specChange(c.sec).change_type, source: c.item.source, status: c.item.status, decision: ST.decided[c.sec] || null })), vendors: lvVendorRows().map(r => ({ name: r.v.name, package: r.pkg, checklist: r.checklist, last: r.last, certified: r.cert })) }
+      : { state: ovState(), attention: ovAttention().map(a => a.title + ": " + a.text), changes: CHANGE_LIST().map(c => ({ sec: c.sec, title: c.title, type: specChange(c.sec).change_type, source: c.source, decision: ST.decided[c.sec] || null })), vendors: ovVendorRows().map(r => ({ name: r.v.name, sent: r.sent, last: r.last, certified: r.cert, scope: r.scope })) });
+    const answer = LIVE ? liveAsk(q, { context: ctx, history: chatHistory(ST.ovChat) }) : liveChat("You are the assistant of an ITSG examiner for the EEL 2027 release. Answer only from the data given, briefly, in Markdown. Cite § numbers.", `${ctx}\n\nQuestion: ${q}`).then(a => a || ovRecorded(q));
     await streamInto(ST.ovChat, "ovChatLog", answer, () => chatLogHtml(ST.ovChat, OV_SUGGEST(), "ovSuggest", OV_INTRO()));
     log("AI", L("Assistant answered", "Assistent hat geantwortet"), q);
   }
@@ -2124,6 +2130,7 @@ const APP = (() => {
     return items.map(i => Object.assign(i, { hash: C.sha256(i.content).slice(0, 12) }));
   }
   function vIngest() {
+    if (LIVE) return vIngestLive();
     const items = archiveItems();
     const ctxSec = "3.12", ctxText = C.sectionText(ctxSec), linked = C.SPEC.sections[ctxSec].links.filter(l => C.SPEC.sections[l]), linkedLen = linked.reduce((s, l) => s + C.sectionText(l).length, 0), oldLen = (C.SPEC_OLD.sections[ctxSec] || []).join(" ").length;
     const tok = n => Math.round(n / 4);
@@ -2209,12 +2216,12 @@ const APP = (() => {
   const HL_KIND = { cond: () => L("condition", "Bedingung"), param: () => L("parameter / number", "Parameter / Zahl"), field: () => L("required output field", "Pflichtfeld der Ausgabe"), exc: () => L("exception", "Ausnahme") };
   function highlightText(text, sec, extraQuote) {
     let html = esc(text);
-    const hls = (HIGHLIGHTS[sec] || []).slice().sort((a, b) => b.q.length - a.q.length);
+    const hls = hlOf(sec).slice().sort((a, b) => b.q.length - a.q.length);
     const used = [];
     hls.forEach((h, i) => {
       const e = esc(h.q), idx = html.indexOf(e);
       if (idx < 0 || used.some(u => idx < u[1] && idx + e.length > u[0])) return;
-      const tag = `<mark class="hl ${h.k}" data-act="hl" data-sec="${esc(sec)}" data-i="${(HIGHLIGHTS[sec] || []).indexOf(h)}" title="${esc(HL_KIND[h.k]())}">`;
+      const tag = `<mark class="hl ${h.k}" data-act="hl" data-sec="${esc(sec)}" data-i="${hlOf(sec).indexOf(h)}" title="${esc(HL_KIND[h.k]())}">`;
       html = html.slice(0, idx) + tag + e + "</mark>" + html.slice(idx + e.length);
       used.forEach(u => { if (u[0] > idx) { u[0] += tag.length + 7; u[1] += tag.length + 7; } });
       used.push([idx, idx + tag.length + e.length + 7]);
@@ -2223,17 +2230,18 @@ const APP = (() => {
     return html.replace(/(\d+\.\d+(?:\.\d+)*)(?=\s„)/g, m => SEC[m] ? `<span class="xref" data-act="goSec" data-sec="${m}">${m}</span>` : m);
   }
   function vSpecs() {
-    const sec = SEC[S.selSec] ? S.selSec : "3.12", s = SEC[sec], cur = C.SPEC.sections[sec];
-    const old = S.specVersion === "13.3" && !!C.SPEC_OLD.sections[sec];
+    const sec = SEC[S.selSec] ? S.selSec : LIVE ? (SF.sections[0] || {}).sec : "3.12", s = SEC[sec], cur = LIVE ? null : C.SPEC.sections[sec];
+    if (LIVE && !s) return `${head(L("Specification", "Spezifikation"), "")}<section class="panel"><div class="empty">${L("No specification imported yet.", "Noch keine Spezifikation importiert.")}<div class="row" style="justify-content:center;margin-top:8px"><button class="btn primary" data-act="go" data-screen="ingest">${L("Import", "Importieren")}</button></div></div></section>`;
+    const old = !LIVE && S.specVersion === "13.3" && !!C.SPEC_OLD.sections[sec];
     const paras = old ? C.SPEC_OLD.sections[sec] : s.text;
-    const hlInfo = S.selHl != null && HIGHLIGHTS[sec] ? HIGHLIGHTS[sec][S.selHl] : null;
-    const changed = new Set(CHANGES.map(c => c.sec)), nHl = Object.values(HIGHLIGHTS).reduce((n, l) => n + l.length, 0);
+    const hlInfo = S.selHl != null ? hlOf(sec)[S.selHl] || null : null;
+    const changed = new Set((LIVE ? CHANGE_LIST() : CHANGES).map(c => c.sec)), nHl = Object.values(LIVE ? LV.hl : HIGHLIGHTS).reduce((n, l) => n + l.length, 0);
     return `${head(L("Specification", "Spezifikation"), L("All sections of the original PDF. The AI marks the test-relevant sentences the way ITSG experts do by hand; every highlight is a verbatim span. Click one to see what was derived from it.", "Alle Abschnitte des Original-PDFs. Die KI markiert die testrelevanten Sätze so, wie ITSG-Experten es von Hand tun; jede Markierung ist wörtlich. Ein Klick zeigt, was daraus abgeleitet wurde."),
-      C.SPEC_OLD.sections[sec] ? `<div class="seg" role="group" aria-label="Version"><button aria-pressed="${!old}" data-act="specVer" data-v="13.4">v13.4</button><button aria-pressed="${old}" data-act="specVer" data-v="13.3">v13.3 <span class="muted">(${L("illustr.", "illustr.")})</span></button></div>` : "")}
+      !LIVE && C.SPEC_OLD.sections[sec] ? `<div class="seg" role="group" aria-label="Version"><button aria-pressed="${!old}" data-act="specVer" data-v="13.4">v13.4</button><button aria-pressed="${old}" data-act="specVer" data-v="13.3">v13.3 <span class="muted">(${L("illustr.", "illustr.")})</span></button></div>` : "")}
       <div class="split">
         <section class="panel"><div class="panel-head"><h4>${L("§ index", "§-Index")}</h4><span class="muted mono" style="font-size:var(--fs-xs)">${SF.sections.length} § · ${nHl} ${L("highlights", "Markierungen")}</span></div>
           <div class="panel-body" style="padding:var(--s-2)"><div class="toc">${SF.sections.map(x => `<button class="d${x.sec.split(".").length}${changed.has(x.sec) ? " changed" : ""}" aria-current="${x.sec === sec}" data-act="goSec" data-sec="${x.sec}" title="${esc(x.title)}"><span class="mono">${x.sec}</span><span>${esc(x.title)}</span><span class="muted mono">${x.page}</span></button>`).join("")}</div></div></section>
-        <section class="panel" data-tour="spectext"><div class="panel-head"><div class="stack" style="gap:2px"><span class="spec-meta">${esc(C.SPEC.doc)} · v${old ? "13.3" : esc(SF.version || C.SPEC.version)} · ${L("page", "Seite")} ${s.page}${cur && cur.field ? " · " + cur.field + (cur.pos ? " (" + cur.pos + ")" : "") : ""}</span><h3>§${sec} ${esc(s.title)}</h3></div>
+        <section class="panel" data-tour="spectext"><div class="panel-head"><div class="stack" style="gap:2px"><span class="spec-meta">${esc(LIVE ? SF.doc : C.SPEC.doc)} · v${old ? "13.3" : esc(SF.version || (LIVE ? "?" : C.SPEC.version))} · ${L("page", "Seite")} ${s.page}${cur && cur.field ? " · " + cur.field + (cur.pos ? " (" + cur.pos + ")" : "") : ""}</span><h3>§${sec} ${esc(s.title)}</h3></div>
           <div class="hl-legend">${Object.keys(HL_KIND).map(k => `<mark class="hl ${k}">${HL_KIND[k]()}</mark>`).join("")}</div></div>
           <div class="panel-body">${old ? `<div class="callout warn">${L("Illustrative reconstruction of v13.3 from the change log. Ask ITSG for the real previous PDF.", "Illustrative Rekonstruktion von v13.3 aus dem Änderungsprotokoll. Echtes Vorjahres-PDF bei ITSG anfragen.")}</div>` : ""}
             <div class="spec">${paras && paras.length ? paras.map(p => FIELD_ROW.test(p) && !old ? `<p class="field">${esc(p)}</p>` : `<p>${old ? esc(p) : highlightText(p, sec, S.flashQuote)}</p>`).join("") : `<p class="muted">${L("This heading has no text of its own; its content is in the sections below it.", "Diese Überschrift hat keinen eigenen Text; der Inhalt steht in den Abschnitten darunter.")}</p>`}</div>
@@ -2663,9 +2671,9 @@ const APP = (() => {
   const MSG_RULES = ["R-3.12-A", "R-3.12-B"]; // answered with a DTA file; the other rules are checked on site
   const DEADLINE = C.D("2026-12-31");
   const CLOCK0 = C.D("2026-12-01") * 1440 + 9 * 60; // demo clock in minutes
-  const demoNote = () => `<p class="muted" style="font-size:var(--fs-xs)">ⓘ ${L("Demo: SAP and Lexware are illustrative examples; all results shown for them are imagined.", "Demo: SAP und Lexware sind illustrative Beispiele; alle gezeigten Ergebnisse sind erfunden.")}</p>`;
+  const demoNote = () => LIVE ? "" : `<p class="muted" style="font-size:var(--fs-xs)">ⓘ ${L("Demo: SAP and Lexware are illustrative examples; all results shown for them are imagined.", "Demo: SAP und Lexware sind illustrative Beispiele; alle gezeigten Ergebnisse sind erfunden.")}</p>`;
   const tick = () => (S.clock = (S.clock || CLOCK0) + 7);
-  const today = () => Math.floor((S.clock || CLOCK0) / 1440);
+  const today = () => LIVE ? Math.floor((Date.now() - new Date().getTimezoneOffset() * 6e4) / 864e5) : Math.floor((S.clock || CLOCK0) / 1440);
   const fmtAt = m => `${C.de(Math.floor(m / 1440))} ${String(Math.floor(m % 1440 / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
   const txt = b => typeof b === "string" ? b : T(b);
   const reportSummary = r => r.failed.length ? `${r.passed} ${L("of", "von")} ${r.in_scope} ${L("passed — everything passes except", "bestanden — alles besteht außer")} ${r.failed.join(", ")}` : `${L("All", "Alle")} ${r.in_scope} ${L("passed", "bestanden")}`;
@@ -2748,6 +2756,14 @@ const APP = (() => {
 
   /* ---------- attachments ---------- */
   function attLabel(a) {
+    if (LIVE) {
+      if (a.type === "package") return `${L("Test package", "Testpaket")} ${a.ref}`;
+      if (a.type === "file" || a.type === "dta") return (S.mail.files[a.ref] || {}).name || a.ref;
+      if (a.type === "report") return L("Test report", "Prüfbericht");
+      if (a.type === "pkgverdict") return a.ref && a.ref.ok ? "✓ " + L("passed", "bestanden") : "✕ " + L("failed", "nicht bestanden");
+      if (a.type === "certificate") return L("Certificate", "Zertifikat");
+      if (a.type === "case") return `${L("Test case", "Testfall")} ${a.ref}`;
+    }
     if (a.type === "package") return L("Test package EEL 2027-01", "Testpaket EEL 2027-01");
     if (a.type === "report") return `${L("Test report", "Prüfbericht")} ${vendorOf(a.ref).name}`;
     if (a.type === "rule") return `${L("Rule", "Regel")} ${a.ref}`;
@@ -2756,6 +2772,7 @@ const APP = (() => {
     return a.ref;
   }
   function attCard(a, th) {
+    if (LIVE) { const h = attCardLive(a, th); if (h != null) return h; }
     const v = vendorOf(th.vendor), vend = S.role === "vendor";
     const act = label => `<div class="actions"><button class="btn sm" data-act="mailOpen" data-type="${a.type}" data-ref="${esc(typeof a.ref === "string" ? a.ref : "")}" data-th="${th.id}">${label}</button></div>`;
     if (a.type === "package") return `<div class="att"><div class="row between"><b>${ic("inbox")} ${L("Test package", "Testpaket")} EEL 2027-01</b>${pill(packageJSON().cases.length + " " + L("cases", "Fälle"), "")}</div><span class="muted">${L("Test cases in words · the same cases as JSON test input · criteria checklist. Expected results stay with ITSG.", "Testfälle in Worten · dieselben Fälle als JSON-Testeingabe · Kriterien-Checkliste. Erwartungswerte bleiben bei ITSG.")}</span>${vend ? `<div class="actions"><button class="btn sm primary" data-act="mailOpen" data-type="package" data-ref="" data-th="${th.id}">${L("Open the checklist", "Checkliste öffnen")}</button><button class="btn sm" data-act="vImportAll">${ic("upload")} ${L("Import all (JSON)", "Alle importieren (JSON)")}</button></div>` : act(L("View package", "Paket ansehen"))}</div>`;
@@ -2770,11 +2787,17 @@ const APP = (() => {
     return "";
   }
   function attachOptions(vid) {
+    if (LIVE) {
+      const cs = (CASES || []).map(c => ["case", c.id, `${L("Test case", "Testfall")} ${c.id} · ${c.title}`]);
+      if (S.role === "itsg") { const p = (LV.tracking || []).find(t => (t.to || []).includes(userOf(vid))); return [...(p ? [["package", p.id, `${L("Test package", "Testpaket")} ${p.id}`]] : []), ...cs]; }
+      return [["file-disk", "", L("Result file from disk…", "Ergebnisdatei von der Festplatte…")], ...cs];
+    }
     const refs = [...C.RULES.map(r => ["case", r.id, `${L("Test case", "Testfall")} ${ruleCase(r.id).id} · ${ruleCase(r.id).title}`]), ...C.RULES.map(r => ["rule", r.id, `${L("Rule", "Regel")} ${r.id} · ${T(r.label)}`])];
     if (S.role === "itsg") return [["package", "EEL 2027-01", L("Test package EEL 2027-01", "Testpaket EEL 2027-01")], ["report", vid, `${L("Test report", "Prüfbericht")} ${vendorOf(vid).name}`], ...refs];
     return [["dta-new", "teel0", L("Result file for TC-3.12-001: the real sample file", "Ergebnisdatei zu TC-3.12-001: die echte Beispieldatei")], ["dta-new", "gap", L("Result file for TC-3.12-001: a broken version (extra period)", "Ergebnisdatei zu TC-3.12-001: fehlerhafte Fassung (Zusatzzeitraum)")], ["dta-disk", "", L("Result file from disk…", "Ergebnisdatei von der Festplatte…")], ...refs];
   }
-  const certifiable = vid => !reportData(vendorOf(vid)).failed.length && !Object.values(work(vid)).some(x => x.status === "fail");
+  const attSafe = (a, th) => { try { return attCard(a, th); } catch (e) { return ""; } }; // a message from an older version of the page
+  const certifiable = vid => LIVE ? !!(lastReport(vid) && lastReport(vid).verdict === "pass") : !reportData(vendorOf(vid)).failed.length && !Object.values(work(vid)).some(x => x.status === "fail");
 
   /* ---------- Messages screen ---------- */
   function vMail() {
@@ -2784,7 +2807,7 @@ const APP = (() => {
     const list = all.filter(inFolder).sort((a, b) => lastAt(b) - lastAt(a));
     const newMode = !!(S.compose && S.compose.thread === null);
     const th = newMode ? null : (all.find(t => t.id === S.selThread) || list[0] || null);
-    if (th) th.read[s] = th.msgs.length;
+    if (th) { if (LIVE && th.read[s] < th.msgs.length) liveRead(th); th.read[s] = th.msgs.length; }
     const who = (from, t) => from === "itsg" ? { n: L("ITSG system review", "ITSG Systemuntersuchung"), cls: "itsg", a: "IT" } : from === "system" ? { n: L("Automatic comparison", "Automatischer Vergleich"), cls: "", a: "⚙" } : { n: vendorOf(from).name, cls: "ven", a: vendorOf(from).name.slice(0, 3).toUpperCase() };
     const folderBtn = (k, label, n) => `<button aria-pressed="${S.mailFolder === k}" data-act="mailFolder" data-v="${k}"><span>${label}</span>${n ? `<span class="nav-badge hot">${n}</span>` : ""}</button>`;
     const folders = `<div class="mail-folders"><button class="btn primary sm" style="justify-content:center;margin-bottom:8px" data-act="mailNew">${L("New message", "Neue Nachricht")}</button>
@@ -2808,7 +2831,7 @@ const APP = (() => {
       const v = vendorOf(th.vendor), ok = certifiable(v.id), hasCert = !!mailbox().certs[v.id];
       const quick = s === "itsg" ? `<div class="actions"><button class="btn sm" data-act="itsgSendReport" data-v="${v.id}">${ic("report")} ${L("Send report", "Bericht senden")}</button><button class="btn sm" data-act="itsgRequestFix" data-v="${v.id}" ${ok ? "disabled" : ""}>${L("Request fix & resend", "Korrektur anfordern")}</button><button class="btn sm primary" data-act="itsgCert" data-v="${v.id}" ${ok && !hasCert ? "" : "disabled"} title="${esc(ok ? "" : L("Only when nothing failed", "Nur wenn nichts fehlgeschlagen ist"))}">${ic("check")} ${hasCert ? L("Certificate issued", "Zertifikat erteilt") : L("Issue certificate", "Zertifikat erteilen")}</button></div>` : "";
       reading = `<div class="mail-read"><div class="mail-head"><div class="row between"><div class="stack" style="gap:2px"><h3>${esc(txt(th.subject))}</h3><span class="muted" style="font-size:var(--fs-xs)">ITSG ⇄ ${esc(v.name)} · ${esc(v.productName)} ${esc(v.release)}</span></div>${quick}</div></div>
-        <div class="mail-msgs" data-tour="thread">${th.msgs.map(m => { const w = who(m.from, th); return `<div class="mail-msg ${m.from === "system" ? "system" : ""}"><div class="avatar ${w.cls}">${w.a}</div><div class="stack" style="gap:6px"><div class="row between"><b>${esc(w.n)}</b><span class="muted" style="font-size:var(--fs-xs)">${fmtAt(m.at)}</span></div>${txt(m.body) ? `<div class="body md">${richText(txt(m.body))}</div>` : ""}${m.attach.map(a => attCard(a, th)).join("")}</div></div>`; }).join("")}</div>${composer}</div>`;
+        <div class="mail-msgs" data-tour="thread">${th.msgs.map(m => { const w = who(m.from, th); return `<div class="mail-msg ${m.from === "system" ? "system" : ""}"><div class="avatar ${w.cls}">${w.a}</div><div class="stack" style="gap:6px"><div class="row between"><b>${esc(w.n)}</b><span class="muted" style="font-size:var(--fs-xs)">${fmtAt(m.at)}</span></div>${txt(m.body) ? `<div class="body md">${richText(txt(m.body))}</div>` : ""}${(m.attach || []).map(a => attSafe(a, th)).join("")}</div></div>`; }).join("")}</div>${composer}</div>`;
     }
     return `${head(L("Messages", "Nachrichten"), s === "itsg" ? L("One conversation per vendor and topic. Publish packages, receive result files — compared automatically on arrival — and send reports or the certificate back.", "Eine Unterhaltung je Hersteller und Thema. Pakete veröffentlichen, Ergebnisdateien empfangen — beim Eingang automatisch verglichen — und Berichte oder das Zertifikat zurückschicken.") : L("Your conversations with ITSG. Packages arrive here; send your result files back and they are compared automatically.", "Ihre Unterhaltungen mit ITSG. Pakete kommen hier an; senden Sie Ihre Ergebnisdateien zurück, sie werden automatisch verglichen."))}
       <div class="mail" data-tour="mail">${folders}${items}${reading}</div>${demoNote()}`;
@@ -2816,6 +2839,7 @@ const APP = (() => {
 
   /* ---------- Vendor home ---------- */
   function vVendorHome() {
+    if (LIVE) return vVendorHomeLive();
     const v = vendorOf(S.vendorUser), w = work(v.id), pub = published(v.id), sc = scopeFor(v), n = k => sc.filter(x => x.why.includes(k)).length;
     const st = Object.values(w), todo = pub ? st.filter(x => x.status === "todo").length : 0;
     const msgDone = MSG_RULES.filter(r => ["pass", "fail"].includes(w[r].status)).length, fails = MSG_RULES.filter(r => w[r].status === "fail").length, passes = MSG_RULES.filter(r => w[r].status === "pass").length;
@@ -2877,11 +2901,11 @@ const APP = (() => {
      pipeline/server.py at /pipeline). Here they are fed with recorded data in the same JSON
      shapes as that server's API, so the demo runs offline. Recorded AI output is in English.
      =================================================================================== */
-  const SF = SPEC_FULL && SPEC_FULL.sections && SPEC_FULL.sections.length ? SPEC_FULL
+  let SF = SPEC_FULL && SPEC_FULL.sections && SPEC_FULL.sections.length ? SPEC_FULL
     : { version: C.SPEC.version, pages: C.SPEC.pages, sections: C.SPEC.index.map(([sec, title, page]) => ({ sec, title, page, text: C.SPEC.sections[sec] ? C.SPEC.sections[sec].text : [] })) };
-  const SEC = Object.fromEntries(SF.sections.map(s => [s.sec, s]));
+  let SEC = Object.fromEntries(SF.sections.map(s => [s.sec, s]));
   const secText = sec => SEC[sec] ? SEC[sec].text : (C.SPEC.sections[sec] ? C.SPEC.sections[sec].text : null);
-  const FULL_NORM = C.norm(SF.sections.map(s => s.text.join(" ")).join(" "));
+  let FULL_NORM = C.norm(SF.sections.map(s => s.text.join(" ")).join(" "));
   const verbatim = q => !!q && FULL_NORM.includes(C.norm(q));
   const inOld = (q, sec) => C.norm((C.SPEC_OLD.sections[sec] || []).join(" ")).includes(C.norm(q));
   const FIELD_ROW = /^\d{3}\s?[–-]/;
@@ -2921,10 +2945,11 @@ const APP = (() => {
       new_rule: L("Cancellation 88 carries DSID-UR, first name and family name of the original record.", "Stornierung 88 enthält DSID-UR, Vor- und Familiennamen der ursprünglichen Meldung."),
       parameters: [], quotes_new: ["angegebene Vorname anzugeben", "angegebene Familienname anzugeben"], quotes_old: [] })
   };
-  const CHANGE_LIST = () => CHANGES.filter(c => c.source !== "log-no-text");
-  // Served by pipeline/server.py: the live pipeline UI (real hessian.AI runs on any PDF) sits next to this page.
-  const liveLink = () => location.protocol.startsWith("http") ? `<a class="btn tour-hide" href="/pipeline" target="_blank" rel="noopener">${ic("ai")} ${L("Live AI pipeline", "Live-KI-Pipeline")} ↗</a>` : "";
+  const CHANGE_LIST = () => LIVE ? liveChanges() : CHANGES.filter(c => c.source !== "log-no-text");
+  // The recorded demo served by pipeline/server.py (at /demo): the live app with the real AI is at /.
+  const liveLink = () => window.SPECS_MODE === "demo" ? `<a class="btn tour-hide" href="/">${ic("ai")} ${L("Live app", "Live-App")} ↗</a>` : "";
   function specChange(sec) {
+    if (LIVE) { const sc = (itemOf(sec) || {}).spec_change || {}; return Object.assign({ change_type: "", summary: "", quotes_new: [], quotes_old: [] }, sc, { parameters: sc.parameters || [], quote_checks: sc.quote_checks || [] }); }
     const ai = C.AI_CHANGE_TYPE[sec], base = SC[sec] ? SC[sec]() : { change_type: ai ? ai.type : "clarification", summary: ai ? T(ai.why) : "", parameters: [], quotes_new: [], quotes_old: [] };
     const sc = Object.assign(base, ST.edits[sec] || {});
     sc.quote_checks = [...(sc.quotes_new || []).map(q => ({ quote: q, side: "new", ok: verbatim(q) })), ...(sc.quotes_old || []).map(q => ({ quote: q, side: "old", ok: inOld(q, sec) }))];
@@ -2946,9 +2971,15 @@ const APP = (() => {
     format: L("The data format changed: a field, its position or its content. The file comparison must follow.", "Das Datenformat hat sich geändert: Feld, Position oder Inhalt. Der Dateivergleich muss folgen."),
     clarification: L("The meaning is made clearer. Existing tests are checked, results usually stay.", "Die Bedeutung wird klarer gefasst. Bestehende Tests prüfen, Ergebnisse bleiben meist gleich.")
   });
-  const ctPill = t => { const [label, cls] = CT()[t] || [t || "?", ""]; return `<span class="pill ${cls}" title="${esc(CT_HELP()[t] || "")}">${esc(label)}</span>`; };
+  const ctPill = t => { if (!t && LIVE) return ""; const [label, cls] = CT()[t] || [t || "?", ""]; return `<span class="pill ${cls}" title="${esc(CT_HELP()[t] || "")}">${esc(label)}</span>`; };
   const srcPill = s => s === "diff-only" ? pill(L("not in change log", "nicht im Protokoll"), "bad") : s === "confirmed" ? pill(L("log + diff", "Protokoll + Diff"), "ok") : pill(T(SOURCE[s]), SOURCE[s] ? SOURCE[s].cls : "");
-  const chStatePill = sec => ({ approved: pill("✓ " + L("approved", "freigegeben"), "ok"), declined: pill("✕ " + L("declined", "abgelehnt"), "bad") })[ST.decided[sec]] || pill(L("waiting for you", "wartet auf Sie"), "warn");
+  const chStatePill = sec => {
+    const it = LIVE ? itemOf(sec) : null;
+    if (it && !it.spec_change) return pill(it.status === "running" ? "◐ " + L("AI reading", "KI liest") : it.status === "queued" ? L("queued", "wartet") : it.status === "candidate" ? L("not read", "nicht gelesen") : L("not finished", "nicht fertig"), it.status === "running" ? "info" : "");
+    if (it && it.status === "done" && ST.decided[sec] !== "declined") return pill("✓ " + L("test cases written", "Testfälle geschrieben"), "ok");
+    return chStatePillRec(sec);
+  };
+  const chStatePillRec = sec => ({ approved: pill("✓ " + L("approved", "freigegeben"), "ok"), declined: pill("✕ " + L("declined", "abgelehnt"), "bad") })[ST.decided[sec]] || pill(L("waiting for you", "wartet auf Sie"), "warn");
 
   /* ---------- chain of thought (Achraf's event shape and renderer) ---------- */
   const stepHtml = (cls, icon, title, body) => `<div class="cot-step ${cls}"><span class="cot-ic">${icon}</span><div class="cot-body"><div class="cot-title">${title}</div>${body}</div></div>`;
@@ -2962,18 +2993,24 @@ const APP = (() => {
   function evHtml(e) {
     const d = e.data || {}, t = `<span class="mono" style="font-weight:400">${esc((e.t || "").slice(11, 19))}</span>`;
     switch (e.type) {
-      case "context": return stepHtml("", "↗", `${t} ${L("sent to the model", "an das Modell gesendet")}`, `<div class="cot-text">~${fmtN(Math.round(d.chars / 4))} ${L("tokens", "Tokens")}: §${esc(d.sent.join(", §"))}${d.old_version ? " + " + L("old version + word diff", "alte Fassung + Wort-Diff") : ""} · ${L("nothing else from the archive", "sonst nichts aus dem Archiv")}</div>`);
+      case "context": return stepHtml("", "↗", `${t} ${L("sent to the model", "an das Modell gesendet")}`, `<div class="cot-text">~${fmtN(Math.round((d.chars || 0) / 4))} ${L("tokens", "Tokens")}: §${esc((d.sent || []).join(", §"))}${d.old_version ? " + " + L("old version + word diff", "alte Fassung + Wort-Diff") : ""} · ${L("nothing else from the archive", "sonst nichts aus dem Archiv")}</div>`);
       case "thought": return stepHtml("thought", ic("ai"), `${t} ${L("model reasoning", "Denkprozess des Modells")}`, `<div class="cot-text">${esc(d.text)}</div>`);
       case "terminal": return stepHtml("term", "$", `${t} ${L("terminal", "Terminal")} ${pill("exit 0", "ok")}`, `<div class="term"><div class="term-head"><span>$ python check.py</span><span>${d.ms} ms</span></div><pre class="term-code">${esc(d.code)}</pre><pre class="term-out">${esc(d.stdout)}</pre></div>`);
       case "spec_change": return stepHtml("spec", "{}", `${t} ${L("spec change extracted", "Änderung extrahiert")} ${ctPill(d.change_type)}${d.formula_changed ? ` <span class="flag-formula">ƒ ${L("result changes", "Ergebnis ändert sich")}</span>` : ""}`,
         `<div class="cot-text"><b>${esc(d.summary || "")}</b></div>${(d.quote_checks || []).map(q => `<div class="row" style="gap:6px;align-items:start;flex-wrap:nowrap"><span class="pill ${q.ok ? "ok" : "bad"}">${q.ok ? "✓" : "✕"} ${q.side === "old" ? L("old", "alt") : L("new", "neu")}</span><span class="de-quote" style="font-size:var(--fs-sm)">„${esc(q.quote)}“</span></div>`).join("")}
         <details class="cot-more"><summary class="muted">JSON</summary><pre class="json">${esc(JSON.stringify(Object.fromEntries(Object.entries(d).filter(([k]) => k !== "quote_checks")), null, 2))}</pre></details>`);
-      case "test_case": return stepHtml("case", "TC", `${t} ${L("test case submitted", "Testfall eingereicht")}`, `<div class="cot-text"><b>${esc(d.title)}</b> → <span class="mono">${esc(d.result_name)} = ${esc(d.expected_value)}</span></div>`);
+      case "test_case": return stepHtml("case", "TC", `${t} ${L("test case submitted", "Testfall eingereicht")}`, `<div class="cot-text"><b>${esc(d.title)}</b> → <span class="mono">${esc(d.result_name || (d.formula || {}).result_name || "")} = ${esc(d.expected_value)}</span></div>`);
       default: return "";
     }
   }
   const at = (sec, k) => `2026-12-01T09:${String(12 + k).padStart(2, "0")}:${String((sec.length * 7 + k * 13) % 60).padStart(2, "0")}`;
   function changeEvents(sec) {
+    if (LIVE) {
+      const ev = LV.events.filter(e => e.item === sec && ["context", "thought", "terminal", "spec_change", "test_case"].includes(e.type));
+      const lv = LV.run && LV.run.live && LV.run.live[sec];
+      if (lv && lv.reasoning) ev.push({ t: "", type: "thought", data: { text: lv.reasoning } });
+      return ev;
+    }
     const ctxSecs = [sec, ...((C.SPEC.sections[sec] || { links: [] }).links.filter(l => SEC[l]))].slice(0, 3);
     const chars = ctxSecs.reduce((n, s) => n + (SEC[s] ? SEC[s].text.join(" ").length : 0), 0) + (C.SPEC_OLD.sections[sec] || []).join(" ").length;
     const ev = [{ t: at(sec, 0), type: "context", data: { chars, sent: ctxSecs, old_version: !!C.SPEC_OLD.sections[sec] } }];
@@ -3005,6 +3042,7 @@ const APP = (() => {
     } catch (e) { log("system", L("Live chat failed, recorded answer used", "Live-Chat fehlgeschlagen, Aufzeichnung genutzt"), String(e.message)); return null; }
   }
   async function chatAnswer(question, ctx) {
+    if (LIVE) return liveAsk(question, { run: LV.runId, sec: ST.selChange, history: chatHistory(ST.chat) });
     // The live model gets the section text, the extracted change and the reasoning above.
     const live = await liveChat("You explain a change in a German social-insurance specification to an examiner. Answer only from the text given. Quote the German source verbatim with its § number. Short answers.", `${ctx}\n\nQuestion: ${question}`);
     if (live) return live;
@@ -3039,7 +3077,9 @@ const APP = (() => {
   /* ---------- screen: Changes (log + diff, review, reasoning, chat) ---------- */
   function chCard(sec) {
     const ch = CHANGE_LIST().find(c => c.sec === sec) || CHANGE_LIST()[0], sc = specChange(ch.sec), st = ST.decided[ch.sec] || "waiting";
-    const page = SEC[ch.sec] ? SEC[ch.sec].page : "—", checks = sc.quote_checks, bad = checks.filter(q => !q.ok).length;
+    const it = LIVE ? itemOf(ch.sec) : null, locked = !!(it && it.status !== "review");
+    if (it && !it.spec_change) return liveWaitCard(ch, it);
+    const page = SEC[ch.sec] ? SEC[ch.sec].page : (it && it.page) || "—", checks = sc.quote_checks, bad = checks.filter(q => !q.ok).length;
     if (ST.chEdit === ch.sec) return `<article class="chg-card" data-tour="chcard"><span class="eyebrow">§${esc(ch.sec)} · ${L("edit the AI's reading", "Lesart der KI bearbeiten")}</span><h3>${esc(ch.title)}</h3>
       <div class="chg-edit"><label class="stack"><span class="field-label">${L("Summary", "Zusammenfassung")}</span><textarea class="textarea" id="chSummary">${esc(sc.summary || "")}</textarea></label>
         <div class="grid-2"><label class="stack"><span class="field-label">${L("Before", "Vorher")}</span><textarea class="textarea" id="chOld">${esc(sc.old_rule || "")}</textarea></label><label class="stack"><span class="field-label">${L("Now", "Jetzt")}</span><textarea class="textarea" id="chNew">${esc(sc.new_rule || "")}</textarea></label></div>
@@ -3048,23 +3088,25 @@ const APP = (() => {
     return `<article class="chg-card ${st}" data-tour="chcard">
       <div class="chg-head"><div style="min-width:0"><span class="eyebrow">§${esc(ch.sec)} · ${L("page", "Seite")} ${esc(page)}${ST.edits[ch.sec] ? " · " + L("edited by you", "von Ihnen bearbeitet") : ""}</span><h3>${esc(ch.title)}</h3></div><div>${chStatePill(ch.sec)}</div></div>
       <div class="row" style="gap:6px">${ctPill(sc.change_type)}${sc.formula_changed ? `<span class="flag-formula">ƒ ${L("the result changes", "das Ergebnis ändert sich")}</span>` : ""}${srcPill(ch.source)}</div>
-      ${ch.entry ? `<div class="callout"><b>${L("Change log entry", "Eintrag im Änderungsprotokoll")} (${esc(ch.entry.version)} · ${esc(ch.entry.date)})</b><span class="de-quote">${esc(ch.entry.description)}</span></div>` : `<div class="callout bad"><b>${L("Not in the change log", "Nicht im Änderungsprotokoll")}</b>${L("Found only by comparing the old and new text.", "Nur durch Vergleich von altem und neuem Text gefunden.")}</div>`}
-      ${ch.entry && /redaktion/i.test(ch.entry.description) && sc.change_type !== "editorial" ? `<div class="ct-explain" data-tour="ctexplain"><div class="log"><span class="field-label">${L("The change log says: editorial", "Das Protokoll sagt: redaktionell")}</span><span>${esc(CT_HELP().editorial)}</span></div><span class="vs">vs</span><div class="ai"><span class="field-label">${L("The AI says", "Die KI sagt")}: ${esc(CT()[sc.change_type] ? CT()[sc.change_type][0] : sc.change_type)}</span><span>${esc(CT_HELP()[sc.change_type] || "")}</span>${ch.sec === "3.12" ? `<span><b>${L("Here", "Hier")}:</b> ${L("at a gap of exactly 6 months, v13.3 stops the chain and v13.4 keeps it going. Same employee, different request 41.", "bei einer Lücke von genau 6 Monaten beendet v13.3 die Kette, v13.4 führt sie fort. Derselbe Beschäftigte, eine andere Anfrage 41.")}</span>` : ""}</div></div>`
+      ${ch.entry ? `<div class="callout"><b>${L("Change log entry", "Eintrag im Änderungsprotokoll")} (${esc(ch.entry.version)} · ${esc(ch.entry.date)})</b><span class="de-quote">${esc(ch.entry.description)}</span></div>` : LIVE && ch.source !== "diff-only" ? "" : `<div class="callout bad"><b>${L("Not in the change log", "Nicht im Änderungsprotokoll")}</b>${L("Found only by comparing the old and new text.", "Nur durch Vergleich von altem und neuem Text gefunden.")}</div>`}
+      ${ch.entry && /redaktion/i.test(ch.entry.description) && sc.change_type !== "editorial" ? `<div class="ct-explain" data-tour="ctexplain"><div class="log"><span class="field-label">${L("The change log says: editorial", "Das Protokoll sagt: redaktionell")}</span><span>${esc(CT_HELP().editorial)}</span></div><span class="vs">vs</span><div class="ai"><span class="field-label">${L("The AI says", "Die KI sagt")}: ${esc(CT()[sc.change_type] ? CT()[sc.change_type][0] : sc.change_type)}</span><span>${esc(CT_HELP()[sc.change_type] || "")}</span>${!LIVE && ch.sec === "3.12" ? `<span><b>${L("Here", "Hier")}:</b> ${L("at a gap of exactly 6 months, v13.3 stops the chain and v13.4 keeps it going. Same employee, different request 41.", "bei einer Lücke von genau 6 Monaten beendet v13.3 die Kette, v13.4 führt sie fort. Derselbe Beschäftigte, eine andere Anfrage 41.")}</span>` : ""}</div></div>`
         : CT_HELP()[sc.change_type] ? `<p class="ct-help">${esc(CT_HELP()[sc.change_type])}</p>` : ""}
       ${sc.summary ? `<p class="chg-summary">${esc(sc.summary)}</p>` : ""}
-      ${sc.old_rule ? `<div class="chg-rules"><div class="chg-rule before"><span class="field-label">${L("Before (v13.3)", "Vorher (v13.3)")}</span><div>${esc(sc.old_rule)}</div></div><div class="chg-arrow" aria-hidden="true">→</div><div class="chg-rule after"><span class="field-label">${L("Now (v13.4)", "Jetzt (v13.4)")}</span><div>${esc(sc.new_rule || "")}</div></div></div>`
+      ${sc.old_rule ? `<div class="chg-rules"><div class="chg-rule before"><span class="field-label">${`${L("Before", "Vorher")} (v${VER().o || "?"})`}</span><div>${esc(sc.old_rule)}</div></div><div class="chg-arrow" aria-hidden="true">→</div><div class="chg-rule after"><span class="field-label">${`${L("Now", "Jetzt")} (v${VER().n})`}</span><div>${esc(sc.new_rule || "")}</div></div></div>`
         : sc.new_rule ? `<div class="chg-rules"><div class="chg-rule only"><span class="field-label">${L("The rule", "Die Regel")}</span><div>${esc(sc.new_rule)}</div></div></div>` : ""}
       ${sc.parameters.length ? `<div class="stack" style="gap:6px"><span class="field-label">${L("Numbers and limits", "Zahlen und Grenzwerte")}</span><div class="chg-params">${sc.parameters.map(p => `<div class="chg-param"><b>${esc(p.name)}</b><span class="val">${p.old_value ? `<span class="old">${esc(p.old_value)}</span><span class="muted">→</span>` : ""}<span class="new">${esc(p.new_value || "—")}${p.unit ? " " + esc(p.unit) : ""}</span></span>${p.quote ? `<span class="q">„${esc(p.quote)}“</span>` : ""}</div>`).join("")}</div></div>` : ""}
       ${checks.length ? `<details class="cot-more" ${bad ? "open" : ""}><summary><b>${L("Evidence from the specification", "Belege aus der Spezifikation")}</b> <span class="muted">· ${checks.length - bad}/${checks.length} ${L("found word for word", "wörtlich gefunden")}</span></summary><div class="stack" style="gap:6px;margin-top:8px">${checks.map(q => `<div class="chg-quote"><span class="pill ${q.ok ? "ok" : "bad"}">${q.ok ? "✓" : "?"} ${q.side === "old" ? L("old text", "alter Text") : L("new text", "neuer Text")}</span><span class="de-quote">„${esc(q.quote)}“</span></div>`).join("")}</div></details>` : ""}
-      <div class="chg-actions"><div class="row">${st === "waiting" ? `<button class="btn ok primary" data-act="chDecide" data-sec="${esc(ch.sec)}" data-d="approved" data-tour="approve">✓ ${L("Approve", "Freigeben")}</button>` : `<button class="btn ghost" data-act="chDecide" data-sec="${esc(ch.sec)}" data-d="">↺ ${L("Undo", "Zurücknehmen")}</button>`}
-        <button class="btn" data-act="chEdit" data-sec="${esc(ch.sec)}">✎ ${L("Edit", "Bearbeiten")}</button>${st === "declined" ? "" : `<button class="btn bad" data-act="chDecide" data-sec="${esc(ch.sec)}" data-d="declined">✕ ${L("Decline", "Ablehnen")}</button>`}</div>
+      <div class="chg-actions"><div class="row">${locked ? "" : st === "waiting" ? `<button class="btn ok primary" data-act="chDecide" data-sec="${esc(ch.sec)}" data-d="approved" data-tour="approve">✓ ${L("Approve", "Freigeben")}</button>` : `<button class="btn ghost" data-act="chDecide" data-sec="${esc(ch.sec)}" data-d="">↺ ${L("Undo", "Zurücknehmen")}</button>`}
+        ${locked ? "" : `<button class="btn" data-act="chEdit" data-sec="${esc(ch.sec)}">✎ ${L("Edit", "Bearbeiten")}</button>`}${st === "declined" || locked ? "" : `<button class="btn bad" data-act="chDecide" data-sec="${esc(ch.sec)}" data-d="declined">✕ ${L("Decline", "Ablehnen")}</button>`}</div>
         <button class="btn sm ghost" data-act="goSec" data-sec="${esc(ch.sec)}" data-q="${esc((sc.quotes_new || [])[0] || "")}">${L("Show in the specification", "In der Spezifikation zeigen")}</button></div>
     </article>`;
   }
   function vChangeReview() {
-    const list = CHANGE_LIST(), sec = list.some(c => c.sec === ST.selChange) ? ST.selChange : list[0].sec, appr = list.filter(c => ST.decided[c.sec] === "approved").length;
+    const list = CHANGE_LIST();
+    if (LIVE && !list.length) return `${head(L("Changes", "Änderungen"), "")}<section class="panel"><div class="empty">${LV.runId && !LV.run ? L("Loading…", "Lade…") : L("No analysis yet. Import the new specification first.", "Noch keine Analyse. Zuerst die neue Spezifikation importieren.")}<div class="row" style="justify-content:center;margin-top:8px"><button class="btn primary" data-act="go" data-screen="ingest">${L("Import", "Importieren")}</button></div></div></section>`;
+    const sec = ST.selChange = list.some(c => c.sec === ST.selChange) ? ST.selChange : list[0].sec, appr = list.filter(c => ST.decided[c.sec] === "approved").length;
     const ev = changeEvents(sec);
-    return `${head(L("Changes v13.3 → v13.4", "Änderungen v13.3 → v13.4"), L("The official change log, parsed, against a section-by-section comparison of the old and new text. The AI reads each change; you approve, edit or decline what it understood.", "Das offizielle Änderungsprotokoll, geparst, gegen einen abschnittsweisen Vergleich von altem und neuem Text. Die KI liest jede Änderung; Sie geben frei, bearbeiten oder lehnen ab."),
+    return `${head(`${L("Changes", "Änderungen")} ${VER().o ? "v" + VER().o + " → " : ""}v${VER().n}`, L("The official change log, parsed, against a section-by-section comparison of the old and new text. The AI reads each change; you approve, edit or decline what it understood.", "Das offizielle Änderungsprotokoll, geparst, gegen einen abschnittsweisen Vergleich von altem und neuem Text. Die KI liest jede Änderung; Sie geben frei, bearbeiten oder lehnen ab."),
       `${liveLink()}<button class="btn primary" data-act="go" data-screen="review" ${appr ? "" : "disabled"}>${ic("test")} ${L("Create test cases", "Testfälle erstellen")} (${appr} ${L("approved", "freigegeben")}) →</button>`)}
       <div class="split">
         <section class="panel chg-list"><div class="panel-head"><h4>${L("Changes", "Änderungen")} (${list.length})</h4><span class="muted" style="font-size:var(--fs-xs)">${L("riskiest first", "riskanteste zuerst")}</span></div>
@@ -3083,6 +3125,7 @@ const APP = (() => {
   let CASES = null;
   const RULE_ORDER = ["R-3.12-B", "R-3.12-A", "R-3.12.5", "R-3.7.3"];
   function storyCases() {
+    if (LIVE) return CASES || [];
     if (CASES) return CASES;
     const P = S.params, d = s => C.de(C.D(s)), am = (s, k) => C.iso(C.addMonths(C.D(s), k));
     const doc = { name: "Verfahrensbeschreibung_DTA_EEL_v13.4.pdf", version: "13.4" };
@@ -3144,6 +3187,7 @@ const APP = (() => {
   const CSTATUS = () => ({ draft: [L("draft", "Entwurf"), ""], verified: ["✓ " + L("verified", "verifiziert"), "ok"], rejected: [L("rejected", "abgelehnt"), "bad"], sent: [L("sent to developers", "an Entwickler"), "info"] });
   const cStatusPill = c => { const [t, cls] = CSTATUS()[caseStatus(c)]; return pill(t, cls); };
   function guardsOf(c) {
+    if (LIVE) return c.guards || [];
     return [
       { id: "G1", name: L("quotes verbatim in the spec", "Zitate wörtlich in der Spezifikation"), status: c.quotes.every(verbatim) ? "ok" : "fail", detail: `${c.quotes.filter(verbatim).length}/${c.quotes.length} ${L("found word for word in v13.4", "wörtlich in v13.4 gefunden")}` },
       { id: "G2", name: L("formula parses in the safe language", "Formel in der sicheren Sprache lesbar"), status: "ok", detail: L("only whitelisted functions", "nur erlaubte Funktionen") },
@@ -3160,6 +3204,7 @@ const APP = (() => {
     ${vars.map(x => `<tr class="${x.source === "spec" ? "spec-param" : ""}"><td><span class="var-name">${esc(x.name)}</span>${x.description ? `<div class="muted" style="font-size:11px">${esc(x.description)}</div>` : ""}</td><td class="mono">${esc(x.value)}</td>
       <td>${x.source === "spec" ? `${pill(L("law", "Gesetz"), "warn")}${x.quote ? `<div class="de-quote muted" style="font-size:11px;max-width:34ch">„${esc(x.quote)}“</div>` : ""}` : pill(L("scenario", "Szenario"), "")}</td></tr>`).join("")}</tbody></table>`;
   function groupedCases(list, itemHtml) {
+    if (LIVE) return [...new Set(list.map(c => c.section))].map(sec => { const cs = list.filter(c => c.section === sec); return `<div class="tc-group"><b>§${esc(sec)} · ${esc(cs[0].section_title || "")}</b><span>${cs.length} ${cs.length === 1 ? L("test case", "Testfall") : L("test cases", "Testfälle")}</span></div>${cs.map(itemHtml).join("")}`; }).join("");
     return RULE_ORDER.map(rid => { const r = C.RULES.find(x => x.id === rid), cs = list.filter(c => c.rule === rid); return cs.length ? `<div class="tc-group"><b>${rid} · ${esc(T(r.label))}</b><span>§${esc(r.sec)} · ${cs.length} ${cs.length === 1 ? L("test case", "Testfall") : L("test cases", "Testfälle")}</span></div>${cs.map(itemHtml).join("")}` : ""; }).join("");
   }
   // The examiner rewrites the words of a test case. The expected value stays with tested code: it changes only through the rule.
@@ -3173,10 +3218,10 @@ const APP = (() => {
       <div class="row"><button class="btn" data-act="caseCancel">${L("Cancel", "Abbrechen")}</button><button class="btn" data-act="caseSave" data-id="${esc(c.id)}">${L("Save", "Speichern")}</button><button class="btn ok primary" data-act="caseSave" data-id="${esc(c.id)}" data-verify="1">✓ ${L("Save and verify", "Speichern und verifizieren")}</button></div></div>`;
   }
   function caseDetail(c) {
-    const fm = c.formula, gs = guardsOf(c), locked = ST.sent;
+    const fm = c.formula, gs = guardsOf(c), locked = LIVE ? caseStatus(c) === "sent" : ST.sent;
     return `<section class="panel" data-tour="casedetail"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${esc(c.id)} · ${esc(c.rule)} · §${esc(c.section)} ${esc(c.section_title)}${c.edited ? " · " + L("edited by you", "von Ihnen bearbeitet") : ""}</span><h3>${esc(c.title)}</h3></div><div class="row">${cStatusPill(c)}</div></div>
       <div class="panel-body">
-        ${c.formula_changed ? `<div class="callout warn"><b>ƒ ${L("Result changed with the law: please check", "Ergebnis hat sich mit dem Gesetz geändert: bitte prüfen")}</b><span>${L("Before (v13.3)", "Vorher (v13.3)")}: <span class="formula-old">${esc(c.previous_expression)}</span></span><span>${L("Now (v13.4)", "Jetzt (v13.4)")}: <code>${esc(fm.expression)}</code></span></div>` : ""}
+        ${c.formula_changed ? `<div class="callout warn"><b>ƒ ${L("Result changed with the law: please check", "Ergebnis hat sich mit dem Gesetz geändert: bitte prüfen")}</b><span>${`${L("Before", "Vorher")} (v${VER().o || "?"})`}: <span class="formula-old">${esc(c.previous_expression)}</span></span><span>${`${L("Now", "Jetzt")} (v${VER().n})`}: <code>${esc(fm.expression)}</code></span></div>` : ""}
         ${ST.caseEdit === c.id ? caseEditForm(c) : tcSheet(c)}
         <div class="formula-box ${c.formula_changed ? "changed" : ""}">
           <div class="row between"><span class="field-label">${L("How the expected result is computed", "So wird das erwartete Ergebnis berechnet")} → <b class="mono">${esc(fm.result_name)}</b></span>${gmini(gs)}</div>
@@ -3203,7 +3248,8 @@ const APP = (() => {
     const sel = all.find(c => c.id === ST.selCase) || all[0];
     const cnt = k => all.filter(c => k === "changed" ? c.formula_changed : caseStatus(c) === k).length;
     return `${head(L("Test-case review", "Testfall-Prüfung"), L("One test case per rule, grouped by the rule it tests. Read it like ITSG's own: preconditions, steps, expected result. Then verify and send it to the developers.", "Ein Testfall je Regel, gruppiert nach der geprüften Regel. Zu lesen wie die von ITSG: Vorbedingungen, Schritte, erwartetes Ergebnis. Dann verifizieren und an die Entwickler senden."),
-      `${liveLink()}<button class="btn primary" data-act="sendOpen" ${ST.sent ? "disabled" : ""} data-tour="sendbtn">${ic("inbox")} ${ST.sent ? L("Sent to developers", "An Entwickler gesendet") : L("Send to developers", "An Entwickler senden")} (${all.filter(c => caseStatus(c) !== "rejected").length})</button>`)}
+      `${liveLink()}${LIVE && liveGenMore().length ? `<button class="btn" data-act="genCases" ${ST.genBusy ? "disabled" : ""}>${ic("ai")} ${L("Test cases for", "Testfälle für")} ${liveGenMore().length} ${L("more approved", "weitere freigegebene")}</button>` : ""}<button class="btn primary" data-act="sendOpen" ${ST.sent ? "disabled" : ""} data-tour="sendbtn">${ic("inbox")} ${ST.sent ? L("Sent to developers", "An Entwickler gesendet") : L("Send to developers", "An Entwickler senden")} (${all.filter(c => caseStatus(c) !== "rejected").length})</button>`)}
+      ${LIVE && ST.genBusy ? `<div class="callout">${ST.genLines.map(l => `<div class="gen-line">${l}</div>`).join("")}</div>` : ""}
       <div class="split" data-tour="review"><section class="panel"><div class="tabs" role="tablist">${[["all", L("All", "Alle"), all.length], ["changed", "ƒ " + L("result changed", "Ergebnis neu"), cnt("changed")], ["draft", L("Draft", "Entwurf"), cnt("draft")], ["verified", L("Verified", "Verifiziert"), cnt("verified")]].map(([k, t, n]) => `<button class="tab" role="tab" aria-selected="${f === k}" data-act="caseFilter" data-f="${k}">${t} <span class="muted">${n}</span></button>`).join("")}</div>
         <div class="panel-body flush" style="max-height:72vh;overflow:auto">${lst.length ? groupedCases(lst, c => `<button class="list-item ${ST.focus === c.id ? "focus" : ""}" aria-selected="${c.id === sel.id}" data-act="caseSel" data-id="${esc(c.id)}" ${c.id === FOLLOWED ? 'data-tour="focuscase"' : ""}>
             <span class="mono muted" style="font-size:11px">${esc(c.id)}</span><b style="font-size:var(--fs-sm)">${esc(c.title)}</b><div class="row" style="gap:4px">${cStatusPill(c)}${c.formula_changed ? `<span class="flag-formula">ƒ ${L("result changed", "Ergebnis neu")}</span>` : ""}${c.id === FOLLOWED ? pill(L("we follow this one", "diesen verfolgen wir"), "accent") : ""}</div></button>`) : `<div class="empty">${L("Nothing in this filter.", "Nichts in diesem Filter.")}</div>`}</div></section>
@@ -3225,10 +3271,10 @@ const APP = (() => {
     render();
   }
   function openSend() {
-    const ids = storyCases().filter(c => caseStatus(c) !== "rejected").map(c => c.id);
+    const ids = LIVE ? sendableIds() : storyCases().filter(c => caseStatus(c) !== "rejected").map(c => c.id);
     modal(L("Send to developers", "An Entwickler senden"), `<p class="muted" style="font-size:var(--fs-sm)">${ids.length} ${L("test cases", "Testfälle")}: <span class="mono">${ids.map(esc).join(", ")}</span></p>
       <div class="stack">${C.VENDORS.map(v => `<label class="row"><input type="checkbox" class="sendTo" value="${v.id}" ${v.id === "sap" ? "checked" : ""}> <b>${esc(v.name)} · ${L("developer team", "Entwicklerteam")}</b> <span class="muted" style="font-size:var(--fs-xs)">${esc(v.productName)} ${esc(v.release)}</span></label>`).join("")}</div>
-      <label class="stack"><span class="field-label">${L("Note", "Notiz")}</span><input class="input" id="sendNote" value="${esc(L("EEL 13.4: the 6-month rule in §3.12 (DBVO) changed", "EEL 13.4: die 6-Monats-Regel in §3.12 (DBVO) hat sich geändert"))}"></label>
+      <label class="stack"><span class="field-label">${L("Note", "Notiz")}</span><input class="input" id="sendNote" value="${esc(LIVE ? `v${VER().n}: ${ids.length} ${L("test cases for the changed sections", "Testfälle zu den geänderten Abschnitten")}` : L("EEL 13.4: the 6-month rule in §3.12 (DBVO) changed", "EEL 13.4: die 6-Monats-Regel in §3.12 (DBVO) hat sich geändert"))}"></label>
       <div class="callout">${L("Developers get the test cases in words and as JSON, with what should happen, plus an AI recap. ITSG keeps the expected file and compares every upload.", "Entwickler erhalten die Testfälle in Worten und als JSON, mit dem erwarteten Verhalten, dazu eine KI-Zusammenfassung. ITSG behält die erwartete Datei und vergleicht jeden Upload.")}</div>`, null,
       `<button class="btn" data-act="closeModal">${L("Cancel", "Abbrechen")}</button><button class="btn primary" data-act="sendNow" data-tour="sendnow">${ic("inbox")} ${L("Send", "Senden")}</button>`);
   }
@@ -3249,8 +3295,8 @@ const APP = (() => {
   function paintNotify() {
     let host = document.getElementById("notifyHost");
     if (!host) { host = document.createElement("div"); host.id = "notifyHost"; host.className = "notify-host"; host.setAttribute("aria-live", "polite"); document.body.appendChild(host); }
-    const show = ST.notify && ST.sent && S.role === "vendor" && S.vendorUser === "sap";
-    host.innerHTML = show ? `<div class="notify" role="button" tabindex="0" data-act="notifyOpen"><span class="notify-ic" style="color:var(--accent)">${ic("bell")}</span><div class="stack" style="gap:2px"><b>${L("ITSG sent you new test cases", "ITSG hat Ihnen neue Testfälle gesendet")}</b><span>${CASES.length} ${L("test cases", "Testfälle")} · ${esc(ST.note || "")}</span><span class="muted" style="font-size:var(--fs-xs)">${L("Click to open the e-mail", "Zum Öffnen der E-Mail klicken")}</span></div><button class="btn ghost sm" data-act="notifyDismiss" aria-label="${esc(L("Dismiss", "Ausblenden"))}">✕</button></div>` : "";
+    const show = ST.notify && ST.sent && S.role === "vendor" && (LIVE || S.vendorUser === "sap");
+    host.innerHTML = show ? `<div class="notify" role="button" tabindex="0" data-act="notifyOpen"><span class="notify-ic" style="color:var(--accent)">${ic("bell")}</span><div class="stack" style="gap:2px"><b>${L("ITSG sent you new test cases", "ITSG hat Ihnen neue Testfälle gesendet")}</b><span>${CASES.length} ${L("test cases", "Testfälle")} · ${esc(LIVE && LV.cl ? LV.cl.note || "" : ST.note || "")}</span><span class="muted" style="font-size:var(--fs-xs)">${L("Click to open the e-mail", "Zum Öffnen der E-Mail klicken")}</span></div><button class="btn ghost sm" data-act="notifyDismiss" aria-label="${esc(L("Dismiss", "Ausblenden"))}">✕</button></div>` : "";
   }
   const RECAP = () => ({
     changed: L("§3.12 now treats a gap of exactly 6 months between two sick periods as still connected (“nicht mehr als 6 Monate”). §3.7.3: the confirmed benefit end is capped at the end of employment.", "§3.12 behandelt eine Lücke von genau 6 Monaten zwischen zwei Erkrankungen jetzt als zusammenhängend („nicht mehr als 6 Monate“). §3.7.3: Das bestätigte Leistungsende ist auf das Beschäftigungsende begrenzt."),
@@ -3262,7 +3308,7 @@ const APP = (() => {
   function vChecklist() {
     const v = vendorOf(S.vendorUser);
     if (!ST.sent) return `${head(L("Checklist", "Checkliste"), "")}<section class="panel"><div class="empty">${L("No test package yet. ITSG sends it by e-mail; it appears here.", "Noch kein Testpaket. ITSG schickt es per E-Mail; es erscheint hier.")}</div></section>`;
-    const cs = storyCases().filter(c => caseStatus(c) !== "rejected"), r = RECAP(), n = cs.filter(c => ST.covered[c.id]).length, pct = Math.round(100 * n / cs.length), up = lastUpload();
+    const cs = storyCases().filter(c => caseStatus(c) !== "rejected"), r = LIVE ? liveRecap() : RECAP(), n = cs.filter(c => ST.covered[c.id]).length, pct = Math.round(100 * n / (cs.length || 1)), up = lastUpload();
     const failRow = c => up && !up.ok ? up.rows.find(x => x.id === c.id && !x.ok) : null;
     const row = c => { const t = ST.covered[c.id], open = ST.clOpen === c.id; return `<tr class="${t ? "row-done" : ""} ${open ? "row-open" : ""}" data-row="${esc(c.id)}"><td><input type="checkbox" class="cover" data-cover="${esc(c.id)}" ${t ? "checked" : ""} aria-label="${esc(L("Checked: ", "Geprüft: ") + c.title)}"></td>
       <td><b>${esc(c.title)}</b><div class="row" style="gap:4px;margin-top:3px">${pill("§" + esc(c.section), "mono")}<span class="mono muted" style="font-size:11px">${esc(c.id)}</span></div><div class="recap-row">✦ ${esc(r.rows[c.id] || c.criterion)}</div>
@@ -3272,8 +3318,8 @@ const APP = (() => {
         ${t ? `<div class="cl-pass">✓ ${L("Works as expected", "Funktioniert wie erwartet")} · ${esc(t)}</div>` : ""}
         ${failRow(c) ? `<div class="cl-fail">✕ ${L("Failed in", "Nicht bestanden in")} ${esc(up.file)}: ${esc(T(failRow(c).words[0] || { en: "", de: "" }))}</div>` : ""}
         <div class="row" style="gap:6px;margin-top:6px"><button class="btn ghost sm" data-act="clCopy" data-id="${esc(c.id)}">⧉ ${L("Copy context for your AI", "Kontext für Ihre KI kopieren")}</button>${failRow(c) ? `<button class="btn sm bad" data-act="ctxFail" data-id="${esc(c.id)}" data-u="${ST.uploads.length - 1}">⧉ ${L("Copy debug context", "Debug-Kontext kopieren")}</button>` : ""}</div></td>
-      <td><span class="mono">${esc(c.formula.result_name)}</span></td><td class="muted" style="font-size:var(--fs-xs);white-space:nowrap">${t || "—"}</td></tr>`; };
-    return `${head(L("Checklist", "Checkliste"), `${esc(v.name)} · ${esc(v.productName)} ${esc(v.release)} · ${L("package", "Paket")} EEL 2027-01 ${L("from ITSG", "von ITSG")}`)}
+      <td><span class="mono">${esc(c.formula.result_name)}</span>${LIVE ? `${c.formula.result_unit ? ` <span class="muted">(${esc(c.formula.result_unit)})</span>` : ""}<input class="input mono" data-val="${esc(c.id)}" value="${esc(LV.vals[c.id] || "")}" placeholder="${esc(L("your value", "Ihr Wert"))}" style="margin-top:4px;min-width:9em">` : ""}</td><td class="muted" style="font-size:var(--fs-xs);white-space:nowrap">${t || "—"}</td></tr>`; };
+    return `${head(L("Checklist", "Checkliste"), `${esc(v.name)} · ${esc(v.productName)} ${esc(v.release)} · ${L("package", "Paket")} ${LIVE && LV.cl ? esc(LV.cl.id) : "EEL 2027-01"} ${L("from ITSG", "von ITSG")}`)}
       <section class="panel recap" data-tour="recap"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">✦ ${L("AI recap", "KI-Zusammenfassung")}</span><h4>${L("What changed and what you need to do", "Was sich geändert hat und was zu tun ist")}</h4></div></div>
         <div class="panel-body stack"><div class="callout accent"><b>${L("What changed", "Was sich geändert hat")}</b>${esc(r.changed)}</div>
           <div class="grid-2"><div><b class="recap-h">${L("What to do", "Was zu tun ist")}</b><ol class="recap-list">${r.todo.map(t => `<li>${esc(t)}</li>`).join("")}</ol></div><div><b class="recap-h">${L("What these tests verify", "Was diese Tests prüfen")}</b><ul class="recap-list check">${r.verify.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div></div>
@@ -3281,10 +3327,10 @@ const APP = (() => {
       <section class="panel" data-tour="cltable"><div class="panel-body stack" style="gap:6px"><div class="row between" style="font-size:var(--fs-sm)"><span><b>${n} / ${cs.length}</b> ${L("test cases covered", "Testfälle abgedeckt")}</span><span class="muted">${L("Tick a case when your program does what it should. ITSG still checks the exact file.", "Abhaken, wenn Ihr Programm tut, was es soll. ITSG prüft trotzdem die genaue Datei.")}</span></div>
         <div class="row between ai-copy"><span>✦ ${L("Give the whole package to your AI assistant: steps, what should happen and the specification text. Next: it connects through MCP and runs the tests itself.", "Geben Sie das ganze Paket Ihrem KI-Assistenten: Schritte, Sollverhalten und Spezifikationstext. Als Nächstes verbindet er sich per MCP und führt die Tests selbst aus.")}</span><button class="btn sm" data-act="clCopyAll">⧉ ${L("Copy all test cases", "Alle Testfälle kopieren")}</button></div><div class="cover-bar"><i style="width:${pct}%"></i></div></div>
         <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>${L("Checked", "Geprüft")}</th><th>${L("Test case", "Testfall")}</th><th>${L("Result field", "Ergebnisfeld")}</th><th>${L("Checked at", "Geprüft am")}</th></tr></thead><tbody>
-          ${RULE_ORDER.map(rid => { const list = cs.filter(c => c.rule === rid); const rr = C.RULES.find(x => x.id === rid); return list.length ? `<tr class="grp"><td colspan="4">${rid} · ${esc(T(rr.label))}</td></tr>${list.map(row).join("")}` : ""; }).join("")}</tbody></table></div></section>
-      <section class="panel" data-tour="upload"><div class="panel-head"><h3>${ic("upload")} ${L("Send your result to ITSG", "Ergebnis an ITSG senden")}</h3>${up ? (up.ok ? pill(`✓ ${up.passed}/${up.total} ${L("passed", "bestanden")}`, "ok") : pill(`✕ ${up.total - up.passed} ${L("of", "von")} ${up.total} ${L("failed", "nicht bestanden")}`, "bad")) : ""}</div>
+          ${checklistGroups(cs, row)}</tbody></table></div></section>
+      ${LIVE ? liveUploadPanel(up) : `<section class="panel" data-tour="upload"><div class="panel-head"><h3>${ic("upload")} ${L("Send your result to ITSG", "Ergebnis an ITSG senden")}</h3>${up ? (up.ok ? pill(`✓ ${up.passed}/${up.total} ${L("passed", "bestanden")}`, "ok") : pill(`✕ ${up.total - up.passed} ${L("of", "von")} ${up.total} ${L("failed", "nicht bestanden")}`, "bad")) : ""}</div>
         <div class="panel-body"><div class="drop" data-act="uploadPick" role="button" tabindex="0">${ic("upload")}<b>${L("Upload the DTA file your software produced", "Die DTA-Datei Ihrer Software hochladen")}</b><span>${L("It is e-mailed to ITSG automatically and compared against the expected result at once.", "Sie geht automatisch per E-Mail an ITSG und wird sofort mit dem erwarteten Ergebnis verglichen.")}</span></div>
-          ${up ? `<div class="callout ${up.ok ? "ok" : "bad"}"><b>${esc(up.file)} · ${L("sent to ITSG by automatic e-mail", "per automatischer E-Mail an ITSG gesendet")}</b>${up.ok ? L("All test cases match the expected results.", "Alle Testfälle stimmen mit den erwarteten Ergebnissen überein.") : `${esc(T(up.rows.find(x => !x.ok).words[0] || { en: "", de: "" }))}`}<div class="row"><button class="btn sm" data-act="go" data-screen="mail">${ic("inbox")} ${L("Open the e-mail", "E-Mail öffnen")}</button></div></div>` : ""}</div></section>${demoNote()}`;
+          ${up ? `<div class="callout ${up.ok ? "ok" : "bad"}"><b>${esc(up.file)} · ${L("sent to ITSG by automatic e-mail", "per automatischer E-Mail an ITSG gesendet")}</b>${up.ok ? L("All test cases match the expected results.", "Alle Testfälle stimmen mit den erwarteten Ergebnissen überein.") : `${esc(T(up.rows.find(x => !x.ok).words[0] || { en: "", de: "" }))}`}<div class="row"><button class="btn sm" data-act="go" data-screen="mail">${ic("inbox")} ${L("Open the e-mail", "E-Mail öffnen")}</button></div></div>` : ""}</div></section>`}${demoNote()}`;
   }
   /* ---------- context for the developer's own AI: today a copy button, later an MCP connection ---------- */
   const SPEC_DOC = "2026_03_10_Endfassung_Verfahrensbeschreibung_DTA_EEL_Version_13.4_ab_01.01.2027.pdf";
@@ -3302,7 +3348,7 @@ const APP = (() => {
     return out.join("\n");
   }
   function packageContext() {
-    const cs = storyCases().filter(c => caseStatus(c) !== "rejected"), r = RECAP(), secs = [...new Set(cs.flatMap(caseSecs))];
+    const cs = storyCases().filter(c => caseStatus(c) !== "rejected"), r = LIVE ? liveRecap() : RECAP(), secs = [...new Set(cs.flatMap(caseSecs))];
     return [`# Test package EEL 2027-01 · ${vendorOf(S.vendorUser).name} · ${cs.length} test cases`, "", "## What changed", r.changed, "", "## What to do", ...r.todo.map((x, i) => `${i + 1}. ${x}`),
       "", ...cs.map(c => caseContext(c, null, false) + "\n"), `## Specification (verbatim): ${SPEC_DOC}, ${SF.pages} pages, the original PDF from GKV-Datenaustausch`, ...secs.map(specBlock)].join("\n");
   }
@@ -3337,6 +3383,7 @@ const APP = (() => {
 
   /* ---------- report & certificate (PDF) ---------- */
   function vCert() {
+    if (LIVE) return vCertLive();
     const v = vendorOf("sap"), d = reportData(v), up = lastUpload(), cert = mailbox().certs[v.id];
     const casesOk = !!(up && up.ok), ok = casesOk && !d.failed.length, seal = C.sha256(JSON.stringify(d) + (up ? up.file : ""));
     return `${head(L("Report & certificate", "Bericht & Zertifikat"), L("The final report for SAP: every test case and every on-site criterion. When everything passes, the certificate goes out by e-mail and as a PDF.", "Der Abschlussbericht für SAP: jeder Testfall und jedes Vor-Ort-Kriterium. Wenn alles besteht, geht das Zertifikat per E-Mail und als PDF raus."),
@@ -3354,7 +3401,7 @@ const APP = (() => {
   function loadScript(src) { return new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => fail(new Error("could not load " + src)); document.head.appendChild(s); }); }
   async function certPdf() {
     if (S.screen !== "cert") go("cert");
-    const el = document.getElementById("certSheet"), name = "ITSG-certificate-SAP-2027.pdf";
+    const el = document.getElementById("certSheet"), name = `ITSG-certificate-${LIVE ? vendorOf(LV.certV || "sap").name : "SAP"}-2027.pdf`;
     const printIt = () => { document.body.classList.add("print-cert"); window.print(); setTimeout(() => document.body.classList.remove("print-cert"), 500); };
     try {
       if (!window.html2pdf) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js");
@@ -3407,6 +3454,573 @@ const APP = (() => {
     caseEdited: id => !!(storyCases().find(c => c.id === id) || {}).edited
   };
 
+  /* ===================================================================================
+     LIVE MODE — served by pipeline/server.py at /, the same screens run on the server's data:
+     sign-in, the real PDF upload and AI run, approvals, test cases, packages, vendor results,
+     messages and certificates. At /demo, opened as a file or on GitHub Pages, everything above
+     stays recorded, and the guided demo always runs recorded (it opens /demo/#demo).
+     =================================================================================== */
+  const LIVE_SCREENS = { itsg: ["overview", "ingest", "specs", "changes", "review", "mail", "cert"], vendor: ["vhome", "vcheck", "mail"] };
+  const LV = { session: null, status: null, docs: null, runs: [], runId: null, run: null, after: 0, events: [], cases: [], casesSeq: -1, docKey: null,
+    exchange: null, checklists: [], cl: null, reports: [], certs: [], tracking: [], packages: [], vals: {}, upload: null, plan: null, hl: {},
+    poll: null, tick: 0, sig: "", pulling: false, again: false, certV: null, reasonCb: null, readSent: {} };
+  const sess = {
+    get() { try { return JSON.parse(sessionStorage.getItem("eelra:live") || "null"); } catch (e) { return null; } },
+    set(v) { try { if (v) sessionStorage.setItem("eelra:live", JSON.stringify(v)); else sessionStorage.removeItem("eelra:live"); } catch (e) { /* storage unavailable */ } }
+  };
+  const enc = encodeURIComponent;
+  async function api(path, opt = {}) {
+    const headers = {}, s = LV.session;
+    if (s) { headers["X-Token"] = s.token; headers["X-User"] = s.user; headers["X-Role"] = s.role; if (s.vendor) headers["X-Vendor"] = s.vendor; }
+    let body = opt.body;
+    if (body != null && !(body instanceof Blob)) { body = JSON.stringify(body); headers["Content-Type"] = "application/json"; }
+    const r = await fetch("/api/" + path, { method: opt.method || (body != null ? "POST" : "GET"), headers, body });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401 && path !== "login") { liveSignOut(true); throw new Error(L("Signed out: please sign in again", "Abgemeldet: bitte erneut anmelden")); }
+    if (!r.ok) { const e = new Error(j.error || "HTTP " + r.status); e.status = r.status; throw e; }
+    return j;
+  }
+  const fail = e => toast((e && e.message) || String(e));
+  const itemOf = sec => LV.run ? LV.run.items.find(i => i.sec === sec) : null;
+  const VER = () => { const p = LIVE && LV.run && LV.run.plan; return p ? { n: (p.new && p.new.version) || "?", o: p.old ? (p.old.version || "?") : null } : { n: "13.4", o: "13.3" }; };
+  const userOf = vid => vid === "lex" ? "lexware" : vid;
+  const hlOf = sec => (LIVE ? LV.hl : HIGHLIGHTS)[sec] || [];
+  const lastReport = vid => (LV.reports || []).find(r => r.vendor === vid) || null;
+  const liveGenMore = () => (LV.run ? LV.run.items : []).filter(i => i.status === "review" && i.spec_change && i.decision === "approved");
+  const sendableIds = () => storyCases().filter(c => !["rejected", "sent"].includes(caseStatus(c))).map(c => c.id);
+
+  /* ---------- data from the server → the fields the screens already read ---------- */
+  function setSpec(doc) {
+    SF = { doc: doc.name || "", version: doc.version || null, pages: doc.pages || 0, sections: doc.sections || [] };
+    SEC = Object.fromEntries(SF.sections.map(s => [s.sec, s]));
+    FULL_NORM = C.norm(SF.sections.map(s => s.text.join(" ")).join(" "));
+  }
+  const liveCase = t => Object.assign({}, t, { rule: "§" + t.section, quotes: t.quotes || [], trace: t.trace || [], cot: t.cot || [], guards: t.guards || [],
+    preconditions: t.preconditions || [], steps: t.steps || [], formula: Object.assign({ expression: "", variables: [], result_name: "", result_unit: "" }, t.formula || {}),
+    _status: t.status === "acknowledged" ? "sent" : t.status, edited: (t.history || []).some(h => h.action === "edited") });
+  function liveChanges() {
+    const p = LV.run ? LV.run.plan : null;
+    return (LV.run ? LV.run.items : []).filter(i => i.status !== "skipped").map(i => ({ sec: i.sec, title: i.title, kind: i.kind, item: i,
+      source: i.source === "log+diff" ? "confirmed" : i.source === "diff-only" ? "diff-only" : /^change log/.test(i.source || "") ? "log" : "signals",
+      entry: (i.log || []).length ? { version: (p && p.new && p.new.version) || "", date: "", description: i.log.join(" · ") } : null }));
+  }
+  function buildHl(items) {
+    const out = {};
+    items.forEach(i => {
+      const sc = i.spec_change; if (!sc) return;
+      const ids = (CASES || []).filter(c => c.section === i.sec).map(c => c.id);
+      const add = (q, k) => { if (!q) return; const list = out[i.sec] = out[i.sec] || []; if (!list.some(h => h.q === q)) list.push({ q, k, rule: null, crit: null, t: ids }); };
+      (sc.quotes_new || []).forEach(q => add(q, "cond")); (sc.parameters || []).forEach(p => add(p.quote, "param"));
+    });
+    return out;
+  }
+  function hydrate() {
+    S.mail = LV.exchange ? { threads: LV.exchange.threads || [], files: LV.exchange.files || {}, certs: LV.exchange.certs || {} } : (S.mail || { threads: [], files: {}, certs: {} });
+    S.publishedTo = LV.exchange ? LV.exchange.publishedTo || [] : [];
+    if (!LV.session) return;
+    if (LV.session.role !== "itsg") return hydrateVendor();
+    const items = LV.run ? LV.run.items : [];
+    ST.ingest = LV.upload ? 1 : (LV.run || LV.plan) ? 2 : 0;
+    ST.decided = {}; ST.edits = {};
+    items.forEach(i => { if (i.decision) ST.decided[i.sec] = i.decision; if (i.change_edited) ST.edits[i.sec] = {}; });
+    CASES = LV.cases.map(liveCase);
+    ST.status = {}; CASES.forEach(c => { ST.status[c.id] = c._status; });
+    ST.generated = CASES.length > 0;
+    const caseItems = items.filter(i => i.phase === "cases");
+    ST.genBusy = caseItems.some(i => i.status === "queued" || i.status === "running");
+    ST.genLines = caseItems.map(i => `${i.status === "done" ? pill("✓", "ok") : i.status === "error" ? pill("✕", "bad") : pill("◐", "info")} §${esc(i.sec)} · ${i.status === "done" ? `${(i.cases || []).length} ${L("test case(s), expected values computed by tested code", "Testfall/-fälle, Erwartungswerte von getestetem Code berechnet")}` : i.status === "error" ? L("the AI could not finish", "die KI konnte nicht abschließen") : L("the AI is writing test cases…", "die KI schreibt Testfälle…")}`);
+    const open = CASES.filter(c => c._status !== "rejected");
+    ST.sent = open.length > 0 && open.every(c => c._status === "sent");
+    LV.hl = buildHl(items);
+  }
+  function hydrateVendor() {
+    const cl = LV.cl = (LV.checklists || [])[0] || null; // newest first
+    ST.sent = !!cl;
+    ST.covered = {};
+    if (cl) Object.entries(cl.covered || {}).forEach(([id, t]) => { ST.covered[id] = String(t).replace("T", " ").slice(0, 16); });
+    CASES = cl ? cl.rows.map(r => ({ id: r.id, title: r.title, section: r.section, section_title: r.section_title, kind: r.kind, criterion: r.criterion,
+      preconditions: r.preconditions || [], steps: r.steps || [], expected_outcome: r.expected_outcome || "", rule: "§" + r.section,
+      formula: { result_name: r.result_name || "", result_unit: r.result_unit || "", expression: "", variables: [] }, quotes: [], trace: [], cot: [] })) : [];
+    ST.status = {}; CASES.forEach(c => { ST.status[c.id] = "sent"; });
+    ST.generated = CASES.length > 0;
+    ST.uploads = [];
+    const th = cl && S.mail.threads.find(t => t.vendor === S.vendorUser && t.kind === "cert");
+    if (th) th.msgs.forEach(m => (m.attach || []).forEach(a => { if (a.type === "pkgverdict" && a.ref && a.ref.package === cl.id) ST.uploads.push(a.ref); }));
+    if (cl) { const k = "live.seen:" + LV.session.user, seen = store.get(k, []); if (!seen.includes(cl.id)) { ST.notify = true; store.set(k, [...seen, cl.id].slice(-50)); } }
+  }
+
+  /* ---------- polling: the run while the AI works, messages and progress all the time ---------- */
+  async function livePull(force) {
+    if (!LV.session) return;
+    if (LV.pulling) { if (force) LV.again = true; return; }
+    LV.pulling = true; LV.tick++;
+    const q = (p, f) => api(p).then(f, () => { });
+    try {
+      const jobs = [q("exchange", x => { LV.exchange = x; })];
+      if (LV.session.role === "itsg") {
+        if (force || LV.tick % 5 === 1) jobs.push(q("runs", r => { LV.runs = r; }), q("documents", d => { LV.docs = d; }));
+        jobs.push(q("reports", r => { LV.reports = r; }), q("certificates", c => { LV.certs = c; }), q("tracking", t => { LV.tracking = t; }), q("packages", p => { LV.packages = p; }));
+        await Promise.all(jobs);
+        if (!LV.runId && LV.runs[0]) LV.runId = LV.runs[0].id;
+        if (LV.runId) await pullRun(force).catch(e => { if (e.status === 404) { LV.runId = null; LV.run = null; } });
+      } else {
+        jobs.push(q("checklists", c => { LV.checklists = c; }));
+        await Promise.all(jobs);
+      }
+      hydrate(); safeRender();
+    } finally {
+      LV.pulling = false;
+      if (LV.again) { LV.again = false; livePull(true); }
+    }
+  }
+  async function pullRun(force) {
+    const id = LV.runId, fresh = !LV.run || LV.run.id !== id;
+    const busy = !fresh && (LV.run.status === "running" || LV.run.items.some(i => i.status === "queued" || i.status === "running"));
+    if (!force && !fresh && !busy && LV.tick % 10) return; // a finished run: look again now and then
+    const j = await api(`runs/${enc(id)}?after=${fresh ? 0 : LV.after}`);
+    if (fresh) LV.events = [];
+    LV.events.push(...(j.events || [])); delete j.events; LV.after = j.seq; LV.run = j;
+    store.set("live.run", id);
+    if (fresh || force || j.seq !== LV.casesSeq) { LV.cases = await api(`testcases?run=${enc(id)}&full=1`); LV.casesSeq = j.seq; }
+    const nd = j.plan && j.plan.new;
+    if (nd && nd.name && LV.docKey !== nd.name) {
+      LV.docKey = nd.name;
+      try { setSpec(await api(`documents/${enc(nd.name)}?kind=${enc(nd.kind || "upload")}`)); } catch (e) { LV.docKey = null; }
+    }
+  }
+  const liveRefresh = () => { LV.sig = ""; return livePull(true); };
+  const liveSig = () => JSON.stringify([LV.run && [LV.run.id, LV.run.seq, LV.run.status, LV.run.items.map(i => i.status + (i.decision || "") + (i.change_edited ? "e" : "")).join(), JSON.stringify(LV.run.live || {}).length],
+    (LV.cases || []).map(c => c.id + c.status + (c.history || []).length).join(), LV.exchange && (LV.exchange.threads || []).map(t => t.id + t.msgs.length + t.read.itsg + t.read.vendor).join(),
+    (LV.checklists || []).map(c => c.id + Object.keys(c.covered || {}).length + (c.recap ? c.recap.status : "")).join(), (LV.reports || []).length, (LV.certs || []).length,
+    (LV.runs || []).length, LV.docs && LV.docs.law_files.length, LV.docKey]);
+  // A poll never pulls the page from under someone who is typing, editing or reading an answer as it streams in.
+  function safeRender() {
+    const sig = liveSig();
+    if (sig === LV.sig) return;
+    const a = document.activeElement, typing = a && a !== document.body && a.matches && a.matches("input, textarea, select") && $("#view").contains(a);
+    if (typing || $("#modalHost").innerHTML || ST.chEdit || ST.caseEdit || (S.compose && (String(S.compose.body || "").trim() || S.compose.attach.length)) || ST.chat.some(m => m.busy) || ST.ovChat.some(m => m.busy)) { renderShell(); story.paintNotify(); return; }
+    LV.sig = sig; render();
+  }
+
+  /* ---------- sign-in ---------- */
+  const ACCOUNTS_UI = () => [
+    ["istg", L("ITSG examiner", "ITSG-Prüfer"), L("Import the specification, approve what the AI read, send test cases, certify.", "Spezifikation importieren, die Lesart der KI freigeben, Testfälle senden, zertifizieren.")],
+    ["sap", "SAP", L("Vendor developer team: checklist, results, messages.", "Entwicklerteam des Herstellers: Checkliste, Ergebnisse, Nachrichten.")],
+    ["lexware", "Lexware", L("Vendor developer team: checklist, results, messages.", "Entwicklerteam des Herstellers: Checkliste, Ergebnisse, Nachrichten.")]];
+  function vSignIn() {
+    const auth = LV.status ? LV.status.auth : true, probs = (LV.status && LV.status.problems) || [];
+    return `<div class="stack" style="max-width:760px;margin:5vh auto 0;gap:var(--s-5)">
+      <div class="stack" style="gap:6px"><span class="eyebrow">${PRODUCT_NAME} · ${L("live app", "Live-App")}</span><h1 style="margin:0">${L("Sign in", "Anmelden")}</h1>
+        <p class="muted" style="margin:0">${L("This app runs on our server with the real AI (hessian.AI, Kolibri-1). Everyone signed in works on the same data.", "Diese App läuft auf unserem Server mit der echten KI (hessian.AI, Kolibri-1). Alle Angemeldeten arbeiten auf denselben Daten.")}</p></div>
+      ${auth ? `<label class="stack" style="max-width:320px"><span class="field-label">${L("Password", "Passwort")}</span><input class="input" type="password" id="lvPw" autocomplete="current-password"></label>` : ""}
+      <div class="signin">${ACCOUNTS_UI().map(([u, n, d]) => `<button data-act="lvSignIn" data-u="${u}"><b style="font-size:var(--fs-lg)">${esc(n)}</b><span class="mono muted">${u}</span><span class="muted" style="font-size:var(--fs-xs)">${esc(d)}</span></button>`).join("")}</div>
+      <div class="callout"><b>${L("Just looking?", "Nur schauen?")}</b>${L("The guided demo shows the whole flow in five minutes on recorded data, no sign-in needed.", "Die geführte Demo zeigt den ganzen Ablauf in fünf Minuten mit aufgezeichneten Daten, ohne Anmeldung.")}<div class="row"><a class="btn" href="/demo/#demo">${ic("play")} ${L("Start the guided demo", "Geführte Demo starten")}</a></div></div>
+      ${probs.length ? `<div class="callout warn"><b>${L("Server setup", "Server-Einrichtung")}</b>${probs.map(esc).join("<br>")}</div>` : ""}</div>`;
+  }
+  function liveEnter() {
+    const s = LV.session;
+    S.role = s.role === "itsg" ? "itsg" : "vendor"; S.vendorUser = s.vendor || "sap";
+    if (!LIVE_SCREENS[S.role].includes(S.screen)) S.screen = S.role === "itsg" ? "overview" : "vhome";
+    LV.runId = LV.runId || store.get("live.run", null);
+    render(); liveRefresh();
+    clearInterval(LV.poll); LV.poll = setInterval(() => livePull(false), 3000);
+  }
+  function liveSignOut(silent) {
+    clearInterval(LV.poll); LV.poll = null;
+    if (!silent && LV.session) api("logout", { body: {} }).catch(() => { });
+    LV.session = null; sess.set(null);
+    Object.assign(LV, { run: null, events: [], cases: [], exchange: null, checklists: [], cl: null, reports: [], certs: [], tracking: [], packages: [], vals: {}, sig: "" });
+    CASES = []; S.mail = { threads: [], files: {}, certs: {} }; ST.notify = false; ST.chat = []; ST.ovChat = [];
+    render();
+  }
+  function liveShell() {
+    const s = LV.session, acct = s ? (s.role === "itsg" ? `${s.user} · ITSG` : `${s.user} · ${vendorOf(s.vendor || "sap").name}`) : "";
+    $("#roleSeg").style.display = s ? "" : "none";
+    $("#roleSeg").innerHTML = s ? `<button aria-pressed="true" disabled>${esc(acct)}</button><button aria-pressed="false" data-act="lvSignOut">${L("Sign out", "Abmelden")}</button>` : "";
+    $("#aiBtn").innerHTML = `${ic("ai")} ${LV.status ? esc(String(LV.status.model).replace(/^vllm\//, "")) + (LV.status.key_configured ? "" : " ✕") : "AI"}`;
+    $("#aiBtn").title = LV.status && LV.status.key_configured ? L("Live AI on hessian.AI", "Live-KI auf hessian.AI") : L("No AI key on this server", "Kein KI-Schlüssel auf diesem Server");
+    $("#demoBtn").innerHTML = `${ic("play")} ${L("Guided demo", "Geführte Demo")}`;
+    if (!s) $("#rail").innerHTML = "";
+  }
+  async function liveInit() {
+    S.mail = { threads: [], files: {}, certs: {} }; CASES = [];
+    setSpec({ sections: [] });
+    const hs = location.hash.slice(1);
+    LV.session = sess.get();
+    if (LV.session) { S.role = LV.session.role === "itsg" ? "itsg" : "vendor"; if (LIVE_SCREENS[S.role].includes(hs)) S.screen = hs; }
+    render();
+    try { LV.status = await api("status"); } catch (e) { /* offline: the sign-in still shows */ }
+    if (LV.session) liveEnter(); else render();
+  }
+
+  /* ---------- AI chat through the server (grounded in the run's section) ---------- */
+  async function liveAsk(question, extra) {
+    try { return (await api("chat", { body: Object.assign({ question }, extra || {}) })).answer; }
+    catch (e) { return `${L("The AI did not answer", "Die KI hat nicht geantwortet")}: ${e.message}`; }
+  }
+  const chatHistory = list => list.slice(0, -1).filter(m => !m.busy && m.text).slice(-6).map(m => ({ role: m.who === "you" ? "user" : "assistant", content: m.text }));
+
+  /* ---------- screens that differ in live mode ---------- */
+  const fmtSize = n => n > 1e6 ? (n / 1e6).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1e3)) + " KB";
+  function planCard(p) {
+    const n = p.new || {}, o = p.old;
+    return `<div class="callout ${p.mode === "diff" ? "ok" : "accent"}"><b>${ic("doc")} ${esc(n.name)} · v${esc(n.version || "?")}</b><span>${n.pages} ${L("pages", "Seiten")} · ${n.sections} § · ${L("change log", "Änderungsprotokoll")}: ${n.changelog_rows || 0} ${L("rows", "Zeilen")}</span>
+      <span>${p.mode === "diff" ? `${L("Compared with", "Verglichen mit")} <b>${esc(o.name)}</b> v${esc(o.version || "?")} ${L("from the archive", "aus dem Archiv")}` : L("No previous version in the archive: the document's own change log decides what the AI reads.", "Keine Vorversion im Archiv: Das Änderungsprotokoll des Dokuments bestimmt, was die KI liest.")}</span>
+      <span class="muted" style="font-size:var(--fs-xs)">${esc(p.reason || "")}</span>
+      <div class="row"><label class="row" style="gap:6px"><span class="field-label">${L("The AI reads the first", "Die KI liest die ersten")}</span><input class="input mono" id="lvMax" type="number" min="1" max="200" value="12" style="width:5em"><span class="muted">${L("changes (more later, one click each)", "Änderungen (weitere später, je ein Klick)")}</span></label>
+        <button class="btn primary" data-act="lvAnalyseRun">${ic("ai")} ${L("Analyse the changes", "Änderungen analysieren")}</button></div></div>`;
+  }
+  function vIngestLive() {
+    const d = LV.docs || { law_files: [], uploads: [] }, p = LV.plan, up = LV.upload;
+    const runRow = r => `<tr ${r.id === LV.runId ? 'class="sel"' : ""}><td class="mono" style="white-space:nowrap">${esc(String(r.created).replace("T", " ").slice(0, 16))}</td><td>${esc(r.new)}${r.old ? ` <span class="muted">vs ${esc(r.old)}</span>` : ""}</td><td>${r.mode === "diff" ? L("diff", "Diff") : L("change log", "Protokoll")}</td><td>${esc(r.by)}</td>
+      <td>${r.id === LV.runId ? pill(L("open", "geöffnet"), "accent") : `<button class="btn sm" data-act="lvRun" data-id="${esc(r.id)}">${L("Open", "Öffnen")}</button>`}</td></tr>`;
+    return `${head(L("Inputs & archive", "Eingaben & Archiv"), L("Drop the government's new specification PDF. The server reads it, finds last year's version in the archive and compares them section by section; then the AI reads every change, one § at a time.", "Das neue Spezifikations-PDF der Behörde ablegen. Der Server liest es, findet die Vorjahresversion im Archiv und vergleicht abschnittsweise; danach liest die KI jede Änderung, ein § nach dem anderen."))}
+      <div class="grid-2">
+        <section class="panel" data-tour="drop"><div class="panel-head"><h3>${L("New specification", "Neue Spezifikation")}</h3>${pill(L("original government PDF", "Original-PDF der Behörde"), "accent")}</div>
+          <div class="panel-body"><div class="drop" id="pdfDrop" data-act="pickPdf" role="button" tabindex="0">${ic("upload")}<b>${up ? `${L("Reading", "Lese")} ${esc(up)} …` : L("Drop the new specification PDF here or click to choose", "Neues Spezifikations-PDF hier ablegen oder klicken")}</b><span>${L("A text-based PDF, e.g. the Verfahrensbeschreibung DTA EEL. Reading takes a few seconds.", "Ein textbasiertes PDF, z. B. die Verfahrensbeschreibung DTA EEL. Das Lesen dauert einige Sekunden.")}</span></div>
+            ${p ? planCard(p) : LV.run ? `<div class="callout ok"><b>${ic("doc")} ${esc(LV.run.plan.new.name)} · v${esc(LV.run.plan.new.version || "?")}</b><span>${SF.pages} ${L("pages", "Seiten")} · ${SF.sections.length} § · ${LV.run.items.length} ${L("changes found", "Änderungen gefunden")}</span><div class="row"><button class="btn sm primary" data-act="go" data-screen="changes">${L("Review the changes", "Änderungen prüfen")} →</button><button class="btn sm" data-act="go" data-screen="specs">${L("Open the specification", "Spezifikation öffnen")}</button></div></div>` : ""}</div></section>
+        <section class="panel"><div class="panel-head"><h3>${ic("archive")} ${L("Archive: previous versions", "Archiv: Vorversionen")}</h3>${pill(String(d.law_files.length), "")}</div>
+          <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>${L("File", "Datei")}</th><th>${L("Size", "Größe")}</th></tr></thead><tbody>
+          ${d.law_files.map(f => `<tr><td>${esc(f.name)}</td><td class="mono muted">${fmtSize(f.size)}</td></tr>`).join("") || `<tr><td colspan="2" class="muted">${L("Empty: a new specification is read on its own, guided by its change log.", "Leer: Eine neue Spezifikation wird für sich gelesen, geleitet vom Änderungsprotokoll.")}</td></tr>`}</tbody></table>
+          ${d.uploads.length ? `<div class="panel-body"><span class="field-label">${L("Uploaded here", "Hier hochgeladen")}</span><div class="muted" style="font-size:var(--fs-xs)">${d.uploads.slice(0, 8).map(f => esc(f.name)).join(" · ")}</div></div>` : ""}</div></section></div>
+      <section class="panel"><div class="panel-head"><h3>${L("Analyses", "Analysen")}</h3><span class="muted" style="font-size:var(--fs-xs)">${L("shared by everyone on this server", "für alle auf diesem Server")}</span></div>
+        <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>${L("Started", "Gestartet")}</th><th>${L("Specification", "Spezifikation")}</th><th>${L("Mode", "Modus")}</th><th>${L("By", "Von")}</th><th></th></tr></thead><tbody>${LV.runs.map(runRow).join("") || `<tr><td colspan="5" class="muted">${L("No analysis yet.", "Noch keine Analyse.")}</td></tr>`}</tbody></table></div></section>`;
+  }
+  function liveWaitCard(ch, it) {
+    const lv = LV.run.live && LV.run.live[it.sec], q = LV.run.queue || {};
+    const what = it.status === "running" ? L("The AI is reading this section…", "Die KI liest diesen Abschnitt…")
+      : it.status === "queued" ? L("Waiting for the AI", "Wartet auf die KI") + (q.ahead ? ` · ${q.ahead} ${L("runs ahead", "Läufe davor")}` : "")
+      : it.status === "candidate" ? L("Not read by the AI yet.", "Noch nicht von der KI gelesen.")
+      : `${L("The AI could not finish", "Die KI konnte nicht abschließen")} (${esc(it.status)}).`;
+    const again = ["candidate", "error", "stopped", "skipped", "review"].includes(it.status);
+    return `<article class="chg-card" data-tour="chcard"><div class="chg-head"><div style="min-width:0"><span class="eyebrow">§${esc(ch.sec)} · ${L("page", "Seite")} ${esc(it.page || "—")}</span><h3>${esc(ch.title)}</h3></div><div>${chStatePill(ch.sec)}</div></div>
+      <div class="row" style="gap:6px">${srcPill(ch.source)}</div>
+      ${ch.entry ? `<div class="callout"><b>${L("Change log entry", "Eintrag im Änderungsprotokoll")}</b><span class="de-quote">${esc(ch.entry.description)}</span></div>` : ""}
+      <p class="chg-summary">${what}</p>${lv && lv.reasoning ? `<div class="cot-text muted" style="max-height:220px;overflow:auto;font-size:var(--fs-xs);white-space:pre-wrap">${esc(lv.reasoning.slice(-1500))}</div>` : ""}
+      ${again ? `<div class="chg-actions"><div class="row"><button class="btn primary" data-act="lvAnalyse" data-sec="${esc(ch.sec)}">${ic("ai")} ${L("Let the AI read it", "Von der KI lesen lassen")}</button></div></div>` : ""}</article>`;
+  }
+  function lvState() {
+    const items = LV.run ? LV.run.items : [], open = (CASES || []).filter(c => c._status !== "rejected");
+    return { days: DEADLINE - today(), imported: !!LV.run, ver: VER(), sections: SF.sections.length, pages: SF.pages,
+      read: items.filter(i => i.spec_change).length, total: items.length, approved: items.filter(i => i.decision === "approved").length,
+      waiting: items.filter(i => i.status === "review" && i.spec_change && !i.decision).length, running: items.filter(i => i.status === "queued" || i.status === "running").length,
+      notInLog: items.filter(i => i.source === "diff-only").length, cases: open.length, verified: open.filter(c => c._status === "verified").length,
+      sent: open.filter(c => c._status === "sent").length, certified: C.VENDORS.filter(v => S.mail.certs[v.id]).length };
+  }
+  function lvVendorRows() {
+    return C.VENDORS.map(v => {
+      const user = userOf(v.id), tr = (LV.tracking || []).find(p => (p.to || []).includes(user)), pr = tr && tr.progress && tr.progress[user], rep = lastReport(v.id);
+      return { v, pkg: tr ? tr.id : null, sent: !!tr, checklist: pr ? `${pr.covered}/${pr.total}` : "—", cert: !!S.mail.certs[v.id], rep,
+        last: rep ? { ok: rep.verdict === "pass", passed: rep.passed, total: rep.total, round: rep.round } : null };
+    });
+  }
+  function lvAttention() {
+    const o = lvState(), out = [], add = (sev, title, text, btn, act, attrs) => out.push({ sev, title, text, btn, act, attrs }), goTo = s => `data-screen="${s}"`;
+    if (!o.imported) add("warn", L("Import the new specification", "Neue Spezifikation importieren"), L("Drop the government PDF; the server finds last year's version and the AI reads every change.", "Das PDF der Behörde ablegen; der Server findet die Vorjahresversion und die KI liest jede Änderung."), L("Import", "Importieren"), "go", goTo("ingest"));
+    if (o.running) add("info", `${L("The AI is reading", "Die KI liest")} ${o.running} ${L("sections", "Abschnitte")}`, L("Each one appears for your review as soon as it is read.", "Jeder erscheint zur Prüfung, sobald er gelesen ist."), L("Watch", "Ansehen"), "go", goTo("changes"));
+    if (o.waiting) add("warn", `${o.waiting} ${L("changes wait for your approval", "Änderungen warten auf Freigabe")}`, L("Approve, edit or decline what the AI understood.", "Freigeben, bearbeiten oder ablehnen, was die KI verstanden hat."), L("Review", "Prüfen"), "go", goTo("changes"));
+    const notRead = (LV.run ? LV.run.items : []).filter(i => i.status === "candidate").length;
+    if (notRead) add("info", `${notRead} ${L("more changes not read by the AI yet", "weitere Änderungen noch nicht von der KI gelesen")}`, L("Open one and let the AI read it, one click each.", "Eine öffnen und von der KI lesen lassen, je ein Klick."), L("Changes", "Änderungen"), "go", goTo("changes"));
+    if (liveGenMore().length) add("warn", L("Create the test cases", "Testfälle erstellen"), `${liveGenMore().length} ${L("approved changes have no test cases yet.", "freigegebene Änderungen haben noch keine Testfälle.")}`, L("Create", "Erstellen"), "go", goTo("review"));
+    const draft = (CASES || []).filter(c => c._status === "draft").length, ver = (CASES || []).filter(c => c._status === "verified").length;
+    if (draft) add("warn", `${draft} ${L("test cases to verify", "Testfälle zu verifizieren")}`, L("Read them, edit the wording if needed, then verify.", "Lesen, bei Bedarf umformulieren, dann verifizieren."), L("Review", "Prüfen"), "go", goTo("review"));
+    if (ver) add("warn", `${ver} ${L("verified test cases not sent yet", "verifizierte Testfälle noch nicht gesendet")}`, L("Send the package to the vendors' developers.", "Das Paket an die Entwickler der Hersteller senden."), L("Send", "Senden"), "go", goTo("review"));
+    lvVendorRows().forEach(r => {
+      const th = certThread(r.v.id);
+      if (r.last && !r.last.ok) add("bad", `${r.v.name}: ${r.last.total - r.last.passed} ${L("of", "von")} ${r.last.total} ${L("failed", "nicht bestanden")}`, `${L("Round", "Runde")} ${r.last.round || 1}. ${L("Answer their questions or ask for a fix.", "Fragen beantworten oder eine Korrektur anfordern.")}`, L("Open", "Öffnen"), th ? "openThread" : "go", th ? `data-id="${esc(th.id)}" data-go="1"` : goTo("mail"));
+      if (r.last && r.last.ok && !r.cert) add("warn", `${r.v.name} ${L("passed: issue the certificate", "bestanden: Zertifikat erteilen")}`, `${r.last.passed}/${r.last.total} ${L("test cases passed.", "Testfälle bestanden.")}`, L("Certificate", "Zertifikat"), "lvCertGo", `data-v="${r.v.id}"`);
+    });
+    const unread = S.mail.threads.reduce((n, t) => n + t.msgs.slice(t.read.itsg).filter(m => m.from !== "itsg").length, 0);
+    if (unread) add("info", `${unread} ${L("unread messages", "ungelesene Nachrichten")}`, L("Questions and results from the vendors.", "Fragen und Ergebnisse der Hersteller."), L("Messages", "Nachrichten"), "go", goTo("mail"));
+    return out;
+  }
+  function vOverviewLive(stages) {
+    const o = lvState(), att = lvAttention(), rows = lvVendorRows();
+    const tile = (screen, label, value, note, cls) => `<button class="ov-tile ${cls || ""}" data-act="go" data-screen="${screen}"><span class="ov-label">${label}</span><span class="ov-value">${value}</span><span class="ov-note">${note}</span></button>`;
+    const sevPill = s => pill(s === "bad" ? L("blocking", "blockiert") : s === "warn" ? L("to do", "zu tun") : L("info", "Info"), s === "bad" ? "bad" : s === "warn" ? "warn" : "info");
+    const feed = S.mail.threads.flatMap(t => t.msgs.map(m => ({ t, m }))).sort((a, b) => b.m.at - a.m.at).slice(0, 5);
+    const sender = (m, t) => m.from === "itsg" ? `${L("You", "Sie")} → ${esc(vendorOf(t.vendor).name)}` : m.from === "system" ? L("Automatic comparison", "Automatischer Vergleich") : `${esc((vendorOf(m.from) || { name: m.from }).name)} → ${L("you", "Sie")}`;
+    return `<div class="page-head"><div class="page-head-text"><h1>${L("From the new specification to a certified release", "Von der neuen Spezifikation zur zertifizierten Version")}</h1></div></div>
+      <section class="panel"><div class="panel-body"><div class="pipe">${stages.filter(s => s[0] !== "validate").map(([sc, t, d], i) => `<button class="pipe-step" data-act="go" data-screen="${sc}"><span class="n">${String(i + 1).padStart(2, "0")}</span><span class="t">${t}</span><span class="d">${d}</span></button>`).join("")}</div></div></section>
+      <div class="ov-dash stack" style="gap:var(--s-5)">
+        <div class="ov-status">
+          ${tile("cert", L("Deadline", "Frist"), `${o.days} ${L("days", "Tage")}`, L("2027 certificates due 31.12.2026", "Zertifikate 2027 fällig am 31.12.2026"), o.days < 14 ? "bad" : "warn")}
+          ${tile("ingest", L("Specification", "Spezifikation"), o.imported ? "v" + esc(o.ver.n) : "—", o.imported ? `${o.pages} ${L("pages", "Seiten")} · ${o.sections} §` : L("not imported yet", "noch nicht importiert"), o.imported ? "ok" : "warn")}
+          ${tile("changes", L("Changes", "Änderungen"), `${o.approved}<small> / ${o.read}</small>`, `${L("approved", "freigegeben")}${o.running ? ` · ${o.running} ${L("being read", "in Arbeit")}` : ""}${o.notInLog ? ` · ${o.notInLog} ${L("not in change log", "nicht im Protokoll")}` : ""}`, o.read && o.approved === o.read ? "ok" : "")}
+          ${tile("review", L("Test cases", "Testfälle"), o.cases ? `${o.sent || o.verified}<small> / ${o.cases}</small>` : "—", !o.cases ? L("not generated yet", "noch nicht erzeugt") : o.sent ? L("sent to the developers", "an die Entwickler gesendet") : L("verified", "verifiziert"), o.cases && o.sent === o.cases ? "ok" : "")}
+          ${tile("mail", L("Vendors", "Hersteller"), `${o.certified}<small> / ${C.VENDORS.length}</small>`, L("certified", "zertifiziert"), o.certified === C.VENDORS.length ? "ok" : "")}
+        </div>
+        <div class="grid-2 ov-row">
+          <div class="stack" style="gap:var(--s-4)">
+            <section class="panel"><div class="panel-head"><h3>${L("Needs your attention", "Braucht Ihre Aufmerksamkeit")}</h3>${pill(String(att.length), att.length ? "warn" : "ok")}</div>
+              <div class="panel-body flush">${att.length ? att.map(a => `<div class="ov-attn"><div class="stack" style="gap:3px;min-width:0"><div class="row" style="gap:6px">${sevPill(a.sev)}<b>${esc(a.title)}</b></div><span class="muted">${esc(a.text)}</span></div><button class="btn sm" data-act="${a.act}" ${a.attrs}>${esc(a.btn)} →</button></div>`).join("")
+                : `<div class="ov-attn"><span>✓ ${L("Nothing open.", "Nichts offen.")}</span></div>`}</div></section>
+            <section class="panel"><div class="panel-head"><h3>${ic("inbox")} ${L("Latest messages", "Neueste Nachrichten")}</h3><button class="btn sm ghost" data-act="go" data-screen="mail">${L("All messages", "Alle Nachrichten")} →</button></div>
+              <div class="panel-body flush">${feed.map(({ t, m }) => `<button class="mail-item ${m.from !== "itsg" && t.msgs.indexOf(m) >= (t.read.itsg || 0) ? "unread" : ""}" data-act="openThread" data-id="${esc(t.id)}" data-go="1"><div class="row between"><b class="subj">${esc(txt(t.subject))}</b><span class="muted" style="font-size:11px">${fmtAt(m.at)}</span></div><span class="snip"><b>${sender(m, t)}:</b> ${esc((txt(m.body) || attLabel((m.attach || [])[0] || { type: "", ref: "" })).slice(0, 120))}</span></button>`).join("") || `<div class="empty">${L("No messages yet.", "Noch keine Nachrichten.")}</div>`}</div></section>
+          </div>
+          <div class="chat ov-chat"><div class="chat-head"><span class="who">AI</span><div class="stack" style="gap:1px"><b>${L("AI assistant", "KI-Assistent")}</b><span>${L("Knows this release: changes, test cases, vendors, deadline", "Kennt diese Version: Änderungen, Testfälle, Hersteller, Frist")}</span></div></div>
+            <div class="chat-log" id="ovChatLog">${chatLogHtml(ST.ovChat, OV_SUGGEST(), "ovSuggest", OV_INTRO())}</div>
+            <form class="chat-form" onsubmit="return false"><input class="input" id="ovChatInput" autocomplete="off" placeholder="${esc(L("e.g. What needs my attention?", "z. B. Was braucht meine Aufmerksamkeit?"))}"><button class="btn primary" data-act="ovSend" type="button">${L("Ask", "Fragen")}</button></form></div>
+        </div>
+        <section class="panel"><div class="panel-head"><h3>${L("Vendors · certification 2027", "Hersteller · Zertifizierung 2027")}</h3></div>
+          <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>${L("Vendor", "Hersteller")}</th><th>${L("Package", "Paket")}</th><th>${L("Checklist", "Checkliste")}</th><th>${L("Last result", "Letztes Ergebnis")}</th><th>${L("Certificate", "Zertifikat")}</th></tr></thead><tbody>
+            ${rows.map(r => `<tr><td><b>${esc(r.v.name)}</b><div class="muted" style="font-size:var(--fs-xs)">${esc(r.v.productName)} ${esc(r.v.release)} · ${L("sign-in", "Anmeldung")} <span class="mono">${userOf(r.v.id)}</span></div></td>
+              <td>${r.sent ? `${pill("✓ " + L("sent", "gesendet"), "ok")} <span class="mono muted" style="font-size:11px">${esc(r.pkg)}</span>` : `<span class="muted">—</span>`}</td><td class="mono">${r.checklist}</td>
+              <td>${r.last ? pill(`${r.last.ok ? "✓" : "✕"} ${r.last.passed}/${r.last.total}${r.last.round ? " · R" + r.last.round : ""}`, r.last.ok ? "ok" : "bad") : `<span class="muted">—</span>`}</td>
+              <td>${r.cert ? pill("✓ 2027", "ok") : `<span class="muted">${L("open", "offen")}</span>`}</td></tr>`).join("")}
+          </tbody></table></div></section>
+      </div>`;
+  }
+  function vVendorHomeLive() {
+    const v = vendorOf(S.vendorUser), cl = LV.cl, n = CASES.length, covered = Object.keys(ST.covered).length, up = lastUpload(), cert = !!S.mail.certs[v.id];
+    const steps = [[L("Package received", "Paket erhalten"), !!cl], [L("Cases checked", "Fälle geprüft"), !!cl && n > 0 && covered >= n], [L("Results sent", "Ergebnisse gesendet"), !!up], [L("All passed", "Alles bestanden"), !!(up && up.ok)], [L("Certificate 2027", "Zertifikat 2027"), cert]];
+    const cur = steps.findIndex(x => !x[1]);
+    const next = [
+      [L("Wait for ITSG's test package. It arrives in Messages and in your checklist.", "Auf das Testpaket von ITSG warten. Es kommt unter Nachrichten und in Ihrer Checkliste an."), "mail", L("Open messages", "Nachrichten öffnen")],
+      [L("Run each test case in your software and tick it when it does what it should.", "Jeden Testfall in Ihrer Software durchführen und abhaken, wenn er tut, was er soll."), "vcheck", L("Open the checklist", "Checkliste öffnen")],
+      [L("Send your results to ITSG: enter the values or upload your results file.", "Ergebnisse an ITSG senden: Werte eintragen oder Ergebnisdatei hochladen."), "vcheck", L("Send results", "Ergebnisse senden")],
+      [L("Some results failed: fix them and send the next round.", "Einige Ergebnisse sind fehlgeschlagen: korrigieren und die nächste Runde senden."), "vcheck", L("Open the checklist", "Checkliste öffnen")],
+      [L("Everything passed. ITSG issues your certificate.", "Alles bestanden. ITSG erteilt Ihr Zertifikat."), "mail", L("Open messages", "Nachrichten öffnen")]
+    ][cur] || [L("Certified for 2027. Nothing left to do.", "Für 2027 zertifiziert. Nichts mehr zu tun."), "mail", L("Open messages", "Nachrichten öffnen")];
+    const days = DEADLINE - today(), recent = visibleThreads().flatMap(t => t.msgs.map(m => ({ t, m }))).sort((a, b) => b.m.at - a.m.at).slice(0, 4);
+    return `${head(`${esc(v.name)} · ${esc(v.productName)} ${esc(v.release)}`, `${L("Your system review for 2027", "Ihre Systemuntersuchung für 2027")} · ${L("signed in as", "angemeldet als")} <span class="mono">${esc(LV.session.user)}</span>`, `<button class="btn" data-act="go" data-screen="mail">${ic("inbox")} ${L("Messages", "Nachrichten")}${unreadCount() ? ` (${unreadCount()})` : ""}</button>`)}
+      <div class="vsteps">${steps.map(([t, done], i) => `<div class="vstep ${done ? "done" : i === cur ? "cur" : "todo"}"><span class="mono" style="font-size:11px">${String(i + 1).padStart(2, "0")}</span><span>${done ? "✓ " : ""}${t}</span></div>`).join("")}</div>
+      <section class="panel"><div class="panel-body"><div class="row between"><div class="stack" style="gap:2px"><span class="eyebrow">${L("Next step", "Nächster Schritt")}</span><b style="font-size:var(--fs-lg)">${next[0]}</b></div><button class="btn primary" data-act="go" data-screen="${next[1]}">${next[2]}</button></div></div></section>
+      <div class="grid-4">
+        <div class="panel kpi"><div class="kpi-value">${cl ? n - covered : "—"}</div><div class="kpi-label">${L("test cases still to check", "Testfälle noch zu prüfen")}</div></div>
+        <div class="panel kpi"><div class="kpi-value">${ST.uploads.length}</div><div class="kpi-label">${L("result rounds sent", "gesendete Ergebnisrunden")}</div><div>${up ? (up.ok ? pill("✓ " + up.passed + "/" + up.total, "ok") : pill("✕ " + (up.total - up.passed), "bad")) : ""}</div></div>
+        <div class="panel kpi"><div class="kpi-value" style="color:${days < 14 ? "var(--bad)" : "var(--fg)"}">${days}</div><div class="kpi-label">${L("days until 31.12.2026: the certificate is needed to transmit from 01.01.2027", "Tage bis 31.12.2026: Das Zertifikat ist nötig, um ab 01.01.2027 zu übermitteln")}</div></div>
+        <div class="panel kpi"><div class="kpi-value">${unreadCount()}</div><div class="kpi-label">${L("unread messages", "ungelesene Nachrichten")}</div></div>
+      </div>
+      <section class="panel"><div class="panel-head"><h3>${L("Latest messages", "Neueste Nachrichten")}</h3></div><div class="panel-body flush">${recent.map(({ t, m }) => `<button class="mail-item" data-act="openThread" data-id="${esc(t.id)}" data-go="1"><div class="row between"><b class="subj">${esc(txt(t.subject))}</b><span class="muted" style="font-size:11px">${fmtAt(m.at)}</span></div><span class="snip">${esc((txt(m.body) || attLabel((m.attach || [])[0] || { type: "", ref: "" })).slice(0, 140))}</span></button>`).join("") || `<div class="empty">${L("No messages yet.", "Noch keine Nachrichten.")}</div>`}</div></section>`;
+  }
+  function liveRecap() {
+    const r = (LV.cl && LV.cl.recap) || {};
+    if (r.status !== "done") return { changed: L("The AI is writing your briefing…", "Die KI schreibt Ihre Zusammenfassung…"), todo: [], verify: [], rows: {} };
+    return { changed: r.changed || "", todo: r.todo || [], verify: r.verify || [], rows: r.rows || {} };
+  }
+  function checklistGroups(cs, row) {
+    if (!LIVE) return RULE_ORDER.map(rid => { const list = cs.filter(c => c.rule === rid); const rr = C.RULES.find(x => x.id === rid); return list.length ? `<tr class="grp"><td colspan="4">${rid} · ${esc(T(rr.label))}</td></tr>${list.map(row).join("")}` : ""; }).join("");
+    return [...new Set(cs.map(c => c.section))].map(sec => { const list = cs.filter(c => c.section === sec); return `<tr class="grp"><td colspan="4">§${esc(sec)} · ${esc(list[0].section_title || "")}</td></tr>${list.map(row).join("")}`; }).join("");
+  }
+  function liveUploadPanel(up) {
+    const filled = CASES.filter(c => String(LV.vals[c.id] || "").trim()).length;
+    return `<section class="panel" data-tour="upload"><div class="panel-head"><h3>${ic("upload")} ${L("Send your results to ITSG", "Ergebnisse an ITSG senden")}</h3>${up ? (up.ok ? pill(`✓ ${up.passed}/${up.total} ${L("passed", "bestanden")}`, "ok") : pill(`✕ ${up.total - up.passed} ${L("of", "von")} ${up.total} ${L("failed", "nicht bestanden")}`, "bad")) : ""}</div>
+      <div class="panel-body stack">
+        <div class="row between"><span>${filled} / ${CASES.length} ${L("values entered in the table above", "Werte in der Tabelle oben eingetragen")}</span><div class="actions"><button class="btn" data-act="lvTemplate">${ic("download")} ${L("CSV template", "CSV-Vorlage")}</button><button class="btn primary" data-act="lvSubmitVals">${ic("check")} ${L("Send the values", "Werte senden")}</button></div></div>
+        <div class="drop" data-act="uploadPick" role="button" tabindex="0">${ic("upload")}<b>${L("…or upload your results file", "…oder Ihre Ergebnisdatei hochladen")}</b><span>${L("CSV with one line per test case (id;value) or JSON. A DTA file is stored for ITSG to look at.", "CSV mit einer Zeile je Testfall (id;Wert) oder JSON. Eine DTA-Datei wird für ITSG abgelegt.")}</span></div>
+        ${up ? `<div class="callout ${up.ok ? "ok" : "bad"}"><b>${L("Round", "Runde")} ${up.round || ST.uploads.length} · ${esc(up.file)}</b>${up.ok ? L("Every test case matches ITSG's verified result.", "Jeder Testfall stimmt mit dem verifizierten Ergebnis von ITSG überein.") : up.rows.filter(x => !x.ok).map(x => `<span>✕ <span class="mono">${esc(x.id)}</span> ${esc(x.title || "")}: ${esc(T(x.words[0] || { en: "", de: "" }))}</span>`).join("")}<div class="row"><button class="btn sm" data-act="go" data-screen="mail">${ic("inbox")} ${L("Open the messages", "Nachrichten öffnen")}</button></div></div>` : ""}
+      </div></section>`;
+  }
+  function attCardLive(a, th) {
+    const vend = S.role === "vendor";
+    if (a.type === "package") { const n = vend ? (LV.cl && LV.cl.id === a.ref ? LV.cl.rows.length : null) : ((LV.packages || []).find(p => p.id === a.ref) || { ids: [] }).ids.length;
+      return `<div class="att"><div class="row between"><b>${ic("inbox")} ${L("Test package", "Testpaket")} <span class="mono">${esc(a.ref)}</span></b>${n != null ? pill(n + " " + L("cases", "Fälle"), "") : ""}</div><span class="muted">${L("Test cases in words with what should happen, plus an AI briefing. ITSG keeps the expected values and compares every result.", "Testfälle in Worten mit dem erwarteten Verhalten, dazu eine KI-Zusammenfassung. ITSG behält die Erwartungswerte und vergleicht jedes Ergebnis.")}</span><div class="actions"><button class="btn sm ${vend ? "primary" : ""}" data-act="mailOpen" data-type="package" data-ref="${esc(a.ref)}" data-th="${esc(th.id)}">${vend ? L("Open the checklist", "Checkliste öffnen") : L("View test cases", "Testfälle ansehen")}</button></div></div>`; }
+    if (a.type === "file" || a.type === "dta") { const f = S.mail.files[a.ref] || { name: a.ref, size: 0 };
+      return `<div class="att"><b>${ic("doc")} ${esc(f.name)}</b><span class="muted">${esc((f.format || "").toUpperCase())} · ${fmtSize(f.size || 0)}${f.sha256 ? ` · <span class="mono">${esc(f.sha256.slice(0, 12))}…</span>` : ""}</span><div class="actions"><button class="btn sm" data-act="lvFile" data-key="${esc(a.ref)}">${ic("download")} ${L("Download", "Herunterladen")}</button></div></div>`; }
+    if (a.type === "report") { const r = typeof a.ref === "object" ? a.ref : lastReport(a.ref) || {};
+      return `<div class="att ${r.verdict === "pass" ? "ok" : r.verdict ? "bad" : ""}"><b>${ic("report")} ${L("Test report", "Prüfbericht")} <span class="mono">${esc(r.id || "")}</span></b><span>${r.total ? `${r.passed}/${r.total} ${L("test cases passed", "Testfälle bestanden")}` : ""}</span>${vend ? "" : `<div class="actions"><button class="btn sm" data-act="lvCertGo" data-v="${esc(th.vendor)}">${L("Open report", "Bericht öffnen")}</button></div>`}</div>`; }
+    if (a.type === "case") { const c = (CASES || []).find(x => x.id === a.ref);
+      return `<div class="att"><b>${ic("test")} <span class="mono">${esc(a.ref)}</span>${c ? " · " + esc(c.title) : ""}</b><div class="actions"><button class="btn sm" data-act="mailOpen" data-type="case" data-ref="${esc(a.ref)}" data-th="${esc(th.id)}">${L("Open test case", "Testfall öffnen")}</button></div></div>`; }
+    return null;
+  }
+  function vCertLive() {
+    const rows = lvVendorRows(), pick = rows.find(r => r.v.id === LV.certV) || rows.find(r => r.last && r.last.ok && !r.cert) || rows.find(r => r.last) || rows[0];
+    LV.certV = pick.v.id;
+    const v = pick.v, rep = pick.rep, cert = (LV.certs || []).find(c => c.vendor === v.id), ok = !!(rep && rep.verdict === "pass");
+    const fresh = ok && (!cert || !cert.reports.some(x => x.id === rep.id)), seal = cert ? cert.seal : rep ? rep.seal : "—";
+    const title = id => ((CASES || []).find(c => c.id === id) || {}).title || "";
+    return `${head(L("Report & certificate", "Bericht & Zertifikat"), L("The newest result round of each vendor, sealed. When every test case passes, the certificate goes out in the vendor's thread and as a PDF.", "Die neueste Ergebnisrunde je Hersteller, versiegelt. Wenn jeder Testfall besteht, geht das Zertifikat in den Verlauf des Herstellers und als PDF raus."),
+      `<button class="btn primary" data-act="lvCertIssue" data-v="${v.id}" ${fresh ? "" : "disabled"}>${ic("inbox")} ${cert && !fresh ? L("Certificate issued", "Zertifikat erteilt") : L("Issue certificate", "Zertifikat erteilen")}</button><button class="btn" data-act="certPdf" ${ok ? "" : "disabled"}>${ic("download")} PDF</button>${cert ? `<button class="btn" data-act="lvCertHtml" data-id="${esc(cert.id)}">${ic("doc")} ${L("Server certificate", "Server-Zertifikat")}</button>` : ""}`)}
+      <div class="seg" role="group" style="margin-bottom:12px">${rows.map(r => `<button aria-pressed="${r.v.id === v.id}" data-act="lvCertV" data-v="${r.v.id}">${esc(r.v.name)} ${r.last ? (r.last.ok ? "✓" : "✕") : ""}</button>`).join("")}</div>
+      <div class="cert-wrap" data-tour="cert"><article class="cert-sheet" id="certSheet">
+        <div class="cert-top">${IMAGES.logo ? `<img src="${IMAGES.logo}" alt="ITSG">` : "<b>ITSG</b>"}<div style="text-align:right"><div style="font-weight:700">${L("System review", "Systemuntersuchung")} · DTA EEL</div><div class="seal">${C.de(today())}</div></div></div>
+        <div class="stack" style="gap:6px"><span class="eyebrow">${ok ? L("Certificate", "Zertifikat") : L("Test report", "Prüfbericht")}</span><h2>${esc(v.productName)} ${esc(v.release)}</h2>
+          <span class="big">${ok ? L("has passed the system review for income replacement benefits (DTA EEL) and may transmit from 01.01.2027.", "hat die Systemuntersuchung für Entgeltersatzleistungen (DTA EEL) bestanden und darf ab 01.01.2027 übermitteln.") : rep ? L("has not passed yet.", "hat noch nicht bestanden.") : L("has not sent results yet.", "hat noch keine Ergebnisse gesendet.")}</span></div>
+        <dl><dt>${L("Vendor", "Hersteller")}</dt><dd>${esc(v.name)}</dd><dt>${L("Product ID", "Produkt-Identifier")}</dt><dd class="mono">${esc(v.product)}</dd><dt>${L("Modification ID", "Modifikations-Identifier")}</dt><dd class="mono">${esc(v.modification)}</dd><dt>${L("Specification", "Spezifikation")}</dt><dd>${esc(SF.doc || "Verfahrensbeschreibung DTA EEL")} v${esc(VER().n)}</dd><dt>${L("Test package", "Testpaket")}</dt><dd class="mono">${rep ? esc(rep.package) + " · " + L("round", "Runde") + " " + (rep.round || 1) : "—"}</dd><dt>${L("Valid", "Gültig")}</dt><dd>01.01.2027 – 31.12.2027</dd></dl>
+        <table><thead><tr><th>${L("Test case", "Testfall")}</th><th>§</th><th>${L("Result", "Ergebnis")}</th></tr></thead><tbody>${rep ? rep.checks.map(ch => `<tr><td><span class="mono">${esc(ch.id)}</span> ${esc(title(ch.id))}</td><td class="mono">${esc(ch.sec || "")}</td><td>${ch.ok ? "✓ " + L("passed", "bestanden") : "✕ " + L("failed", "nicht bestanden")}</td></tr>`).join("") : `<tr><td colspan="3" class="muted">${L("No results from this vendor yet.", "Noch keine Ergebnisse dieses Herstellers.")}</td></tr>`}</tbody></table>
+        <div class="row between" style="align-items:end"><div class="stack" style="gap:2px"><span class="seal">${L("Integrity seal (SHA-256)", "Integritätssiegel (SHA-256)")}</span><span class="seal mono" style="font-size:11px;overflow-wrap:anywhere">${esc(seal)}</span><span class="seal">${L("System examiner, ITSG", "Systemprüfer, ITSG")}${cert ? " · " + esc(cert.by) : ""}</span></div>${ok ? `<span class="stamp">✓ ${L("PASSED", "BESTANDEN")}</span>` : ""}</div>
+      </article>${cert ? `<div class="callout ok" style="max-width:860px;margin:12px auto 0"><b>✓ ${L("Sent to", "Gesendet an")} ${esc(v.name)} · <span class="mono">${esc(cert.id)}</span></b>${L("The certificate and the report are in the vendor's thread in Messages.", "Zertifikat und Bericht liegen im Verlauf des Herstellers unter Nachrichten.")}</div>` : ""}</div>`;
+  }
+  function reasonModal(title, hint, cb) {
+    LV.reasonCb = cb;
+    modal(title, `<p class="muted" style="font-size:var(--fs-sm)">${esc(hint)}</p><textarea class="textarea" id="lvReason" rows="3"></textarea>`, null,
+      `<button class="btn" data-act="closeModal">${L("Cancel", "Abbrechen")}</button><button class="btn primary" data-act="lvReasonOk">${L("OK", "OK")}</button>`);
+    setTimeout(() => { const t = $("#lvReason"); if (t) t.focus(); }, 30);
+  }
+  async function liveVerify(id, reason) {
+    try { await api(`testcases/${enc(id)}/verify`, { body: reason ? { override_reason: reason } : {} }); toast(L("Verified", "Verifiziert")); liveRefresh(); }
+    catch (e) { if (e.status === 409 && !reason) reasonModal(L("Verify anyway?", "Trotzdem verifizieren?"), e.message, r => liveVerify(id, r)); else fail(e); }
+  }
+  async function liveUpload(file) {
+    if (!/\.pdf$/i.test(file.name)) return toast(L("Choose the specification PDF", "Das Spezifikations-PDF wählen"));
+    LV.upload = file.name; LV.plan = null; hydrate(); render();
+    try {
+      const up = await api(`upload?name=${enc(file.name)}`, { body: file });
+      LV.plan = await api("plan", { body: { new: { kind: up.kind, name: up.name } } });
+      toast(`${file.name}: ${up.pages} ${L("pages", "Seiten")}, ${up.sections} §`);
+      api("documents").then(d => { LV.docs = d; render(); }, () => { });
+    } catch (e) { fail(e); } finally { LV.upload = null; hydrate(); render(); }
+  }
+  async function liveResults(file) {
+    if (!LV.cl) return toast(L("No test package yet", "Noch kein Testpaket"));
+    try {
+      const r = await api(`checklists/${enc(LV.cl.id)}/results?name=${enc(file.name)}`, { body: file });
+      toast(r.rows && r.rows.length ? `${L("Round", "Runde")} ${r.round}: ${r.rows.filter(x => x.ok).length}/${r.rows.length} ${L("passed", "bestanden")}` : L("Stored for ITSG. No values found: use a CSV (id;value) or enter them in the table.", "Für ITSG abgelegt. Keine Werte gefunden: CSV (id;Wert) nutzen oder in der Tabelle eintragen."));
+      liveRefresh();
+    } catch (e) { fail(e); }
+  }
+  async function liveCover(id, done) {
+    if (!LV.cl) return;
+    if (done) ST.covered[id] = fmtAt(Math.floor((Date.now() - new Date().getTimezoneOffset() * 6e4) / 6e4)); else delete ST.covered[id];
+    render();
+    try { await api(`checklists/${enc(LV.cl.id)}/coverage`, { body: { id, done } }); liveRefresh(); } catch (e) { fail(e); }
+  }
+  function liveRead(th) {
+    const n = th.msgs.length;
+    if (LV.readSent[th.id] === n) return;
+    LV.readSent[th.id] = n;
+    api(`exchange/threads/${enc(th.id)}/read`, { body: { n } }).catch(() => { });
+  }
+  function pickFile(accept, cb) { const fi = $("#fileInput"); fi.accept = accept; fi.onchange = () => { const f = fi.files[0]; fi.value = ""; if (f) cb(f); }; fi.click(); }
+
+  /* ---------- live actions: override the recorded ones of the same name ---------- */
+  const LACT = {
+    lvSignIn: async el => {
+      try { LV.session = await api("login", { body: { name: el.dataset.u, password: ($("#lvPw") || {}).value || "" } }); sess.set(LV.session); liveEnter(); }
+      catch (e) { fail(e); const pw = $("#lvPw"); if (pw) pw.focus(); }
+    },
+    lvSignOut: () => liveSignOut(false),
+    role: () => { }, signInModal: () => { },
+    tour: () => { location.href = "/demo/#demo"; },
+    pickPdf: () => pickFile(".pdf,application/pdf", liveUpload),
+    simDrop: () => pickFile(".pdf,application/pdf", liveUpload),
+    lvAnalyseRun: async () => {
+      const p = LV.plan; if (!p) return;
+      const max = Math.max(1, Math.min(200, Number(($("#lvMax") || {}).value) || 12));
+      try {
+        const r = await api("runs", { body: { new: { kind: p.new.kind, name: p.new.name }, old: p.old ? { kind: p.old.kind, name: p.old.name } : {}, lang: S.lang, max_items: max } });
+        LV.runId = r.id; LV.run = null; LV.plan = null; ST.selChange = null; ST.chat = [];
+        toast(L("The AI is reading the changes", "Die KI liest die Änderungen")); go("changes"); liveRefresh();
+      } catch (e) { fail(e); }
+    },
+    lvRun: el => { LV.runId = el.dataset.id; LV.run = null; LV.plan = null; ST.selChange = null; ST.chat = []; liveRefresh(); },
+    lvAnalyse: async el => { try { await api(`runs/${enc(LV.runId)}/items/${enc(el.dataset.sec)}/generate`, { body: {} }); toast(L("The AI is reading", "Die KI liest") + " §" + el.dataset.sec); liveRefresh(); } catch (e) { fail(e); } },
+    chDecide: async el => {
+      const sec = el.dataset.sec, d = el.dataset.d || null;
+      try { await api(`runs/${enc(LV.runId)}/decide`, { body: { secs: [sec], decision: d } }); ST.chEdit = null; if (d) toast(`§${sec}: ${d === "approved" ? L("approved", "freigegeben") : L("declined", "abgelehnt")}`); liveRefresh(); }
+      catch (e) { fail(e); }
+    },
+    chSave: async el => {
+      const sec = el.dataset.sec, body = { summary: $("#chSummary").value.trim(), old_rule: $("#chOld").value.trim(), new_rule: $("#chNew").value.trim(), change_type: $("#chType").value, approve: !!el.dataset.approve };
+      try { await api(`runs/${enc(LV.runId)}/items/${enc(sec)}/change`, { method: "PATCH", body }); ST.chEdit = null; toast(L("Saved", "Gespeichert")); liveRefresh(); }
+      catch (e) { fail(e); }
+    },
+    genCases: async () => {
+      const secs = liveGenMore().map(i => i.sec);
+      if (!secs.length) return toast(L("Approve at least one change first", "Zuerst mindestens eine Änderung freigeben"));
+      try { await api(`runs/${enc(LV.runId)}/cases`, { body: { secs } }); toast(L("The AI is writing test cases for ", "Die KI schreibt Testfälle für ") + secs.map(s => "§" + s).join(", ")); liveRefresh(); }
+      catch (e) { fail(e); }
+    },
+    caseSet: el => {
+      const id = el.dataset.id;
+      if (el.dataset.s === "verified") return liveVerify(id);
+      reasonModal(L("Reject this test case", "Diesen Testfall ablehnen"), L("Why? The reason stays in the test case's history.", "Warum? Die Begründung bleibt in der Historie des Testfalls."),
+        r => api(`testcases/${enc(id)}/reject`, { body: { reason: r } }).then(() => { toast(L("Rejected", "Abgelehnt")); liveRefresh(); }, fail));
+    },
+    caseSave: async el => {
+      const id = el.dataset.id, list = s => $(s).value.split("\n").map(x => x.trim()).filter(Boolean);
+      const body = { title: $("#tcTitle").value.trim(), preconditions: list("#tcPre"), steps: list("#tcSteps"), expected_outcome: $("#tcOutcome").value.trim() };
+      try { await api(`testcases/${enc(id)}`, { method: "PATCH", body }); ST.caseEdit = null; if (el.dataset.verify) await liveVerify(id); else { toast(L("Saved", "Gespeichert")); liveRefresh(); } }
+      catch (e) { fail(e); }
+    },
+    lvReasonOk: () => { const v = (($("#lvReason") || {}).value || "").trim(); if (!v) return toast(L("Give a reason", "Bitte eine Begründung angeben")); $("#modalHost").innerHTML = ""; const cb = LV.reasonCb; LV.reasonCb = null; if (cb) cb(v); },
+    sendNow: async () => {
+      const to = [...document.querySelectorAll(".sendTo:checked")].map(x => userOf(x.value)), ids = sendableIds(), note = (($("#sendNote") || {}).value || "").trim();
+      if (!to.length) return toast(L("Choose at least one vendor", "Mindestens einen Hersteller wählen"));
+      if (!ids.length) return toast(L("Nothing left to send", "Nichts mehr zu senden"));
+      try { await api("send", { body: { ids, to, note } }); $("#modalHost").innerHTML = ""; toast(L("Sent to ", "Gesendet an ") + to.join(", ")); liveRefresh(); }
+      catch (e) { fail(e); }
+    },
+    notifyOpen: () => { ST.notify = false; const th = certThread(S.vendorUser); if (th) S.selThread = th.id; S.mailFolder = "inbox"; go("mail"); },
+    clPass: el => { ST.clOpen = null; liveCover(el.dataset.id, true); },
+    uploadPick: () => pickFile("", liveResults),
+    uploadNow: () => pickFile("", liveResults),
+    lvSubmitVals: async () => {
+      if (!LV.cl) return;
+      const rows = CASES.map(c => ({ id: c.id, value: String(LV.vals[c.id] || "").trim() })).filter(r => r.value);
+      if (!rows.length) return toast(L("Enter at least one value in the table", "Mindestens einen Wert in der Tabelle eintragen"));
+      try { const r = await api(`checklists/${enc(LV.cl.id)}/submit`, { body: { rows } }); toast(`${L("Round", "Runde")} ${r.round}: ${r.rows.filter(x => x.ok).length}/${r.rows.length} ${L("passed", "bestanden")}`); liveRefresh(); }
+      catch (e) { fail(e); }
+    },
+    lvTemplate: () => downloadOrCopy(`${LV.cl ? LV.cl.id : "results"}-template.csv`, "id;result_name;value\n" + CASES.map(c => `${c.id};${c.formula.result_name || ""};${LV.vals[c.id] || ""}`).join("\n") + "\n", "text/csv"),
+    lvFile: async el => {
+      try {
+        const f = S.mail.files[el.dataset.key] || { name: el.dataset.key }, s = LV.session;
+        const r = await fetch(`/api/exchange/files/${enc(el.dataset.key)}`, { headers: { "X-Token": s.token, "X-User": s.user, "X-Role": s.role, ...(s.vendor ? { "X-Vendor": s.vendor } : {}) } });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+      } catch (e) { fail(e); }
+    },
+    openThread: el => { ACT.openThread(el); const th = S.mail.threads.find(t => t.id === el.dataset.id); if (th) liveRead(th); },
+    mailOpen: el => {
+      const type = el.dataset.type, ref = el.dataset.ref, vend = S.role === "vendor";
+      if (type === "package") return go(vend ? "vcheck" : "review");
+      if (type === "case") { if (vend) ST.clOpen = ref; else ST.selCase = ref; return go(vend ? "vcheck" : "review"); }
+    },
+    attachAdd: el => {
+      const c = S.compose || (S.compose = { thread: S.selThread, body: "", attach: [] }), type = el.dataset.type, ref = el.dataset.ref;
+      S.attachMenu = false;
+      if (type === "file-disk") return pickFile("", async f => {
+        try { const up = await api(`exchange/files?name=${enc(f.name)}`, { body: f }); c.attach.push({ type: "file", ref: up.key }); S.mail.files[up.key] = up; render(); } catch (e) { fail(e); }
+      });
+      c.attach.push({ type, ref }); render();
+    },
+    mailSend: async () => {
+      const c = S.compose || { thread: S.selThread, body: "", attach: [] }, body = String(c.body || "").trim();
+      if (!body && !c.attach.length) return toast(L("Write a message or attach something", "Nachricht schreiben oder etwas anhängen"));
+      try {
+        let tid = c.thread;
+        if (!tid) tid = (await api("exchange/threads", { body: { vendor: S.role === "itsg" ? c.to : S.vendorUser, subject: (c.subject || "").trim() || L("(no subject)", "(kein Betreff)") } })).id;
+        await api(`exchange/threads/${enc(tid)}/messages`, { body: { body, attach: c.attach.map(a => ({ type: a.type, ref: a.ref })) } });
+        S.compose = null; S.attachMenu = false; S.selThread = tid; liveRefresh();
+      } catch (e) { fail(e); }
+    },
+    itsgCert: el => LACT.lvCertIssue(el),
+    itsgSendReport: async el => {
+      const v = el.dataset.v, r = lastReport(v), th = certThread(v);
+      if (!r || !th) return toast(L("No results from this vendor yet", "Noch keine Ergebnisse dieses Herstellers"));
+      try { await api(`exchange/threads/${enc(th.id)}/messages`, { body: { body: { en: `The current test report: ${r.passed} of ${r.total} test cases passed (round ${r.round || 1}).`, de: `Der aktuelle Prüfbericht: ${r.passed} von ${r.total} Testfällen bestanden (Runde ${r.round || 1}).` }, attach: [{ type: "report", ref: { id: r.id, passed: r.passed, total: r.total, verdict: r.verdict } }] } }); liveRefresh(); }
+      catch (e) { fail(e); }
+    },
+    itsgRequestFix: el => {
+      const v = el.dataset.v, r = lastReport(v), th = certThread(v);
+      if (!th) return;
+      const bad = r ? r.checks.filter(c => !c.ok) : [];
+      S.selThread = th.id; S.attachMenu = false;
+      S.compose = { thread: th.id, attach: bad.map(c => ({ type: "case", ref: c.id })),
+        body: L(`Thank you for your results. These test cases do not pass yet:\n${bad.map(c => `• ${c.id}: ${c.msg}`).join("\n")}\n\nPlease fix them and send the next round from your checklist.`, `Danke für Ihre Ergebnisse. Diese Testfälle sind noch nicht bestanden:\n${bad.map(c => `• ${c.id}: ${c.msg}`).join("\n")}\n\nBitte korrigieren und die nächste Runde aus der Checkliste senden.`) };
+      render();
+    },
+    certIssue: el => LACT.lvCertIssue(el),
+    lvCertGo: el => { LV.certV = el.dataset.v; go("cert"); },
+    lvCertV: el => { LV.certV = el.dataset.v; render(); },
+    lvCertIssue: async el => {
+      const vid = (el && el.dataset && el.dataset.v) || LV.certV, v = vendorOf(vid), r = lastReport(vid);
+      if (!r || r.verdict !== "pass") return toast(L("Only when every test case passed", "Nur wenn jeder Testfall bestanden hat"));
+      try { const c = await api("certificates", { body: { vendor: vid, reports: [r.id], product_name: v.productName, release: v.release } }); LV.certV = vid; toast(L("Certificate sent to ", "Zertifikat gesendet an ") + v.name + " · " + c.id); liveRefresh(); }
+      catch (e) { fail(e); }
+    },
+    lvCertHtml: async el => {
+      try {
+        const s = LV.session, r = await fetch(`/api/certificates/${enc(el.dataset.id)}/html`, { headers: { "X-Token": s.token, "X-User": s.user, "X-Role": s.role } });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([await r.text()], { type: "text/html" })); a.target = "_blank"; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
+      } catch (e) { fail(e); }
+    }
+  };
+  const live = { LV, hydrate, setSpec, liveChanges };
+
   const RENDER = { changes: vChangeReview, impact: vChanges, review: vReview, vcheck: vChecklist, cert: vCert, overview: vOverview, ingest: vIngest, baseline: vBaseline, specs: vSpecs, mail: vMail, vhome: vVendorHome, vwork: vVendorWork, extract: vExtract, functions: vFunctions, tests: vTests, inbox: vInbox, validate: vValidate, audit: vAudit, report: vReport, coverage: vCoverage, log: vLog };
 
   /* ===================================================================================
@@ -3424,16 +4038,17 @@ const APP = (() => {
     $("#aiBtn").innerHTML = `${ic("gear")} ${S.ai.mode === "live" ? "Live" : L("Recorded AI", "Aufgezeichnete KI")}`;
     $("#demoBtn").innerHTML = `${ic("play")} ${L("Demo", "Demo")}`;
     const vendor = S.role === "vendor", VORDER = ["vhome", "mail", "vcheck", "vwork", "validate", "report", "specs"];
-    const visible = SCREENS.filter(s => s.roles.includes(S.role));
+    const visible = SCREENS.filter(s => s.roles.includes(S.role) && (!LIVE || LIVE_SCREENS[S.role].includes(s.id)));
     if (vendor) visible.sort((a, b) => VORDER.indexOf(a.id) - VORDER.indexOf(b.id));
     if (!visible.some(s => s.id === S.screen)) S.screen = vendor ? "vhome" : "overview";
     const groups = {}, gOf = s => typeof s.group === "function" ? s.group() : s.group;
     visible.forEach(s => (groups[gOf(s)] = groups[gOf(s)] || []).push(s));
     $("#rail").innerHTML = Object.entries(groups).map(([g, list]) => `<div class="rail-group">${GROUPS[g]() ? `<div class="rail-label eyebrow">${GROUPS[g]()}</div>` : ""}${list.map(s => { const b = s.badge && s.badge(); return `<button class="nav-btn" data-act="go" data-screen="${s.id}" ${S.screen === s.id ? 'aria-current="page"' : ""}><span class="nav-step">${(vendor ? s.vstep : (typeof s.step === "function" ? s.step() : s.step)) || `<svg class="icon" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="${ICON[s.icon]}"/></svg>`}</span><span>${s.t()}</span>${b ? `<span class="nav-badge ${b.hot ? "hot" : ""}">${b.n}</span>` : ""}</button>`; }).join("")}</div>`).join("");
+    if (LIVE) liveShell();
   }
   function render() {
     renderShell();
-    $("#view").innerHTML = RENDER[S.screen]();
+    $("#view").innerHTML = LIVE && !LV.session ? vSignIn() : RENDER[S.screen]();
     story.paintNotify();
     const toc = document.querySelector(".toc"), cur = toc && toc.querySelector('[aria-current="true"]');
     if (cur && !S.tocKeep) toc.scrollTop = cur.offsetTop - toc.offsetTop - toc.clientHeight / 2;
@@ -3457,7 +4072,7 @@ const APP = (() => {
   }
   function modal(title, html, node, foot) {
     const host = $("#modalHost");
-    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}" onclick="event.stopPropagation()"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
+    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
     if (node) host.querySelector(".modal-body").appendChild(node);
   }
   function aiSettings() {
@@ -3501,6 +4116,7 @@ const APP = (() => {
     });
   }
   async function ingestPdf(file) {
+    if (LIVE) return liveUpload(file);
     const status = $("#pdfStatus");
     const say = h => { if (status) status.innerHTML = h; };
     say(`<div class="callout">${L("Loading pdf.js…", "Lade pdf.js…")}</div>`);
@@ -3531,6 +4147,7 @@ const APP = (() => {
   }
 
   function readDta(file) {
+    if (LIVE) return liveResults(file);
     const r = new FileReader();
     r.onload = () => {
       const text = new TextDecoder("latin1").decode(new Uint8Array(r.result)); S.customFile = { name: file.name, text }; S.sample = "custom"; S.selField = null; VAL_CACHE = null;
@@ -3772,13 +4389,15 @@ const APP = (() => {
   /* ---------- wiring ---------- */
   function init() {
     if (location.hash === "#presenter") return; // the narrator window: TOUR draws its own page
-    document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (!el || el.tagName === "SELECT") return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
+    document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); // a click inside a dialog that hits no control of its own must not count as a click on the backdrop
+      if (!el || el.tagName === "SELECT" || (el.classList.contains("modal-scrim") && e.target !== el)) return; const fn = (LIVE && LACT[el.dataset.act]) || ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
     document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-act][role=button], .prov")) { e.preventDefault(); e.target.click(); } if (e.key === "Escape") { closeDrawer(); $("#modalHost").innerHTML = ""; } });
-    document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "chatInput") { e.preventDefault(); ACT.chatSend(); } if (e.key === "Enter" && e.target.id === "ovChatInput") { e.preventDefault(); ACT.ovSend(); } });
-    document.addEventListener("change", e => { if (e.target.dataset && e.target.dataset.notify) { const n = store.get("mailNotify", {}); n[e.target.dataset.notify] = e.target.checked; store.set("mailNotify", n); toast(L("Notification setting saved", "Benachrichtigung gespeichert")); return; } if (e.target.dataset && e.target.dataset.cover) { const id = e.target.dataset.cover; if (e.target.checked) ST.covered[id] = fmtAt(S.clock || CLOCK0); else delete ST.covered[id]; render(); return; } if (e.target.id === "sampleSel") { S.sample = e.target.value; S.selField = null; render(); } if (e.target.id === "mailTo" && S.compose) S.compose.to = e.target.value; });
+    document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "chatInput") { e.preventDefault(); ACT.chatSend(); } if (e.key === "Enter" && e.target.id === "ovChatInput") { e.preventDefault(); ACT.ovSend(); } if (e.key === "Enter" && e.target.id === "lvPw") { e.preventDefault(); toast(L("Now click the account to sign in as", "Jetzt das Konto anklicken, mit dem Sie sich anmelden")); } });
+    document.addEventListener("change", e => { if (e.target.dataset && e.target.dataset.notify) { const n = store.get("mailNotify", {}); n[e.target.dataset.notify] = e.target.checked; store.set("mailNotify", n); toast(L("Notification setting saved", "Benachrichtigung gespeichert")); return; } if (e.target.dataset && e.target.dataset.cover) { const id = e.target.dataset.cover; if (LIVE) { liveCover(id, e.target.checked); return; } if (e.target.checked) ST.covered[id] = fmtAt(S.clock || CLOCK0); else delete ST.covered[id]; render(); return; } if (e.target.id === "sampleSel") { S.sample = e.target.value; S.selField = null; render(); } if (e.target.id === "mailTo" && S.compose) S.compose.to = e.target.value; });
     // Keep the examiner's wording across re-renders; it is only committed (and logged) on approval.
     document.addEventListener("input", e => {
       const d = e.target.dataset || {}, id = d.ruleText;
+      if (d.val) LV.vals[d.val] = e.target.value;
       if (id) { const r = C.RULES.find(x => x.id === id), v = e.target.value; S.rules[id].text = v.trim() !== T(r.text).trim() ? v : null; }
       // Message drafts survive re-renders; typing in a thread's reply box starts a reply to that thread.
       if (d.compose) { if (!S.compose || (d.thread && S.compose.thread !== d.thread)) S.compose = { thread: d.thread || null, body: "", attach: [] }; S.compose[d.compose] = e.target.value; }
@@ -3793,15 +4412,16 @@ const APP = (() => {
     }));
     $("#drawerClose").addEventListener("click", closeDrawer);
     $("#themeBtn").addEventListener("click", () => { const dark = S.theme === "dark" || (S.theme === "system" && matchMedia("(prefers-color-scheme: dark)").matches); S.theme = dark ? "light" : "dark"; store.set("theme", S.theme); renderShell(); });
-    $("#aiBtn").addEventListener("click", aiSettings);
+    $("#aiBtn").addEventListener("click", () => LIVE ? toast(LV.status && LV.status.key_configured ? `${L("Live AI", "Live-KI")}: ${LV.status.model} · hessian.AI` : L("This server has no AI key", "Dieser Server hat keinen KI-Schlüssel")) : aiSettings());
     $("#demoBtn").addEventListener("click", () => window.TOUR && TOUR.start());
     log("system", L("Session started", "Sitzung gestartet"), `${TESTS.filter(t => t.ok).length}/${TESTS.length} ${L("unit tests passing", "Unit-Tests bestanden")}`);
+    if (LIVE) return liveInit();
     const startHash = location.hash.slice(1);
     if (RENDER[startHash]) S.screen = startHash;
     render();
   }
 
-  return { S, C, render, go, openProv, closeDrawer, ACT, L, T, log, init, FRAMED, animateExtraction, toast, vendorDemo, story, certThread, IMAGES };
+  return { S, C, render, go, openProv, closeDrawer, ACT, L, T, log, init, FRAMED, animateExtraction, toast, vendorDemo, story, certThread, IMAGES, LIVE, live };
 })();
 
 /* ===================================================================================
@@ -3844,7 +4464,7 @@ const TOUR = (() => {
         <span class="kicker">Try it yourself</span><h2>Scan. Sign in. Try it.</h2>
         <p class="tagline">The app runs live on our server: drop a specification, review the AI's reading, send test cases.</p>
         <span class="qr-url">130.83.85.181:34080</span>
-        <ol class="qr-steps"><li>ITSG examiner: <code>istg</code></li><li>Vendor: <code>sap</code> or <code>lexware</code> · developer: <code>dev</code></li><li>Password: ask us</li></ol></div></div></div>` }
+        <ol class="qr-steps"><li>ITSG examiner: <code>istg</code></li><li>Vendor: <code>sap</code> or <code>lexware</code></li><li>Password: ask us</li></ol></div></div></div>` }
   ];
 
   /* One step = one screen + one sentence. `before` sets the state the screen needs (it also runs when
@@ -4161,7 +4781,9 @@ const TOUR = (() => {
     if (!forward || !s.via) return enter();
     (async () => { await wait(200); for (const v of s.via) { if (!alive()) return; await cur.click(typeof v.sel === "function" ? v.sel() : v.sel, { spot: true, run: v.run, after: 380 }); } if (alive()) enter(); })();
   }
-  function start(at) { X.reset(); A.log("system", L("Guided demo started", "Geführte Demo gestartet"), ""); document.body.classList.add("touring"); show(at || 0); }
+  function start(at) {
+    if (A.LIVE) { location.href = "/demo/#demo" + (at ? "=" + (at + 1) : ""); return; } // the live app: the demo runs recorded at /demo
+    X.reset(); A.log("system", L("Guided demo started", "Geführte Demo gestartet"), ""); document.body.classList.add("touring"); show(at || 0); }
   function end() { token++; pos = -1; spotSel = null; host().innerHTML = ""; cur.remove(); const main = $("#main"); main.style.transform = ""; main.style.transition = ""; document.body.classList.remove("touring", "on-slide"); syncText(); A.render(); send(state()); }
   function refresh() { if (pos >= 0) show(pos); }
   function init() {

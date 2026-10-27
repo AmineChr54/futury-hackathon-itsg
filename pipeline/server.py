@@ -4,7 +4,8 @@
     python pipeline/server.py --host 0.0.0.0  → reachable by the developers on your network
 
 What it does
-- serves demo/index.html (the guided demo), demo/pipeline.html at /pipeline (the live pipeline UI) and a JSON API for the "AI test pipeline" and "Developer inbox" screens;
+- serves the §pecs app (demo/index.html): at / on this server's data (sign-in, real AI runs), at /demo on its
+  recorded data with the guided demo; /pipeline redirects to /. Plus the JSON API the app uses;
 - reads the previous spec versions in docs/law_file/ and the PDFs dropped into the page;
 - diffs them section by section (or, with nothing to compare, uses the document's own change log);
 - lets the AI turn each change into a spec-change JSON and test cases, with a sandboxed Python

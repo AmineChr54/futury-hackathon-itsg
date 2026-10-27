@@ -13,7 +13,7 @@ built at **Futury Build Days #3** (26–27 Oct 2026) · challenge sponsor **ITSG
 ![Dependencies](https://img.shields.io/badge/dependencies-stdlib%20%2B%20pypdf-2ea44f)
 ![Docker](https://img.shields.io/badge/docker-one%20container-2496ED?logo=docker&logoColor=white)
 ![LLM](https://img.shields.io/badge/LLM-hessian.AI%20Kolibri--1-b31b3b)
-![Tests](https://img.shields.io/badge/tests-59%20unit%20%2B%206%20UI-2ea44f)
+![Tests](https://img.shields.io/badge/tests-64%20unit%20%2B%204%20UI-2ea44f)
 
 ### [▶ Try the demo in your browser](https://aminechr54.github.io/futury-hackathon-itsg/)
 
@@ -121,7 +121,15 @@ python -m pip install -r pipeline/requirements.txt
 python pipeline/server.py
 ```
 
-Open **http://localhost:8787/pipeline** for the live app, or **http://localhost:8787/** for the guided demo. On Windows you can also double-click `pipeline/start.cmd`; on macOS/Linux run `sh pipeline/start.sh`. Sign in as `istg` (examiner) or `dev` (developer).
+Open **http://localhost:8787/** for the live app, or **http://localhost:8787/demo/** for the guided demo on recorded data. On Windows you can also double-click `pipeline/start.cmd`; on macOS/Linux run `sh pipeline/start.sh`. Sign in as `istg` (ITSG examiner), `sap` or `lexware` (vendors).
+
+| Address | What |
+|---|---|
+| `/` (also `/app`) | The live app: sign-in, real PDF upload, AI runs, review, packages, vendor results, messages, certificates |
+| `/demo/` | The same page on recorded data: slides and the 5-minute guided demo (`/demo/#demo`) |
+| `/pipeline` | Redirects to `/` (old links and QR codes keep working) |
+
+The live app and the guided demo are one file, `demo/index.html`: the server adds `window.SPECS_MODE="live"` at `/` and `"demo"` at `/demo/`. Without the flag (opened as a file, on GitHub Pages) it is the recorded demo.
 
 </details>
 
@@ -137,6 +145,16 @@ bash deploy/docker.sh 80
 This builds the image, starts the container `eel` with `--restart unless-stopped`, keeps all data in the `eel-data` volume and waits for the health check. Logs: `docker logs -f eel`. Without Docker: [`deploy/setup.sh`](deploy/setup.sh).
 
 [`deploy/qr.png`](deploy/qr.png) is a QR code to the hackathon instance, for phones in the room.
+
+**Update the running server** (130.83.85.181:34080) after a push to `main`:
+
+```bash
+ssh -p 34022 <user>@130.83.85.181
+cd ~/eel && git pull origin main        # or copy the repo there again if ~/eel is not a git clone
+bash deploy/docker.sh 80                # rebuilds and restarts; data stays in the eel-data volume
+```
+
+Leave `NAME` and `DATA_DIR` unset so the same container (`eel`) and volume (`eel-data`) are reused. The script prints `page HTTP 200, API without sign-in HTTP 401` when it worked.
 
 </details>
 
@@ -155,7 +173,7 @@ Starts the Python pipeline and a landing page on port 3000 that proxies to it, a
 
 ## 🏗 Architecture
 
-One Python process serves two static single-page apps and a JSON API. AI work runs on a pool of worker threads behind a fair scheduler; every LLM answer passes deterministic guards before a person sees it. State lives in memory and is written to disk by a background thread.
+One Python process serves one single-page app in two modes (live at `/`, recorded at `/demo`) and a JSON API. AI work runs on a pool of worker threads behind a fair scheduler; every LLM answer passes deterministic guards before a person sees it. State lives in memory and is written to disk by a background thread.
 
 ### System context
 
@@ -184,8 +202,8 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph browser ["Browser"]
-        demo["<b>demo/index.html</b><br/>slides · guided demo · story screens<br/>DTA comparator · oracle in JS"]
-        live["<b>demo/pipeline.html</b><br/>live pipeline · review · checklist<br/>messages · reports"]
+        demo["<b>demo/index.html at /demo</b><br/>slides · guided demo<br/>recorded data · oracle in JS"]
+        live["<b>demo/index.html at /</b><br/>the same screens, live mode<br/>sign-in · runs · review · checklist · messages · certificates"]
     end
 
     subgraph server ["pipeline/server.py — one Python process"]
@@ -244,7 +262,7 @@ flowchart TB
 sequenceDiagram
     autonumber
     actor E as Examiner
-    participant UI as pipeline.html
+    participant UI as index.html (live)
     participant API as server.py
     participant Q as Scheduler
     participant A as Agent
@@ -397,10 +415,9 @@ Failed guards go back to the model, which corrects itself. Verifying a case with
 
 | Sign in as | Role | Sees |
 |---|---|---|
-| `istg` (or `itsg`) | ITSG examiner | Everything: inputs, changes, AI pipeline, review, validation, messages, reports, certificates |
-| `dev` | Developer | Checklist with AI recap, test cases sent to them, results |
-| `sap`, `lexware` | Vendor | Only their own conversations, files, progress and certificate |
-| `vendor` | Vendor | Picks a company after sign-in |
+| `istg` (or `itsg`) | ITSG examiner | Everything: inputs, changes, AI pipeline, review, messages, reports, certificates |
+| `sap`, `lexware` | Vendor | Their checklist with AI recap, their results rounds, conversations, files and certificate; never ITSG's expected values |
+| `dev`, `vendor` | API only | A developer account and a generic vendor that picks its company (not on the app's sign-in page) |
 
 Without a password (local use) anyone can pick a role. With `PIPELINE_PASSWORD` set, the server checks it, issues a session token (valid `PIPELINE_SESSION_DAYS`, default 7) and takes user and role from the token, never from the browser.
 
@@ -444,6 +461,7 @@ All endpoints return JSON. With a password set, send the session token from `POS
 | Method | Path | |
 |---|---|---|
 | `GET` | `/api/documents` | Archive and uploads |
+| `GET` | `/api/documents/{name}?kind=` | One document's sections as paragraphs (the Specification screen) |
 | `POST` | `/api/upload?name=&target=` | Store a PDF (raw bytes) |
 | `DELETE` | `/api/upload/{name}` | Remove an upload |
 | `POST` | `/api/plan` | What would be compared with what |
@@ -452,6 +470,7 @@ All endpoints return JSON. With a password set, send the session token from `POS
 | `POST` | `/api/runs/{id}/items/{sec}/generate` | (Re)process one section |
 | `POST` | `/api/runs/{id}/decide` · `/cases` · `/stop` | Approve/decline changes, write test cases, stop |
 | `PATCH` | `/api/runs/{id}/items/{sec}/change` | Edit the AI's reading of a change |
+| `POST` | `/api/chat` | Ask the AI about one change (`run`, `sec`: grounded in its old/new text, change log, extracted change and reasoning) or about data the page sends |
 
 </details>
 
@@ -462,11 +481,13 @@ All endpoints return JSON. With a password set, send the session token from `POS
 |---|---|---|
 | `GET` / `PATCH` / `DELETE` | `/api/testcases[/{id}]` | List, edit, delete |
 | `POST` | `/api/testcases/{id}/verify` · `reject` · `reopen` · `ack` | Review actions |
+| `GET` | `/api/testcases?run={id}&full=1` | A run's full test cases (redacted for developers and vendors) |
 | `GET` | `/api/testcases/{id}/export` | JSON export |
 | `POST` | `/api/evaluate` | Evaluate a formula with the oracle |
-| `POST` | `/api/send` | Send verified cases to developers |
+| `POST` | `/api/send` | Send cases to developers; to `sap`/`lexware` it also posts the package in the vendor's certification thread |
 | `GET` | `/api/inbox` · `/api/packages/{id}` · `/api/checklists` | Developer side |
 | `POST` | `/api/checklists/{id}/coverage` · `recap` | Tick coverage, rewrite the recap |
+| `POST` | `/api/checklists/{id}/submit` · `results?name=` | A results round: values, or a CSV (`id;value`) / JSON file. Compared on the server, sealed as a report, verdict posted to the vendor's thread; the next round is the retest |
 | `GET` / `POST` | `/api/submissions` · `/api/results` · `/api/tracking` | Validation flow and progress |
 
 </details>
@@ -481,7 +502,7 @@ All endpoints return JSON. With a password set, send the session token from `POS
 | `POST` / `GET` | `/api/exchange/files` | Result files (≤ 10 MB, original bytes) |
 | `GET` / `POST` | `/api/expected[/{id}]` | Expected DTA files |
 | `GET` / `POST` | `/api/reports[/{id}]` | Sealed test reports |
-| `GET` / `POST` | `/api/certificates[/{id}/html · /email]` | Certificates |
+| `GET` / `POST` | `/api/certificates[/{id}/html · /email]` | Certificates (from report ids or a package's newest round; announced in the vendor's thread) |
 | `*` | `/v1/...` | Authenticated pass-through to the AI gateway |
 
 </details>
@@ -491,11 +512,10 @@ All endpoints return JSON. With a password set, send the session token from `POS
 ```
 .
 ├── demo/
-│   ├── index.html          # slides, guided demo and story screens (single file, works offline)
-│   ├── pipeline.html       # the live pipeline app (needs the server)
+│   ├── index.html          # the app: recorded demo offline and at /demo, live app at / (single file)
 │   ├── embed.py            # embeds the full spec text and images into index.html
 │   ├── proxy.py            # minimal /v1 proxy for the demo's live chat
-│   └── test_demo.cjs       # UI regression tests (node)
+│   └── test_demo.cjs       # UI tests for both modes (node)
 ├── pipeline/
 │   ├── server.py           # HTTP API, auth, storage, static pages
 │   ├── scheduler.py        # fair queue for the AI workers

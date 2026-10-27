@@ -1,7 +1,7 @@
 # Judge portal (Next.js)
 
 A landing page for the submission: what the app does, data · model · logic, and a QR code for the laptop's
-network address. Every other path (`/demo/index.html`, `/pipeline`, `/api/*`, `/v1/*`) is proxied to the
+network address. Every other path (`/app` for the live app, `/demo/` for the guided demo, `/api/*`, `/v1/*`) is proxied to the
 Python pipeline server (`pipeline/server.py`), so the existing apps run unchanged behind it.
 
 ## Run it for the judges
@@ -16,7 +16,7 @@ This starts the Python pipeline on `127.0.0.1:8787` and the portal on `0.0.0.0:3
 and a QR code in the terminal. The portal page shows the same QR code. Phones must be on the same Wi-Fi.
 
 - **Windows firewall.** The first start asks whether Node.js may accept connections: allow it on *private* networks. If the venue Wi-Fi is set to *public*, either switch it to private or allow public networks for this session.
-- **Open access.** By default the script clears `PIPELINE_PASSWORD`, so judges sign in as `istg` or `dev` without a password, and the live AI uses the team key. To keep the password from `pipeline/.env`, run `KEEP_PASSWORD=1 npm run judges`.
+- **Open access.** By default the script clears `PIPELINE_PASSWORD`, so judges sign in as `istg`, `sap` or `lexware` without a password, and the live AI uses the team key. To keep the password from `pipeline/.env`, run `KEEP_PASSWORD=1 npm run judges`.
 - **AI key.** It lives in `pipeline/.env` (`HAI_API_KEY=`). Without it the recorded demo still works, and the status chip says "recorded mode".
 - **Options:**
   - `PORT=8080` serves the portal on another port.

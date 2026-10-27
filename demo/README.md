@@ -6,8 +6,8 @@ A single-file demo (`index.html`) of the AI pipeline for ITSG's system review of
 replacement benefits (DTA EEL). It contains the business slides and the guided demo for the
 5-minute pitch, and every screen can also be used freely.
 
-`pipeline.html` is Achraf's live pipeline UI (real hessian.AI runs on any spec PDF). It needs
-`pipeline/server.py`; see [../pipeline/README.md](../pipeline/README.md).
+The same file is also the live app: served by `pipeline/server.py` at `/`, it signs in and runs on the
+server's data and the real AI (hessian.AI); see [../pipeline/README.md](../pipeline/README.md).
 
 ## Open it
 
@@ -20,9 +20,11 @@ Optional extras that need the internet:
 - **PDF upload:** reading your own spec PDF loads pdf.js from cdnjs.
 - **Live AI mode:** calls hessian.AI (see below).
 
-With the server running (`python pipeline/server.py`, then http://localhost:8787), the same page
-is served at `/`, and the Changes and Test-case review screens get a **Live AI pipeline ↗** link
-to `/pipeline`.
+With the server running (`python pipeline/server.py`), the server injects one flag
+(`window.SPECS_MODE`): http://localhost:8787/ is the **live app** (sign-in, upload, real AI runs,
+vendors, certificates) and http://localhost:8787/demo/ is this recorded demo, whose Changes and
+Test-case review screens link to the live app. Without the flag (a file, GitHub Pages) the page is
+recorded. The guided demo always runs recorded: in the live app, **Guided demo** opens `/demo/#demo`.
 
 ## Presenting
 
@@ -127,8 +129,8 @@ Home · **1 Messages** · **2 Checklist** (AI recap; per case: how to run it, wh
 
 ## Live AI
 
-- **Full live pipeline:** `python pipeline/server.py` (needs `HAI_API_KEY` in `pipeline/.env`),
-  then http://localhost:8787/pipeline. See [../pipeline/README.md](../pipeline/README.md).
+- **The live app:** `python pipeline/server.py` (needs `HAI_API_KEY` in `pipeline/.env`),
+  then http://localhost:8787/. See [../pipeline/README.md](../pipeline/README.md).
 - **Live chat and live rule extraction in this page:** run the proxy and switch **⚙ AI settings**
   to Live:
 
@@ -157,8 +159,10 @@ Home · **1 Messages** · **2 Checklist** (AI recap; per case: how to run it, wh
    `python demo/embed.py` from the PDF in `hackathon-files/` and the files in `images/`. Re-run it
    after changing either; it rewrites only the marker blocks.
 4. **APP.** All screens and actions. The **STORY SCREENS** section holds the demo's change review,
-   chat, test-case review, checklist and certificate; it reuses the renderers of Achraf's
-   `pipeline.html` with recorded data in the same JSON shapes as his API.
+   chat, test-case review, checklist and certificate, fed with recorded data in the JSON shapes of the
+   server's API. The **LIVE MODE** section swaps that data for the server's: sign-in, polling, and live
+   versions of the data functions and actions (`LACT`), so every screen stays one renderer.
 5. **TOUR.** Slides, steps, speaker notes, the one-sentence bar, the spotlight, the narrator window (`#presenter`) and the keys.
 
-`node demo/test_demo.cjs` runs the regression checks of Achraf's pipeline UI (`pipeline.html`).
+`node demo/test_demo.cjs` checks both modes: the recorded story the guided demo drives, and how live
+mode maps the server's data onto the screens.

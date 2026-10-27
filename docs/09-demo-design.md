@@ -67,7 +67,7 @@ review, developer checklist with AI recap) into this app. How to run it:
 | What the developer knows | ITSG's `Hinweise_DTA-EEL-Bespiel_Vorerkrankung_Testkonstellation.docx` gives the vendor the key results in prose (which periods go into the DBVO, EFZ end 30.03 → 27.03.2026, the message order 41 → 01 → 88 → 01, the DSIDs to use), but not the file field by field. So the checklist shows the expected behaviour; ITSG compares the exact file |
 | Failure | SAP's screen showed 4 periods, but the exported file still has 5. Verdict mail “1 of 5 failed” in words → the developer asks why the file differs from the screen → ITSG answers with the quote. Then “two days later” (a clock overlay), the fixed file passes 5/5. The comparison view (byte view) is no longer a demo step; it is still on the Compare output screen |
 | Certificate | Report & certificate screen; issued by e-mail; real PDF via html2pdf.js, print fallback |
-| Live vs. recorded | Recorded by default, in the JSON shapes of Achraf's API. His full live UI stays as `demo/pipeline.html`, served at `/pipeline` |
+| Live vs. recorded | Recorded by default, in the JSON shapes of Achraf's API. Served by `pipeline/server.py`, the same page is the live app at `/` (sign-in, real AI); `/demo` stays recorded |
 
 **The story case.** ITSG's reference employee (Peter Mustermann) plus one older sick period,
 01.11.–05.11.2024. More than 6 months lie between it and 14.07.2025, so request 41 must list

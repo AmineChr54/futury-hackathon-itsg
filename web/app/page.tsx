@@ -5,12 +5,12 @@ import { StatusChip } from "./status-chip";
 
 const TRY = [
   {
-    href: "/demo/index.html", kicker: "5 minutes", title: "Guided demo",
+    href: "/demo/#demo", kicker: "5 minutes", title: "Guided demo",
     text: "The pitch as we present it: four slides, then 17 steps through the app with recorded data. Press D, or the Demo button, to start; → and ← step through.",
   },
   {
-    href: "/pipeline", kicker: "Live AI", title: "Live AI pipeline",
-    text: "Drop a spec PDF and watch the model work, section by section. Sign in as istg (ITSG examiner) or dev (vendor developer); no password.",
+    href: "/app", kicker: "Live AI", title: "Live app",
+    text: "The same app on the server's data with the real AI: drop a spec PDF, approve, send, certify. Sign in as istg (ITSG examiner), sap or lexware (vendors).",
   },
   {
     href: "/ITSG-Spec-Pipeline.pdf", kicker: "PDF", title: "Pitch deck",
@@ -56,8 +56,8 @@ export default function Home() {
             into test cases. <b>Every expected value traces back to a sentence in the spec.</b>
           </p>
           <div className="actions">
-            <a className="btn primary" href="/demo/index.html">Open the guided demo</a>
-            <a className="btn" href="/pipeline">Live AI pipeline</a>
+            <a className="btn primary" href="/demo/#demo">Open the guided demo</a>
+            <a className="btn" href="/app">Live app</a>
           </div>
         </div>
         <Suspense fallback={<QrSkeleton />}>

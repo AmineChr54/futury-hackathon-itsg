@@ -19,11 +19,11 @@ On a fresh clone (Python 3.10+ needed):
 
 ```
 python -m pip install -r pipeline/requirements.txt    # python3 on Mac/Linux
-python pipeline/server.py                              # http://localhost:8787/pipeline
+python pipeline/server.py                              # http://localhost:8787/
 python pipeline/server.py --host 0.0.0.0               # let others on your network open it too
 ```
 
-3. Open `http://localhost:8787/pipeline` (the live app; `http://localhost:8787/` is the team's guided demo with slides). Don't open the HTML files directly: the app needs the server.
+3. Open `http://localhost:8787/` and sign in as `istg` (ITSG examiner), `sap` or `lexware` (vendors). `http://localhost:8787/demo/` is the guided demo with slides on recorded data. Opened as a file, the page is the recorded demo too: the live app needs the server.
 
 If something is missing, the server says so when it starts, and the pipeline screen shows a red box with the fix (no API key, pypdf not installed); **Generate test cases** stays disabled until it is fixed.
 

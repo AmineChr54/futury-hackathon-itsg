@@ -1,6 +1,6 @@
 # AI test-case pipeline
 
-Turns a new spec PDF into reviewed test cases for developers:
+The live app behind the project ([overview, architecture and quick start](../README.md)). It turns a new spec PDF into reviewed test cases for developers:
 
 ```
 PDF drop + docs/law_file/ ─▶ sections ─▶ diff / change log ─▶ AI per changed section ─▶ examiner review ─▶ developers
@@ -27,7 +27,8 @@ python pipeline/server.py --host 0.0.0.0               # let others on your netw
 
 If something is missing, the server says so when it starts, and the pipeline screen shows a red box with the fix (no API key, pypdf not installed); **Generate test cases** stays disabled until it is fixed.
 
-Open `http://localhost:8787/pipeline` (the live app, served by the pipeline). Then:
+## Use it
+
 
 1. **Inputs & archive** (role ITSG): drop the new spec PDF. Earlier versions go in `docs/law_file/`. You can also tick "next drop is a previous version".
 2. Press **Generate test cases** next to the drop zone.
@@ -38,19 +39,6 @@ Open `http://localhost:8787/pipeline` (the live app, served by the pipeline). Th
 ## Sign-in and the developer loop
 
 The page opens with a **Login** tab: username `istg` (ITSG examiner) or `dev` (developer). On a local server no password is needed. With `PIPELINE_PASSWORD` set in `pipeline/.env` (or `PIPELINE_PASSWORD_ISTG` / `PIPELINE_PASSWORD_DEV` per account) the Login tab asks for it: the server checks it, hands out a session token, and every API call and the `/v1` AI proxy need that token. The server then takes the user and role from the token, not from what the browser sends.
-
-## Hosting
-
-With Docker (one container, data in the `eel-data` volume): put `HAI_API_KEY` and `PIPELINE_PASSWORD` in `pipeline/.env`, then
-
-```
-bash deploy/docker.sh 8787        # builds the image and (re)starts the container "eel" on that port
-docker logs -f eel                # what the server is doing
-```
-
-Without Docker: `deploy/setup.sh`.
-
-Many people can run the AI at the same time. All runs share `AI_CONCURRENCY` AI workers (default 16), and one run has at most `AI_PER_RUN` of them (default 6). Free workers take sections round-robin across the runs (`scheduler.py`), so a run of 100 sections never holds up the person who starts after it, and a queued section shows how many runs go first. When the gateway is busy (HTTP 429/502/503/504) a call waits and tries again (2 → 30 s) instead of failing the section. Saves are written by a background thread within a second, and `docker stop` writes what is still unsaved before the server exits.
 
 | | ITSG | Developer |
 |---|---|---|
@@ -130,3 +118,18 @@ Without `PIPELINE_PASSWORD`, roles are taken from the page (the `X-Role` header)
 | `test_pipeline.py` | `python -m unittest pipeline/test_pipeline.py` |
 
 API: `GET /api/status`, `GET /api/documents`, `POST /api/upload?name=`, `POST /api/plan`, `POST /api/runs`, `GET /api/runs/<id>?after=<seq>`, `POST /api/runs/<id>/items/<sec>/generate`, `GET|PATCH /api/testcases/<id>`, `POST /api/testcases/<id>/verify|reject|reopen|ack`, `GET /api/testcases/<id>/export`, `POST /api/evaluate`, `POST /api/send`, `GET /api/inbox?user=`, `GET /api/packages/<id>`.
+
+## Hosting
+
+With Docker (one container, data in the `eel-data` volume): put `HAI_API_KEY` and `PIPELINE_PASSWORD` in `pipeline/.env`, then
+
+```
+bash deploy/docker.sh 80          # builds the image and (re)starts the container "eel" on that host port
+docker logs -f eel                # what the server is doing
+```
+
+Without Docker: `deploy/setup.sh`.
+
+Many people can run the AI at the same time. All runs share `AI_CONCURRENCY` AI workers (default 16), and one run has at most `AI_PER_RUN` of them (default 6). Free workers take sections round-robin across the runs (`scheduler.py`), so a run of 100 sections never holds up the person who starts after it, and a queued section shows how many runs go first. When the gateway is busy (HTTP 429/502/503/504) a call waits and tries again (2 → 30 s) instead of failing the section. Saves are written by a background thread within a second, and `docker stop` writes what is still unsaved before the server exits.
+
+The architecture behind this (scheduler, persistence, deployment) is drawn in the [root README](../README.md#-architecture).

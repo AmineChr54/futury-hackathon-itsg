@@ -1,5 +1,7 @@
 # Demo: ITSG Spec Pipeline
 
+← [Project README](../README.md): overview, quick start and architecture.
+
 *From specification to certified test, in one session.*
 
 A single-file demo (`index.html`) of the AI pipeline for ITSG's system review of income

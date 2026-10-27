@@ -263,6 +263,57 @@ class RobustnessTests(unittest.TestCase):
         self.assertEqual(res["summary"], "done")
 
 
+class DiffAccuracyTests(unittest.TestCase):
+    """The diff must report exactly what changed: not renumbering, not PDF layout."""
+    SECS = [("1", "Einleitung", "Dieses Dokument beschreibt das Verfahren. " * 6),
+            ("2", "Grundsätzliches", "Der Arbeitgeber übermittelt die Daten elektronisch an die Krankenkasse. " * 6),
+            ("2.1", "Allgemeines", "Meldungen sind innerhalb von 14 Tagen zu erstatten, Korrekturen unverzüglich. " * 6),
+            ("2.2", "Datenbaustein DBLT – Zusatzdaten für die Lohnsteuer", "Steuerklasse und Faktor werden gemeldet. " * 8),
+            ("2.3", "Datenbaustein DBSF – Zusatzdaten für die Sozialversicherung", "Beitragsgruppen und Personengruppe werden gemeldet. " * 8),
+            ("2.4", "Vorerkrankungen", "Es zählen Erkrankungen, zwischen denen nicht mehr als 6 Monate liegen. " * 6)]
+
+    def doc(self, secs):
+        return {"sections": [{"sec": n, "title": t, "page": 1, "text": x} for n, t, x in secs]}
+
+    def test_layout_only_is_no_change(self):
+        new = [(n, t, x.replace("Krankenkasse", "Kranken-\nkasse").replace(". ", ".\n")) for n, t, x in self.SECS]
+        new[5] = (new[5][0], new[5][1], new[5][2].replace("nicht mehr", "nicht mehr"))
+        new[3] = (new[3][0], new[3][1].replace(" – ", " - "), new[3][2])
+        self.assertEqual(D.diff_documents(self.doc(self.SECS), self.doc(new)), [])
+
+    def test_inserting_a_section_renumbers_without_false_changes(self):
+        new = self.SECS[:3] + [("2.2", "Meldung bei Qualifizierungsgeld", "Der Bezug von Qualifizierungsgeld wird binnen 14 Tagen gemeldet.")] \
+            + [(f"2.{int(n.split('.')[1]) + 1}", t, x) for n, t, x in self.SECS[3:]]
+        ch = D.diff_documents(self.doc(self.SECS), self.doc(new))
+        self.assertEqual([(c["kind"], c["sec"]) for c in ch], [("added", "2.2")])
+
+    def test_renumbered_and_edited_is_one_change(self):
+        new = self.SECS[:3] + [(f"2.{int(n.split('.')[1]) - 1}", t, x) for n, t, x in self.SECS[4:]]  # 2.2 removed
+        new[-1] = ("2.3", new[-1][1], new[-1][2].replace("nicht mehr als 6 Monate", "nicht mindestens 6 Monate", 1))
+        ch = {(c["kind"], c["sec"]): c for c in D.diff_documents(self.doc(self.SECS), self.doc(new))}
+        self.assertEqual(sorted(ch), [("changed", "2.3"), ("removed", "2.2")])
+        self.assertEqual(ch[("changed", "2.3")]["moved_from"], "2.4")  # paired by title and text, not by number
+        self.assertEqual(ch[("changed", "2.3")]["hunks"][0]["new"], "mindestens")
+
+    def test_changelog_with_dates_only_after_a_table_of_contents(self):
+        toc = "Inhaltsverzeichnis\n1. Änderungshistorie ........ 11\n2. Allgemeines ........ 15\n"
+        log = ("1. Änderungshistorie\nÄnderungsdatum Durchgeführte Änderung\n13.03.2024 4.4 „Anspruchsberechtigter Personenkreis“ – redaktio-\n"
+               "nelle Änderung\n10.12.2025 7.4 „Höchstkinderkrankengeld“ – Anpassung BBG\n10.12.2025 Vorwort, 8 „Zahlung“ – Änderung\n2. Allgemeines\nText.")
+        rows = D.parse_changelog([toc, log])
+        self.assertEqual([(r["version"], r["refs"]) for r in rows], [("13.03.2024", ["4.4"]), ("10.12.2025", ["7.4"]), ("10.12.2025", ["8"])])
+        self.assertIn("redaktionelle Änderung", rows[0]["text"])  # hyphenation across lines joined
+        self.assertEqual(D.parse_changelog(["Vorwort\nRundschreiben vom\n10.12.2025 das bisherige Rundschreiben ablöst."]), [])
+
+    def test_prompt_shows_only_the_changed_sentences(self):
+        new = self.SECS[:5] + [(self.SECS[5][0], self.SECS[5][1], self.SECS[5][2].replace("nicht mehr als", "nicht mindestens", 1))]
+        item = next(c for c in D.diff_documents(self.doc(new), self.doc(self.SECS)) if c["sec"] == "2.4")
+        up = agent.user_prompt(item, {"name": "n.pdf", "version": "2"}, {"name": "o.pdf", "version": "1"})
+        self.assertIn("C1 OLD: Es zählen Erkrankungen, zwischen denen nicht mindestens 6 Monate liegen.", up)
+        self.assertIn("NEW: Es zählen Erkrankungen, zwischen denen nicht mehr als 6 Monate liegen.", up)
+        self.assertIn("Describe and test only C1.", up)
+        self.assertNotIn("OLD TEXT", up)
+
+
 class ChangelogDiffTests(unittest.TestCase):
     def test_field_level_refs_mark_their_section_as_logged(self):
         old = {"sections": D.split_sections([OLD])[0]}

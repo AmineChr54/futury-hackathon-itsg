@@ -36,17 +36,17 @@ TOOLS = [
                         "evaluator is preloaded: evaluate(expression, **variables) returns exactly what the "
                         "oracle will compute for your test case, so call it on your final formula. Print your results."),
         "parameters": {"type": "object", "required": ["reasoning", "code"], "properties": {
-            "reasoning": {"type": "string", "description": "What you are calculating and why (shown to the examiner)."},
+            "reasoning": {"type": "string", "description": "One sentence: what is calculated."},
             "code": {"type": "string"}}}}},
     {"type": "function", "function": {
         "name": "record_spec_change",
         "description": "Record what changed in this section (or, without an old version, which testable rule it states). Call once, before any test case.",
         "parameters": {"type": "object", "required": ["reasoning", "change_type", "summary", "new_rule", "quotes_new"], "properties": {
-            "reasoning": {"type": "string", "description": "How you compared old and new text, step by step."},
+            "reasoning": {"type": "string", "description": "Max 2 sentences: which words/values changed and the technical effect."},
             "change_type": {"type": "string", "enum": CHANGE_TYPES},
-            "summary": {"type": "string", "description": "One or two sentences: what changed and what it means for payroll software."},
-            "old_rule": {"type": "string", "description": "The rule before the change, in plain words (empty if no old version)."},
-            "new_rule": {"type": "string", "description": "The rule after the change, in plain words."},
+            "summary": {"type": "string", "description": "One sentence, max 25 words: what changed (old → new value/condition) and which calculation or message field it affects."},
+            "old_rule": {"type": "string", "description": "Rule before the change as 'IF <condition> THEN <consequence>' with the values (empty if no old version)."},
+            "new_rule": {"type": "string", "description": "Rule after the change as 'IF <condition> THEN <consequence>' with the values."},
             "quotes_new": {"type": "array", "items": {"type": "string"}, "description": "Sentences copied character for character from the NEW text."},
             "quotes_old": {"type": "array", "items": {"type": "string"}, "description": "Sentences copied character for character from the OLD text."},
             "parameters": {"type": "array", "description": "Every number or limit that changed or that the rule depends on.", "items": {
@@ -62,12 +62,12 @@ TOOLS = [
                         "from evaluate() in your terminal. Submit as many cases as the rule needs, one per distinct "
                         "situation: positive, negative, and every boundary where the change flips the result."),
         "parameters": {"type": "object", "required": ["reasoning", "title", "kind", "criterion", "preconditions", "steps", "scenario", "formula", "expected_value", "expected_outcome", "quotes"], "properties": {
-            "reasoning": {"type": "string", "description": "Why this case tests the change and how the expected value follows."},
-            "title": {"type": "string", "description": "Short and specific, e.g. 'Gap of exactly 6 months: prior illness is included in request 41'."},
+            "reasoning": {"type": "string", "description": "Max 2 sentences: which boundary/branch of the new rule this case hits."},
+            "title": {"type": "string", "description": "Max 10 words: situation → effect, e.g. 'Gap exactly 6 months → prior AU included'."},
             "kind": {"type": "string", "enum": ["positive", "negative", "boundary"]},
-            "criterion": {"type": "string", "description": "Testable criterion, in the style 'The system ensures that …'."},
-            "preconditions": {"type": "array", "items": {"type": "string"}, "description": "What must be set up before the test, e.g. 'Employee insured with a statutory health insurer', 'Certified AU 01.03.2026–03.03.2026 on file'."},
-            "steps": {"type": "array", "items": {"type": "string"}, "description": "Numbered actions the tester performs in the payroll program, with the concrete data, e.g. 'Enter current AU from 11.03.2026', 'Trigger the prior-illness request (Abgabegrund 41)'."},
+            "criterion": {"type": "string", "description": "One sentence: 'The system ensures that …'."},
+            "preconditions": {"type": "array", "items": {"type": "string"}, "description": "Max 4 items, data only, e.g. 'Certified AU 01.03.2026–03.03.2026'."},
+            "steps": {"type": "array", "items": {"type": "string"}, "description": "Max 6 imperative items with concrete values, e.g. 'Enter AU from 11.03.2026', 'Create request (Abgabegrund 41)'."},
             "scenario": {"type": "object", "description": "The employee / absence / payroll situation the tester enters, as key-value pairs.", "additionalProperties": True},
             "formula": {"type": "object", "required": ["expression", "result_name", "variables"], "properties": {
                 "expression": {"type": "string", "description": "One expression in the formula language (see the system prompt)."},
@@ -81,13 +81,13 @@ TOOLS = [
             "previous_expression": {"type": "string", "description": "The formula under the OLD version, if it was different."},
             "formula_changed": {"type": "boolean"},
             "expected_value": {"type": "string", "description": "The value evaluate() printed in your terminal."},
-            "expected_outcome": {"type": "string", "description": "The expected result the tester checks: what the payroll software must do or report, with the concrete value."},
+            "expected_outcome": {"type": "string", "description": "'<result_name> = <value>' plus at most a short clause on the consequence, e.g. 'efz_end = 2026-03-27 (Krankengeld from 28.03.)'."},
             "quotes": {"type": "array", "items": {"type": "string"}, "description": "Verbatim sentences from the NEW text this case is based on."},
             "replaces": {"type": "string", "description": "Id of an earlier submission this one corrects."}}}}},
     {"type": "function", "function": {
         "name": "finish",
         "description": "Call when all test cases for this section are submitted, or if the section has no testable rule.",
-        "parameters": {"type": "object", "required": ["summary"], "properties": {"summary": {"type": "string"}}}}},
+        "parameters": {"type": "object", "required": ["summary"], "properties": {"summary": {"type": "string", "description": "One sentence."}}}}},
 ]
 
 
@@ -97,29 +97,33 @@ def system_prompt(lang):
     return f"""You are a test-case engineer at ITSG, which certifies German payroll software for the DTA EEL
 procedure (income replacement benefits, § 107 SGB IV). Zero tolerance: one wrong day or cent fails a vendor.
 
-You receive ONE section of a specification document in its new version and, if available, its previous
-version with a word diff. Your job: find what changed, describe it as structured data, and write test
-cases that prove a payroll program implements the NEW rule.
+You receive ONE section of a specification document: the changed spots (old → new, with context) and the
+new text, or, without an old version, the section's rules. Your job: state what changed as structured data
+and write test cases that prove a payroll program implements the NEW rule.
 
-Work step by step and think aloud. The examiner reads your reasoning, so put it in the `reasoning`
-argument of every tool call. Write your reasoning in {language}; keep quotes from the spec verbatim in German.
+Style: technical, terse, no filler. No greetings, no restating the task or the spec, no hedging. Use the
+spec's terms (AU, EFZ, Abgabegrund 41, DBVO, field names) and concrete values. Every `reasoning` field is
+at most 2 sentences; `summary` is one sentence. Write in {language}; quotes stay verbatim German.
 
 Procedure:
 1. Read old and new text. Call record_spec_change once. Quotes must be copied character for character.
 2. If a value must be calculated (dates, deadlines, day counts, amounts, percentages), write it as ONE
    formula over named variables. Legal parameters from the text (e.g. 42 days, 6 months, 70 %) are
    variables with source "spec" and a quote; test data (dates, salaries) are variables with source "scenario".
+   Never write a legal value as a literal in the expression: add_months(previous_end, gap_months), not
+   add_months(previous_end, 6).
 3. Check the formula in your terminal with run_python: print(evaluate("<expression>", var=value, ...)).
    Also test the boundary where the change flips the result.
 4. Call submit_test_case for each case: at least one, and as many as the rule needs (positive, negative,
    each boundary). expected_value = what evaluate() printed.
    If the formula differs from the old rule, set formula_changed and give previous_expression.
-5. Call finish.
+5. Call finish (summary: one sentence).
 
 You are not done until you have submitted at least one test case. Every section that states or changes
-a testable rule MUST end with a test case. Make each test case clear enough for a tester who has not
-read the spec: a specific title, preconditions, numbered steps with concrete data, and an expected
-outcome with the concrete value.
+a testable rule MUST end with a test case. Test the change, not the whole section: both sides of a changed
+threshold (at the boundary and one step beyond), a removed or added condition, a changed value. No
+duplicate cases. Each case must still be runnable by a tester who has not read the spec: concrete data
+in preconditions and steps, and an expected outcome '<result_name> = <value>'.
 
 Do not invent rules that are not in the text. Only if the change is purely editorial and nothing can be
 tested, say so in record_spec_change (change_type "editorial") and call finish.
@@ -140,29 +144,58 @@ def user_prompt(item, new_doc, old_doc):
     parts = [f"Document (new): {new_doc['name']} · version {new_doc.get('version') or '?'}"]
     if old_doc:
         parts.append(f"Document (previous): {old_doc['name']} · version {old_doc.get('version') or '?'}")
-    parts.append(f"Section: {item['sec']} {item['title']} (page {item['page']}) · detected as: {item['kind']} · source: {item['source']}")
+    parts.append(f"Section: {item['sec']} {item['title']} (page {item['page']}) · detected as: {item['kind']} · source: {item['source']}"
+                 + (f" · renumbered from {item['moved_from']}" if item.get("moved_from") else ""))
     if item.get("log"):
         parts.append("Change log entries for this section:\n" + "\n".join("- " + l for l in item["log"]))
     if item["kind"] == "changed":
-        red = []
-        for op, text in item["ops"]:
-            if op == "=":
-                w = text.split(" ")
-                red.append(text if len(w) <= 24 else " ".join(w[:10]) + " […] " + " ".join(w[-10:]))
-            else:
-                red.append(("[-" if op == "-" else "{+") + text + ("-]" if op == "-" else "+}"))
-        parts.append("WORD DIFF ([-removed-] {+added+}):\n" + " ".join(red))
-        parts.append("OLD TEXT:\n" + item["old_text"])
-        parts.append("NEW TEXT:\n" + item["new_text"])
+        hs = item.get("hunks") or documents.hunks(item["ops"], context=40)
+        lines = []
+        for i, h in enumerate(hs[:MAX_HUNKS], start=1):
+            before, after = _sentence_start(h["before"]), _sentence_end(h["after"])
+            lines.append(f"C{i} OLD: {' '.join(x for x in (before, h['old'], after) if x)}\n"
+                         f"   NEW: {' '.join(x for x in (before, h['new'], after) if x)}\n"
+                         f"   words: " + (f"[-{h['old']}-] " if h["old"] else "") + (f"{{+{h['new']}+}}" if h["new"] else ""))
+        if len(hs) > MAX_HUNKS:
+            lines.append(f"({len(hs) - MAX_HUNKS} more changes not shown)")
+        n = len(hs)
+        parts.append(f"WHAT CHANGED — these {n} spot(s) are the ONLY differences between the versions; every other rule in "
+                     f"the section is unchanged:\n" + "\n".join(lines))
+        new_text = item["new_text"]
+        parts.append("SECTION TEXT, new version (context only; quotes come from here or from the sentences above):\n"
+                     + (new_text if len(new_text) <= MAX_CONTEXT_CHARS else new_text[:MAX_CONTEXT_CHARS] + "\n[… rest of the section omitted]"))
+        parts.append(f"Describe and test only {'C1' if n == 1 else f'C1–C{min(n, MAX_HUNKS)}'}. Rules of the section that did not change are not a change; "
+                     "use them only as preconditions of your test cases.")
     elif item["kind"] == "removed":
-        parts.append("This section was REMOVED. OLD TEXT:\n" + item["old_text"])
+        parts.append("This section was REMOVED. OLD TEXT:\n" + _capped(item["old_text"]))
     elif item["kind"] == "added":
-        parts.append("This section is NEW. NEW TEXT:\n" + item["new_text"])
+        parts.append("This section is NEW. NEW TEXT:\n" + _capped(item["new_text"]))
     else:
-        parts.append("No previous version is available. Derive test cases from the rules this section states"
-                     + (" and from the change log entries above." if item.get("log") else ".")
-                     + "\nTEXT:\n" + item["new_text"])
+        parts.append("No previous version is available. Test the rules this section states"
+                     + (", starting with the change log entries above." if item.get("log") else ".")
+                     + "\nTEXT:\n" + _capped(item["new_text"], 2))
     return "\n\n".join(parts)
+
+
+def _sentence_start(text):
+    """The context before a change, from the start of its sentence."""
+    m = list(re.finditer(r"(?<=[a-zäöüß)]{3})[.;!?]\s+(?=[A-ZÄÖÜ\"])", text))  # not after "Abs." or "Nr."
+    return text[m[-1].end():] if m else text
+
+
+def _sentence_end(text):
+    """The context after a change, up to the end of its sentence."""
+    m = re.search(r"(?<=[a-zäöüß)]{3})[.;!?](?=\s|$)", text)
+    return text[:m.end()] if m else text
+
+
+def _capped(text, factor=1):
+    n = MAX_CONTEXT_CHARS * factor
+    return text if len(text) <= n else text[:n] + "\n[… rest of the section omitted]"
+
+
+MAX_HUNKS = 15
+MAX_CONTEXT_CHARS = 12000  # longer sections: the changed spots carry the context
 
 
 class LLMError(RuntimeError):

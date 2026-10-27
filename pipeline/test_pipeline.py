@@ -263,6 +263,57 @@ class RobustnessTests(unittest.TestCase):
         self.assertEqual(res["summary"], "done")
 
 
+class DiffAccuracyTests(unittest.TestCase):
+    """The diff must report exactly what changed: not renumbering, not PDF layout."""
+    SECS = [("1", "Einleitung", "Dieses Dokument beschreibt das Verfahren. " * 6),
+            ("2", "Grundsätzliches", "Der Arbeitgeber übermittelt die Daten elektronisch an die Krankenkasse. " * 6),
+            ("2.1", "Allgemeines", "Meldungen sind innerhalb von 14 Tagen zu erstatten, Korrekturen unverzüglich. " * 6),
+            ("2.2", "Datenbaustein DBLT – Zusatzdaten für die Lohnsteuer", "Steuerklasse und Faktor werden gemeldet. " * 8),
+            ("2.3", "Datenbaustein DBSF – Zusatzdaten für die Sozialversicherung", "Beitragsgruppen und Personengruppe werden gemeldet. " * 8),
+            ("2.4", "Vorerkrankungen", "Es zählen Erkrankungen, zwischen denen nicht mehr als 6 Monate liegen. " * 6)]
+
+    def doc(self, secs):
+        return {"sections": [{"sec": n, "title": t, "page": 1, "text": x} for n, t, x in secs]}
+
+    def test_layout_only_is_no_change(self):
+        new = [(n, t, x.replace("Krankenkasse", "Kranken-\nkasse").replace(". ", ".\n")) for n, t, x in self.SECS]
+        new[5] = (new[5][0], new[5][1], new[5][2].replace("nicht mehr", "nicht mehr"))
+        new[3] = (new[3][0], new[3][1].replace(" – ", " - "), new[3][2])
+        self.assertEqual(D.diff_documents(self.doc(self.SECS), self.doc(new)), [])
+
+    def test_inserting_a_section_renumbers_without_false_changes(self):
+        new = self.SECS[:3] + [("2.2", "Meldung bei Qualifizierungsgeld", "Der Bezug von Qualifizierungsgeld wird binnen 14 Tagen gemeldet.")] \
+            + [(f"2.{int(n.split('.')[1]) + 1}", t, x) for n, t, x in self.SECS[3:]]
+        ch = D.diff_documents(self.doc(self.SECS), self.doc(new))
+        self.assertEqual([(c["kind"], c["sec"]) for c in ch], [("added", "2.2")])
+
+    def test_renumbered_and_edited_is_one_change(self):
+        new = self.SECS[:3] + [(f"2.{int(n.split('.')[1]) - 1}", t, x) for n, t, x in self.SECS[4:]]  # 2.2 removed
+        new[-1] = ("2.3", new[-1][1], new[-1][2].replace("nicht mehr als 6 Monate", "nicht mindestens 6 Monate", 1))
+        ch = {(c["kind"], c["sec"]): c for c in D.diff_documents(self.doc(self.SECS), self.doc(new))}
+        self.assertEqual(sorted(ch), [("changed", "2.3"), ("removed", "2.2")])
+        self.assertEqual(ch[("changed", "2.3")]["moved_from"], "2.4")  # paired by title and text, not by number
+        self.assertEqual(ch[("changed", "2.3")]["hunks"][0]["new"], "mindestens")
+
+    def test_changelog_with_dates_only_after_a_table_of_contents(self):
+        toc = "Inhaltsverzeichnis\n1. Änderungshistorie ........ 11\n2. Allgemeines ........ 15\n"
+        log = ("1. Änderungshistorie\nÄnderungsdatum Durchgeführte Änderung\n13.03.2024 4.4 „Anspruchsberechtigter Personenkreis“ – redaktio-\n"
+               "nelle Änderung\n10.12.2025 7.4 „Höchstkinderkrankengeld“ – Anpassung BBG\n10.12.2025 Vorwort, 8 „Zahlung“ – Änderung\n2. Allgemeines\nText.")
+        rows = D.parse_changelog([toc, log])
+        self.assertEqual([(r["version"], r["refs"]) for r in rows], [("13.03.2024", ["4.4"]), ("10.12.2025", ["7.4"]), ("10.12.2025", ["8"])])
+        self.assertIn("redaktionelle Änderung", rows[0]["text"])  # hyphenation across lines joined
+        self.assertEqual(D.parse_changelog(["Vorwort\nRundschreiben vom\n10.12.2025 das bisherige Rundschreiben ablöst."]), [])
+
+    def test_prompt_shows_only_the_changed_sentences(self):
+        new = self.SECS[:5] + [(self.SECS[5][0], self.SECS[5][1], self.SECS[5][2].replace("nicht mehr als", "nicht mindestens", 1))]
+        item = next(c for c in D.diff_documents(self.doc(new), self.doc(self.SECS)) if c["sec"] == "2.4")
+        up = agent.user_prompt(item, {"name": "n.pdf", "version": "2"}, {"name": "o.pdf", "version": "1"})
+        self.assertIn("C1 OLD: Es zählen Erkrankungen, zwischen denen nicht mindestens 6 Monate liegen.", up)
+        self.assertIn("NEW: Es zählen Erkrankungen, zwischen denen nicht mehr als 6 Monate liegen.", up)
+        self.assertIn("Describe and test only C1.", up)
+        self.assertNotIn("OLD TEXT", up)
+
+
 class ChangelogDiffTests(unittest.TestCase):
     def test_field_level_refs_mark_their_section_as_logged(self):
         old = {"sections": D.split_sections([OLD])[0]}
@@ -274,8 +325,8 @@ class ChangelogDiffTests(unittest.TestCase):
         self.assertEqual(ch[0]["log"], ["3.12.7 „AU-Beginn“"])
 
 
-def import_server():
-    """server.py with its data in a temp folder; imported once, shared by the test classes."""
+def load_server():
+    """Import the server once, on a temporary data folder (never the real pipeline/data or docs/law_file)."""
     if "server" not in sys.modules:
         import tempfile
         tmp = tempfile.mkdtemp()
@@ -288,8 +339,8 @@ def import_server():
 class ServerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.S = import_server()
-        cls.tmp = cls.S.DATA
+        server = load_server()
+        cls.S, cls.tmp = server, server.DATA
 
     def run_with(self, n_cases):
         S = self.S
@@ -614,7 +665,7 @@ class BackoffTests(unittest.TestCase):
 class PersistTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.S = import_server()
+        cls.S = load_server()
 
     def test_many_saves_are_one_write_and_the_file_stays_valid(self):
         import json
@@ -652,6 +703,235 @@ class PersistTests(unittest.TestCase):
         back = S.load_run(run["id"])
         self.assertEqual(back["items"], run["items"])
         self.assertNotIn("_seen", open(os.path.join(S.DATA, "runs", run["id"] + ".json"), encoding="utf-8").read())
+class HttpTests(unittest.TestCase):
+    """The API over real HTTP, with passwords on: sign-in, roles, the ITSG ↔ developer loop and the audit trail."""
+
+    @classmethod
+    def setUpClass(cls):
+        import threading
+        from http.server import ThreadingHTTPServer
+        from unittest import mock
+        server = load_server()
+        cls.S = server
+        cls.patches = [mock.patch.object(server, "AUTH", True),
+                       mock.patch.object(server, "PASSWORDS", {"istg": "pw-itsg", "dev": "pw-dev", "sap": "pw-sap", "lexware": "pw-lex", "vendor": "pw-ven"}),
+                       mock.patch.object(server, "start_recap", lambda pkg: None)]  # no AI calls in tests
+        for p in cls.patches:
+            p.start()
+        cls.httpd = ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
+        cls.base = f"http://127.0.0.1:{cls.httpd.server_address[1]}"
+        threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.httpd.server_close()
+        for p in cls.patches:
+            p.stop()
+
+    def call(self, method, path, body=None, token=None, headers=None):
+        import json
+        import urllib.error
+        import urllib.request
+        h = {"Content-Type": "application/json", **({"X-Token": token} if token else {}), **(headers or {})}
+        req = urllib.request.Request(self.base + path, data=json.dumps(body).encode() if body is not None else None, method=method, headers=h)
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return r.status, json.loads(r.read() or b"{}")
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read() or b"{}")
+
+    def login(self, name, pw):
+        code, j = self.call("POST", "/api/login", {"name": name, "password": pw})
+        self.assertEqual(code, 200, j)
+        return j["token"]
+
+    def test_sign_in_and_roles(self):
+        import urllib.request
+        with urllib.request.urlopen(self.base + "/", timeout=10) as r:
+            self.assertEqual(r.status, 200)  # the page itself is public
+        self.assertEqual(self.call("GET", "/api/testcases")[0], 401)
+        self.assertEqual(self.call("GET", "/v1/models")[0], 401)  # the AI proxy holds the key: never open
+        self.assertEqual(self.call("POST", "/api/login", {"name": "istg", "password": "nope"})[1]["error"], "wrong password")
+        self.assertEqual(self.call("POST", "/api/login", {"name": "dev", "password": "pw-itsg"})[0], 401)  # per-account passwords
+        dev = self.login("dev", "pw-dev")
+        # a developer cannot act as ITSG by claiming the role in a header
+        self.assertEqual(self.call("GET", "/api/submissions", token=dev, headers={"X-Role": "itsg", "X-User": "istg"})[0], 403)
+        itsg = self.login("ITSG", "pw-itsg")  # alias, any case
+        self.assertEqual(self.call("GET", "/api/submissions", token=itsg)[0], 200)
+        self.call("POST", "/api/logout", {}, token=itsg)
+        self.assertEqual(self.call("GET", "/api/submissions", token=itsg)[0], 401)
+
+    def test_session_expires(self):
+        tok = self.login("dev", "pw-dev")
+        self.S.STORE["sessions"][tok]["t"] = "2020-01-01T00:00:00"
+        self.assertEqual(self.call("GET", "/api/inbox", token=tok)[0], 401)
+
+    def test_send_tick_question_answer_delete_and_audit(self):
+        S = self.S
+        pkg = S.ref_package(S.DEMO_CASES[:2], "nobody", S.now(), "13.4", "13.3", "", "PKG-http", "HTTP")
+        for i in pkg["ids"]:
+            S.tc_by_id(i).update(status="verified", sent_to=[], demo=False, run="r-http", package=None)
+        a, b = pkg["ids"]
+        itsg, dev = self.login("istg", "pw-itsg"), self.login("dev", "pw-dev")
+        code, sent = self.call("POST", "/api/send", {"ids": [a, b], "to": ["dev"]}, token=itsg)
+        self.assertEqual(code, 200, sent)
+        lists = self.call("GET", "/api/checklists?user=dev", token=dev)[1]
+        mine = next(c for c in lists if c["id"] == sent["id"])
+        self.assertEqual(len(mine["rows"]), 2)
+        self.assertNotIn("expected_value", mine["rows"][0])  # developers calculate it themselves
+        self.assertEqual(self.call("POST", f"/api/checklists/{sent['id']}/coverage", {"id": a, "done": True}, token=dev)[0], 200)
+        self.assertEqual(self.call("POST", f"/api/testcases/{b}/ack", {"state": "question", "comment": "Which AU counts?"}, token=dev)[0], 200)
+        track = next(p for p in self.call("GET", "/api/tracking", token=itsg)[1] if p["id"] == sent["id"])
+        self.assertEqual(track["progress"]["dev"]["covered"], 1)
+        self.assertEqual(track["open_questions"], 1)
+        self.assertEqual(self.call("GET", "/api/tracking", token=dev)[0], 403)
+        self.assertEqual(self.call("POST", f"/api/testcases/{b}/reply", {"text": "Only certified ones."}, token=dev)[0], 403)
+        self.assertEqual(self.call("POST", f"/api/testcases/{b}/reply", {"text": "Only certified ones."}, token=itsg)[0], 200)
+        track = next(p for p in self.call("GET", "/api/tracking", token=itsg)[1] if p["id"] == sent["id"])
+        self.assertEqual(track["open_questions"], 0)
+        inbox = {t["id"]: t for t in self.call("GET", "/api/inbox?user=dev", token=dev)[1]}
+        self.assertTrue(inbox[b]["last_answer"])
+        self.assertEqual(self.call("DELETE", f"/api/testcases/{a}", token=itsg)[0], 200)
+        mine = next(c for c in self.call("GET", "/api/checklists?user=dev", token=dev)[1] if c["id"] == sent["id"])
+        self.assertEqual([r["id"] for r in mine["rows"]], [b])
+        # every step is in the shared audit trail, and the chain holds
+        log = self.call("GET", "/api/audit", token=itsg)[1]
+        self.assertTrue(log["chain_ok"])
+        actions = [(e["who"], e["action"]) for e in log["entries"]]
+        for step in [("istg", "sent test cases"), ("dev", "ticked a test case as tested"), ("dev", "asked a question"),
+                     ("istg", "answered a question"), ("istg", "deleted test case"), ("dev", "signed in")]:
+            self.assertIn(step, actions)
+        S.STORE["audit"][-2]["detail"] = "edited afterwards"
+        log = self.call("GET", "/api/audit", token=itsg)[1]
+        self.assertFalse(log["chain_ok"])
+        S.STORE["audit"].clear()  # leave a valid chain for other tests
+
+    def raw(self, method, path, data, token):
+        import urllib.error
+        import urllib.request
+        req = urllib.request.Request(self.base + path, data=data, method=method, headers={"X-Token": token, "Content-Type": "application/octet-stream"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                return r.status, r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+
+    def test_expected_files_reports_and_certificate(self):
+        from unittest import mock
+        S = self.S
+        itsg, dev, sap = self.login("istg", "pw-itsg"), self.login("dev", "pw-dev"), self.login("sap", "pw-sap")
+        files = [{"name": "EXPECTED_TC-3.12-001_DBVO.dta", "scenario_id": "TC-3.12-001", "text": "DSLW…DBVO…"},
+                 {"name": "EXPECTED_EEL-3.12-006_DBVO.dta", "scenario_id": "EEL-3.12-006", "text": "DSLW…DBVO…"}]
+        self.assertEqual(self.call("POST", "/api/expected", {"package": "PKG-1", "files": files}, token=dev)[0], 403)
+        code, exp = self.call("POST", "/api/expected", {"package": "PKG-1", "files": files}, token=itsg)
+        self.assertEqual(code, 200)
+        self.assertEqual([e["scenario_id"] for e in self.call("GET", "/api/expected", token=itsg)[1][:2]], ["TC-3.12-001", "EEL-3.12-006"])  # package order
+        self.assertNotIn("text", exp[0])
+        self.assertEqual(self.call("GET", f"/api/expected/{exp[0]['id']}", token=itsg)[1]["text"], "DSLW…DBVO…")
+        rep = lambda sc, verdict, vendor="sap": self.call("POST", "/api/reports", {"vendor": vendor, "scenario_id": sc, "expected_name": sc + ".dta", "verdict": verdict,
+                                                                                    "file": {"name": "SAP.dta", "sha256": "ab", "size": 9}, "product": "7654321",
+                                                                                    "checks": [{"id": "V-ORACLE", "ok": verdict == "pass", "sec": "3.12"}],
+                                                                                    "findings": [] if verdict == "pass" else [{"en": "ANZAHL-AU expected 04, got 05 (§3.12.6)", "field": "ANZAHL-AU", "sec": "3.12.6"}]}, token=itsg)
+        self.assertEqual(self.call("POST", "/api/reports", {"vendor": "sap", "verdict": "pass"}, token=sap)[0], 403)  # ITSG writes reports
+        code, bad = rep("TC-3.12-001", "fail")
+        self.assertEqual((code, bad["seal"]), (200, S.seal_of(bad)))
+        ok1, ok2, lex = rep("TC-3.12-001", "pass")[1], rep("EEL-3.12-006", "pass")[1], rep("EEL-3.12-006", "pass", "lex")[1]
+        self.assertEqual(self.call("POST", "/api/certificates", {"vendor": "sap", "reports": [bad["id"], ok2["id"]]}, token=itsg)[0], 409)  # a failed test
+        self.assertEqual(self.call("POST", "/api/certificates", {"vendor": "sap", "reports": [ok1["id"], lex["id"]]}, token=itsg)[0], 400)  # another vendor's report
+        stored = next(r for r in S.STORE["reports"] if r["id"] == ok1["id"])
+        stored["verdict_note"] = "x"; stored["file"]["name"] = "edited.dta"  # changed after sealing
+        self.assertEqual(self.call("POST", "/api/certificates", {"vendor": "sap", "reports": [ok1["id"], ok2["id"]]}, token=itsg)[0], 409)
+        stored["file"]["name"] = "SAP.dta"; del stored["verdict_note"]
+        code, cert = self.call("POST", "/api/certificates", {"vendor": "sap", "reports": [ok1["id"], ok2["id"]], "release": "2027.1"}, token=itsg)
+        self.assertEqual((code, cert["seal"], len(cert["reports"])), (200, S.seal_of(cert), 2))
+        status, html = self.raw("GET", f"/api/certificates/{cert['id']}/html", None, itsg)
+        self.assertEqual(status, 200)
+        self.assertIn(cert["seal"].encode(), html)
+        # e-mail: without an SMTP server the page falls back to the mail program; with one, it is sent
+        with mock.patch.dict(S.SMTP, {"host": ""}):
+            self.assertEqual(self.call("POST", f"/api/certificates/{cert['id']}/email", {"to": "cert@sap.example"}, token=itsg)[0], 501)
+        self.assertEqual(self.call("POST", f"/api/certificates/{cert['id']}/email", {"to": "not an address"}, token=itsg)[0], 400)
+        sent = []
+        with mock.patch.dict(S.SMTP, {"host": "smtp.example", "port": "587", "from": "itsg@example"}), \
+                mock.patch.object(S, "send_certificate_mail", lambda c, to: sent.append((c["id"], to))):
+            code, c2 = self.call("POST", f"/api/certificates/{cert['id']}/email", {"to": "cert@sap.example"}, token=itsg)
+        self.assertEqual((code, sent, c2["emailed"][0]["to"]), (200, [(cert["id"], "cert@sap.example")], "cert@sap.example"))
+        self.assertEqual(S.seal_of(c2), cert["seal"])  # e-mailing does not change the sealed certificate
+        S.STORE["audit"].clear()
+
+    def test_certificate_mail_message(self):
+        import smtplib
+        from unittest import mock
+        S = self.S
+        cert = {"id": "CERT-1-SAP", "vendor_name": "SAP", "valid_from": "2027-01-01", "valid_to": "2027-12-31", "issued": "2026-12-14T10:00:00", "by": "istg",
+                "product": "7654321", "modification": "66666XXX", "reports": [{"scenario_id": "TC-3.12-001", "expected_name": "E.dta", "file": "S.dta", "seal": "f" * 64}], "seal": "a" * 64}
+        box = {}
+        class FakeSMTP:
+            def __init__(self, host, port, timeout=None): box["server"] = (host, port)
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def starttls(self): box["tls"] = True
+            def login(self, u, p): box["login"] = u
+            def send_message(self, m): box["msg"] = m
+        with mock.patch.dict(S.SMTP, {"host": "smtp.example", "port": "587", "user": "itsg", "password": "x", "from": "itsg@example"}), mock.patch.object(smtplib, "SMTP", FakeSMTP):
+            S.send_certificate_mail(cert, "cert@sap.example")
+        m = box["msg"]
+        self.assertEqual((box["server"], box["tls"], box["login"], m["To"]), (("smtp.example", 587), True, "itsg", "cert@sap.example"))
+        self.assertIn("CERT-1-SAP", m["Subject"])
+        att = next(p for p in m.iter_attachments())
+        self.assertEqual(att.get_filename(), "CERT-1-SAP.html")
+        self.assertIn("a" * 64, att.get_content())
+
+    def test_itsg_and_vendor_exchange(self):
+        import json
+        S = self.S
+        S.STORE["exchange"] = {}
+        itsg, sap, lex = self.login("istg", "pw-itsg"), self.login("sap", "pw-sap"), self.login("lexware", "pw-lex")
+        dev = self.login("dev", "pw-dev")
+        self.assertEqual(self.call("GET", "/api/exchange", token=dev)[0], 403)
+        # a company sign-in cannot switch company; the generic vendor sign-in picks one
+        self.assertEqual(self.call("POST", "/api/session/vendor", {"vendor": "lex"}, token=sap)[0], 403)
+        ven = self.login("vendor", "pw-ven")
+        self.assertEqual(self.call("GET", "/api/exchange", token=ven)[0], 403)  # no company yet
+        self.assertEqual(self.call("POST", "/api/session/vendor", {"vendor": "lex"}, token=ven)[0], 200)
+        # ITSG writes to SAP; only SAP sees it
+        self.assertEqual(self.call("POST", "/api/exchange/threads", {"id": "T-sap", "vendor": "sap", "subject": "Test package"}, token=itsg)[0], 200)
+        code, th = self.call("POST", "/api/exchange/threads/T-sap/messages", {"body": "Package attached", "attach": [{"type": "package", "ref": "EEL 2027-01"}]}, token=itsg)
+        self.assertEqual((code, th["msgs"][-1]["from"]), (200, "itsg"))
+        self.assertEqual([t["id"] for t in self.call("GET", "/api/exchange", token=sap)[1]["threads"]], ["T-sap"])
+        self.assertEqual(self.call("GET", "/api/exchange", token=lex)[1]["threads"], [])
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"body": "hi"}, token=lex)[0], 404)
+        # SAP sends a DTA result file; it arrives at ITSG byte for byte
+        dta = "DSLW0123 Müller ÄÖÜ €\r\n".encode("cp1252") + bytes(range(256))
+        code, f = self.raw("POST", "/api/exchange/files?name=SAP_TC-3.12-001.dat&rule=R-3.12-B&key=Fsap1", dta, sap)
+        f = json.loads(f)
+        self.assertEqual((code, f["format"], f["vendor"], f["size"]), (200, "dta", "sap", len(dta)))
+        self.assertEqual(self.raw("POST", "/api/exchange/files?name=virus.exe", b"MZ", sap)[0], 400)  # test formats only
+        self.assertEqual(self.raw("POST", "/api/exchange/files?name=x.dat", b"x", itsg)[0], 403)  # vendors send results
+        code, th = self.call("POST", "/api/exchange/threads/T-sap/messages", {"body": "Result for TC-3.12-001", "attach": [{"type": "dta", "ref": "Fsap1"}]}, token=sap)
+        self.assertEqual((code, th["msgs"][-1]["from"]), (200, "sap"))
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"from": "system", "body": "fake"}, token=sap)[0], 400)
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"from": "system", "attach": [{"type": "verdict", "ref": {"ok": True}}]}, token=sap)[0], 200)
+        mail = self.call("GET", "/api/exchange", token=itsg)[1]
+        self.assertEqual(mail["files"]["Fsap1"]["sha256"], __import__("hashlib").sha256(dta).hexdigest())
+        self.assertEqual(self.raw("GET", "/api/exchange/files/Fsap1", None, itsg), (200, dta))
+        self.assertEqual(self.raw("GET", "/api/exchange/files/Fsap1", None, lex)[0], 404)  # another company's file
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"attach": [{"type": "dta", "ref": "Fsap1"}]}, token=lex)[0], 404)
+        # ITSG publishes and certifies; vendors record their own progress only
+        self.assertEqual(self.call("PATCH", "/api/exchange", {"publishedTo": ["sap"]}, token=sap)[0], 403)
+        self.assertEqual(self.call("PATCH", "/api/exchange", {"publishedTo": ["sap", "lex"], "certs": {"sap": {"seal": "abc"}}}, token=itsg)[0], 200)
+        self.assertEqual(self.call("POST", "/api/exchange/threads/T-sap/messages", {"attach": [{"type": "certificate", "ref": "sap"}]}, token=sap)[0], 403)
+        self.assertEqual(self.call("PATCH", "/api/exchange", {"vwork": {"sap": {"R-3.12-B": {"status": "pass"}}}}, token=sap)[0], 200)
+        self.call("PATCH", "/api/exchange", {"vwork": {"sap": {"R-3.12-B": {"status": "fail"}}}}, token=lex)  # ignored: not its company
+        seen = self.call("GET", "/api/exchange", token=itsg)[1]
+        self.assertEqual(seen["vwork"]["sap"]["R-3.12-B"]["status"], "pass")
+        mine = self.call("GET", "/api/exchange", token=lex)[1]
+        self.assertEqual((mine["published"], mine["certs"], mine["vwork"]), (True, {}, {}))
+        actions = [e["action"] for e in self.call("GET", "/api/audit", token=itsg)[1]["entries"]]
+        for a in ("sent a result file", "sent a message", "published the test package", "recorded test progress"):
+            self.assertIn(a, actions)
+        S.STORE["audit"].clear()
 
 
 if __name__ == "__main__":

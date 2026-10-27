@@ -28,12 +28,12 @@ to `/pipeline`.
 
 | Key | What it does |
 |---|---|
-| **D**, the **Demo** button or **Start guided demo** | Start from slide 1: slides 1–4, then 17 steps in the app, then the closing slide |
+| **D**, the **Demo** button or **Start guided demo** | Start from slide 1: slides 1–4, then 17 steps in the app, then the closing slide and the QR code to the live app |
 | **→** / **Space** · **←** | Next / previous beat, across slides and steps. Arrows also work while the demo is typing |
 | **P** (or **Narrator** in the bar) | Open the **narrator window**: current beat, what is on screen, **the exact words to say**, how long the beat takes and when it should be done, the next beat, a timer that turns red when you run late, and ‹ › buttons that drive the main window. While it is open, the projector shows only the sentence |
 | **T** | Text only by hand: hides the step counter and the buttons |
 | **Esc** | End the demo |
-| `index.html#demo=9` | Open the demo at beat 9 (1–22). Useful to rehearse or to resume |
+| `index.html#demo=9` | Open the demo at beat 9 (1–23). Useful to rehearse or to resume |
 
 **The script is timed to 5 minutes**: 661 words at 138 words a minute is about 4:50 of speaking, plus the clicks and transitions. Each beat's text is written so its animation finishes while you speak.
 
@@ -93,6 +93,7 @@ turn the animations on, use either of these:
 | 20 | Step 16 | “Two days later” with a clock. **Checklist** → upload version 2 → **Messages**: the fixed file passes, 5 of 5 |
 | 21 | Step 17 | Switch to **ITSG**, click **Report & certificate**, then **Issue certificate**: passed, e-mailed to SAP, **Download PDF** |
 | 22 | Slide | Before (tired guy) → after (happy squirrel), "Thank you!" |
+| 23 | Slide | **Try it yourself**: QR code to the live app on our server (http://130.83.85.181:34080/), sign-in names; the password is given out loud |
 
 - **ITSG / Vendor** (top right) switches the role; **EN / DE** the language (recorded AI output
   in the story screens is English).

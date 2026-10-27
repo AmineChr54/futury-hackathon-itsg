@@ -482,6 +482,13 @@ body.on-slide .tour-cursor { opacity: 0; }
 .slide-dots i { width: 22px; height: 4px; border-radius: 2px; background: var(--surface-3); }
 .slide-dots i.on { background: var(--accent); }
 body.textonly .slide-foot { visibility: hidden; }
+/* closing slide: QR code to the live app */
+.qr-slide { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(20px, 4vw, 56px); align-items: center; width: min(1100px, 100%); text-align: left; }
+.qr-box { background: #fff; padding: clamp(10px, 1.4vw, 18px); border-radius: 18px; box-shadow: var(--shadow); width: clamp(220px, 40vh, 420px); }
+.qr-box svg { display: block; width: 100%; height: auto; }
+.qr-url { font: 600 clamp(1rem, 2vw, 1.6rem)/1.2 var(--font-mono); color: var(--accent); word-break: break-all; }
+.qr-steps { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; font: 400 clamp(.95rem, 1.6vw, 1.25rem)/1.4 var(--font-body); }
+.qr-steps code { font-family: var(--font-mono); font-weight: 600; }
 @media (max-width: 760px) { .slide-split, .pain, .promises, .beforeafter { grid-template-columns: minmax(0, 1fr); } .pain > div::after { display: none; } .beforeafter .arrow { transform: rotate(90deg); justify-self: center; } }
 
 /* ---------- pipeline (overview) ---------- */
@@ -3798,7 +3805,7 @@ const APP = (() => {
 })();
 
 /* ===================================================================================
-   GUIDED DEMO — business slides, then 17 steps through the app, then the closing slide.
+   GUIDED DEMO — business slides, then 17 steps through the app, then the closing slide and the QR code to the live app.
    Keys: → / Space next · ← back · P narrator window · T text only · Esc ends · D starts.
    The bar at the bottom shows one sentence per step. The narrator window (#presenter, a pop-up
    of this same file) shows the speaker notes, the next beat and a timer, synced both ways.
@@ -3831,7 +3838,13 @@ const TOUR = (() => {
         <figure>${IMG.tired ? `<img src="${IMG.tired}" alt="A tired man at a desk late at night">` : ""}<figcaption>Before<span>Weeks of reading. Thousands of test cases, written and typed in by hand.</span></figcaption></figure>
         <span class="arrow" aria-hidden="true">→</span>
         <figure>${IMG.squirrel ? `<img src="${IMG.squirrel}" alt="A happy squirrel riding a unicorn under a rainbow">` : ""}<figcaption>After<span>Spec in, certified tests out: in one session, every value traced to the spec.</span></figcaption></figure></div>
-      <h1 style="font-size:clamp(2.2rem,5vw,4.2rem)">Thank you!</h1></div>` }
+      <h1 style="font-size:clamp(2.2rem,5vw,4.2rem)">Thank you!</h1></div>` },
+    { title: "Try it yourself", script: "And now it's your turn. Scan the code: the app runs live on our server. Sign in as ITSG to drop a specification and review what the AI found, or as a vendor to see the developer's side. We'll give you the password.",
+      html: () => `<div class="slide"><div class="qr-slide"><div class="qr-box"><svg role="img" aria-label="QR code to the live app" viewBox="0 0 33 33" class="segno"><path fill="#fff" d="M0 0h33v33h-33z"/><path class="qrline" stroke="#111" d="M2 2.5h7m3 0h1m2 0h3m2 0h3m1 0h7m-29 1h1m5 0h1m1 0h3m2 0h2m2 0h1m1 0h1m2 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h5m2 0h1m1 0h1m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h3m6 0h4m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h3m2 0h1m1 0h3m1 0h2m1 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m4 0h1m2 0h2m1 0h2m3 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h3m2 0h1m2 0h1m1 0h3m-20 1h1m1 0h4m1 0h2m2 0h1m2 0h1m2 0h2m1 0h2m1 0h2m1 0h1m-28 1h1m4 0h1m1 0h5m1 0h2m1 0h6m2 0h1m1 0h2m-27 1h2m1 0h1m1 0h1m1 0h2m3 0h1m1 0h4m1 0h1m1 0h1m2 0h2m-26 1h1m1 0h1m4 0h1m3 0h1m1 0h2m1 0h2m2 0h1m1 0h2m3 0h1m-29 1h2m3 0h2m2 0h1m2 0h2m2 0h1m1 0h2m1 0h3m3 0h1m-24 1h2m1 0h1m1 0h3m1 0h5m2 0h1m1 0h1m1 0h1m1 0h3m-29 1h5m1 0h2m1 0h2m2 0h2m1 0h2m1 0h2m1 0h1m2 0h1m1 0h2m-29 1h1m2 0h1m1 0h1m2 0h3m2 0h1m1 0h6m1 0h1m2 0h2m-26 1h1m2 0h1m1 0h1m1 0h3m3 0h1m1 0h2m3 0h1m3 0h1m2 0h1m-29 1h3m8 0h2m3 0h4m1 0h1m1 0h2m1 0h1m-27 1h2m1 0h1m1 0h2m1 0h1m2 0h3m1 0h1m2 0h3m2 0h1m1 0h2m1 0h1m-29 1h2m1 0h2m2 0h8m4 0h4m2 0h4m-29 1h3m2 0h2m3 0h1m2 0h3m1 0h2m1 0h5m1 0h2m-20 1h1m4 0h1m1 0h2m1 0h3m3 0h3m-27 1h7m3 0h1m3 0h2m1 0h4m1 0h1m1 0h1m1 0h2m-28 1h1m5 0h1m1 0h4m1 0h1m2 0h2m2 0h1m3 0h2m1 0h2m-29 1h1m1 0h3m1 0h1m1 0h2m2 0h3m1 0h9m3 0h1m-29 1h1m1 0h3m1 0h1m1 0h5m3 0h2m2 0h1m2 0h1m1 0h3m-28 1h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h2m1 0h2m1 0h1m4 0h1m2 0h2m-29 1h1m5 0h1m1 0h2m3 0h3m2 0h2m2 0h1m1 0h1m1 0h1m1 0h1m-29 1h7m4 0h1m1 0h1m2 0h1m1 0h1m1 0h2m1 0h3"/></svg></div><div class="stack" style="gap:18px">
+        <span class="kicker">Try it yourself</span><h2>Scan. Sign in. Try it.</h2>
+        <p class="tagline">The app runs live on our server: drop a specification, review the AI's reading, send test cases.</p>
+        <span class="qr-url">130.83.85.181:34080</span>
+        <ol class="qr-steps"><li>ITSG examiner: <code>istg</code></li><li>Vendor: <code>sap</code> or <code>lexware</code> · developer: <code>dev</code></li><li>Password: ask us</li></ol></div></div></div>` }
   ];
 
   /* One step = one screen + one sentence. `before` sets the state the screen needs (it also runs when
@@ -3943,7 +3956,7 @@ const TOUR = (() => {
       say: "**Certified.** The final report passes, the certificate goes out by e-mail, and the PDF is one click away.",
       script: "Back at ITSG, the final report passes. The certificate for SAP's 2027 release goes out by e-mail, sealed with SHA-256, and as a PDF." }
   ];
-  const SEQ = [...SLIDES.slice(0, 4).map((_, i) => ({ slide: i })), ...STEPS.map((_, i) => ({ step: i })), { slide: 4 }];
+  const SEQ = [...SLIDES.slice(0, 4).map((_, i) => ({ slide: i })), ...STEPS.map((_, i) => ({ step: i })), { slide: 4 }, { slide: 5 }];
   const beat = p => { const it = SEQ[p]; return it.slide != null ? SLIDES[it.slide] : STEPS[it.step]; };
   // Speaking pace 138 words a minute: each beat's length and when it should be done, so the whole demo is 5 minutes.
   const secOf = b => Math.max(5, Math.round(b.script.split(/\s+/).length / 2.3));
@@ -4180,7 +4193,7 @@ const TOUR = (() => {
     // a dialog opening or closing moves the frame onto it and back, following its entrance animation
     new MutationObserver(() => { if (pos >= 0) { followUntil = performance.now() + 700; follow(); } }).observe($("#modalHost"), { childList: true });
     $("#main").addEventListener("transitionend", () => { if (pos >= 0) respot(); });
-    // #demo opens the demo, #demo=8 jumps to beat 8 (1–22: slides 1–4, steps 1–17, closing slide)
+    // #demo opens the demo, #demo=8 jumps to beat 8 (1–23: slides 1–4, steps 1–17, closing slide, QR code to the live app)
     const m = location.hash.match(/^#demo(?:=(\d+))?$/);
     if (m) setTimeout(() => start(Math.max(0, Math.min(SEQ.length, Number(m[1] || 1)) - 1)), 50);
   }

@@ -7,7 +7,7 @@ const display = IBM_Plex_Sans_Condensed({ variable: "--font-plex-condensed", sub
 const mono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400"] });
 
 export const metadata: Metadata = {
-  title: "ITSG Spec Pipeline",
+  title: "§pecs",
   description: "From specification to certified test, in one session. Futury Build Days 2026, ITSG challenge.",
 };
 

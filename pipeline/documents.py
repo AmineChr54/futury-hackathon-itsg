@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import threading
 from collections import Counter
 
 HEADING = re.compile(r"^(\d{1,2}(?:\.\d{1,3}){1,7}|\d{1,2}\.)\s+([A-ZÄÖÜ„\"“].{1,118})$")
@@ -191,25 +192,34 @@ def file_sha256(path):
     return h.hexdigest()
 
 
+_PARSING = {}  # sha → lock: when many people start a run at once, the PDF is parsed once, not once each
+_PARSING_LOCK = threading.Lock()
+
+
 def load(path, cache_dir):
     """Parse a document (cached by content hash)."""
     sha = file_sha256(path)
     os.makedirs(cache_dir, exist_ok=True)
     cache = os.path.join(cache_dir, f"{sha}.p{PARSER_VERSION}.json")
-    if os.path.exists(cache):
-        with open(cache, encoding="utf-8") as f:
-            doc = json.load(f)
-        doc["name"] = os.path.basename(path)
+    with _PARSING_LOCK:
+        lock = _PARSING.setdefault(sha, threading.Lock())
+    with lock:
+        if os.path.exists(cache):
+            with open(cache, encoding="utf-8") as f:
+                doc = json.load(f)
+            doc["name"] = os.path.basename(path)
+            return doc
+        pages = extract_pages(path)
+        sections, preamble = split_sections(pages)
+        first = " ".join(" ".join(pages[0].split()).split()[:40]) if pages else ""
+        doc = {"name": os.path.basename(path), "sha256": sha, "pages": len(pages), "version": detect_version(pages),
+               "title": first[:200], "sections": sections, "changelog": parse_changelog(pages),
+               "chars": sum(len(p) for p in pages)}
+        tmp = cache + ".tmp"  # readers never see a half-written cache file
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(doc, f, ensure_ascii=False)
+        os.replace(tmp, cache)
         return doc
-    pages = extract_pages(path)
-    sections, preamble = split_sections(pages)
-    first = " ".join(" ".join(pages[0].split()).split()[:40]) if pages else ""
-    doc = {"name": os.path.basename(path), "sha256": sha, "pages": len(pages), "version": detect_version(pages),
-           "title": first[:200], "sections": sections, "changelog": parse_changelog(pages),
-           "chars": sum(len(p) for p in pages)}
-    with open(cache, "w", encoding="utf-8") as f:
-        json.dump(doc, f, ensure_ascii=False)
-    return doc
 
 
 def summary(doc):

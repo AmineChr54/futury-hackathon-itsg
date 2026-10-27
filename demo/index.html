@@ -1,6 +1,6 @@
-<title>ITSG Spec Pipeline</title>
+<title>§pecs</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="ITSG Spec Pipeline: from the yearly government specification to certified test cases for payroll software (DTA EEL). Built for the ITSG challenge at Futury Build Days 2026.">
+<meta name="description" content="§pecs: from the yearly government specification to certified test cases for payroll software (DTA EEL). Built for the ITSG challenge at Futury Build Days 2026.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <style>
@@ -408,7 +408,7 @@ body.textonly .tour-bar { display: none; }
 body.textonly .tour-ctrl { display: none; }
 body.touring .main-inner { padding-bottom: 120px; }
 body.touring .tour-hide { display: none !important; }
-body.touring .bar-tools > :not(#demoBtn) { display: none; }
+body.touring .bar-tools > :not(#demoBtn):not(#roleSeg) { display: none; }
 @keyframes cap-in { from { opacity: 0; transform: translateY(6px); } }
 .kbd { font: 600 11px/1 var(--font-mono); border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; padding: 2px 5px; background: var(--surface-2); }
 .timeskip { position: fixed; inset: 0; z-index: 95; display: grid; place-items: center; background: var(--scrim); color: #fff; font: 700 clamp(2rem, 6vw, 4.5rem)/1 var(--font-display); animation: skip 1.9s ease both; pointer-events: none; }
@@ -443,8 +443,9 @@ body.on-slide .tour-cursor { opacity: 0; }
 .presenter { min-height: 100vh; display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: var(--s-4); padding: var(--s-5) max(16px, 3vw); }
 .presenter h1 { font-size: clamp(1.4rem, 3vw, 2.2rem); }
 .presenter .clock { font: 600 3rem/1 var(--font-mono); font-variant-numeric: tabular-nums; }
-.presenter .notes { font-size: 1.35rem; line-height: 1.55; max-width: 62ch; margin: 0; padding-left: 1.2em; }
-.presenter .notes li { margin-bottom: 10px; }
+.presenter .script { font-size: 1.55rem; line-height: 1.6; max-width: 60ch; margin: 0; }
+.presenter .pace { font: 500 var(--fs-sm)/1.3 var(--font-mono); color: var(--muted); }
+.presenter .clock.late { color: var(--bad); }
 .presenter .next { border: 1px dashed var(--line-strong); border-radius: var(--r-md); padding: var(--s-3); color: var(--muted); }
 
 /* ---------- business slides (full screen, same file) ---------- */
@@ -459,9 +460,10 @@ body.on-slide .tour-cursor { opacity: 0; }
 .slide-split img { width: 100%; max-height: 62vh; object-fit: cover; border-radius: 18px; box-shadow: var(--shadow); }
 .slide-split p { font: 400 clamp(1.1rem, 2vw, 1.6rem)/1.45 var(--font-body); max-width: 30ch; color: var(--fg-2); }
 .slide-split p b { color: var(--fg); }
-.pain { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(8px, 1.4vw, 20px); width: min(1240px, 100%); align-items: stretch; }
+.pain { --pain-gap: clamp(14px, 2vw, 28px); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--pain-gap); width: min(1240px, 100%); align-items: stretch; }
 .pain > div { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: clamp(14px, 2vw, 26px); display: grid; gap: 8px; align-content: start; text-align: left; }
-.pain > div:not(:last-child)::after { content: "→"; position: absolute; right: clamp(-18px, -1.2vw, -10px); top: 50%; transform: translate(50%, -50%); color: var(--accent); font: 700 clamp(1rem, 2vw, 1.6rem)/1 var(--font-body); z-index: 1; }
+.pain > div:not(:last-child)::after { content: ""; position: absolute; right: calc(var(--pain-gap) / -2); top: 50%; transform: translate(50%, -50%); width: clamp(24px, 2.2vw, 32px); height: clamp(24px, 2.2vw, 32px); border-radius: 50%; border: 3px solid var(--bg); z-index: 1;
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h13M13 6l6 6-6 6'/%3E%3C/svg%3E") center / 58% no-repeat; }
 .pain .ic { font-size: clamp(1.6rem, 3vw, 2.6rem); line-height: 1; }
 .pain b { font: 700 clamp(1rem, 1.7vw, 1.45rem)/1.2 var(--font-display); }
 .pain span { color: var(--accent); font: 600 clamp(.9rem, 1.4vw, 1.15rem)/1.3 var(--font-body); }
@@ -480,6 +482,13 @@ body.on-slide .tour-cursor { opacity: 0; }
 .slide-dots i { width: 22px; height: 4px; border-radius: 2px; background: var(--surface-3); }
 .slide-dots i.on { background: var(--accent); }
 body.textonly .slide-foot { visibility: hidden; }
+/* closing slide: QR code to the live app */
+.qr-slide { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(20px, 4vw, 56px); align-items: center; width: min(1100px, 100%); text-align: left; }
+.qr-box { background: #fff; padding: clamp(10px, 1.4vw, 18px); border-radius: 18px; box-shadow: var(--shadow); width: clamp(220px, 40vh, 420px); }
+.qr-box svg { display: block; width: 100%; height: auto; }
+.qr-url { font: 600 clamp(1rem, 2vw, 1.6rem)/1.2 var(--font-mono); color: var(--accent); word-break: break-all; }
+.qr-steps { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; font: 400 clamp(.95rem, 1.6vw, 1.25rem)/1.4 var(--font-body); }
+.qr-steps code { font-family: var(--font-mono); font-weight: 600; }
 @media (max-width: 760px) { .slide-split, .pain, .promises, .beforeafter { grid-template-columns: minmax(0, 1fr); } .pain > div::after { display: none; } .beforeafter .arrow { transform: rotate(90deg); justify-self: center; } }
 
 /* ---------- pipeline (overview) ---------- */
@@ -625,6 +634,9 @@ input.cover { width: 20px; height: 20px; accent-color: var(--ok); cursor: pointe
 .src-card { display: grid; gap: 4px; margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--accent); border-radius: var(--r-sm); background: var(--surface); }
 .src-card .field-label { display: flex; align-items: center; gap: 8px; }
 .src-card .hint { font-size: var(--fs-xs); color: var(--muted); }
+.ctx-pre { max-height: 46vh; overflow: auto; margin: 0; padding: 12px; font: 400 12px/1.5 var(--font-mono); white-space: pre-wrap; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); }
+.ai-copy { gap: 10px; padding: 8px 10px; border-radius: var(--r-md); background: var(--info-soft); font-size: var(--fs-xs); }
+.cl-fail { margin-top: 4px; font-size: var(--fs-xs); color: var(--bad); font-weight: 600; }
 /* overview dashboard */
 .ov-status { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--s-3); }
 .ov-tile { display: grid; gap: 4px; align-content: start; text-align: left; padding: 14px 16px; border: 1px solid var(--line); border-top: 3px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); color: var(--fg); cursor: pointer; font: inherit; }
@@ -729,7 +741,7 @@ body.touring .ov-dash { filter: grayscale(1); opacity: .55; pointer-events: none
   <div class="brand">
     <div class="brand-mark" aria-hidden="true">§</div>
     <div style="min-width:0">
-      <div class="brand-name" id="brandName">ITSG Spec Pipeline</div>
+      <div class="brand-name" id="brandName">§pecs</div>
       <div class="brand-sub" id="brandSub"></div>
     </div>
   </div>
@@ -1677,7 +1689,7 @@ const IMAGES = /*IMAGES-START*/{"logo":"data:image/png;base64,iVBORw0KGgoAAAANSU
 const APP = (() => {
   "use strict";
   const C = CORE;
-  const PRODUCT_NAME = "ITSG Spec Pipeline";
+  const PRODUCT_NAME = "§pecs";
   const $ = (s, r = document) => r.querySelector(s);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
   const store = {
@@ -2750,7 +2762,7 @@ const APP = (() => {
     if (a.type === "dta") { const f = mailbox().files[a.ref]; return `<div class="att"><b>${ic("doc")} ${esc(f.name)}</b><span class="muted">${L("DTA output file", "DTA-Ausgabedatei")} · ${ruleCase(f.rule).id}</span>${act(L("Open comparison", "Vergleich öffnen"))}</div>`; }
     if (a.type === "verdict") { const r = a.ref; return `<div class="att ${r.ok ? "ok" : "bad"}"><b>${r.ok ? "✓ " + L("PASS", "BESTANDEN") : "✕ " + L("FAIL", "NICHT BESTANDEN")} · ${esc(r.caseId)} · ${r.passed}/${r.total} ${L("checks", "Prüfungen")}</b><span class="muted" style="font-size:var(--fs-xs)">${esc(r.file)}</span>${r.ok ? `<span>${L("Matches the expected result in every field.", "Stimmt in jedem Feld mit dem erwarteten Ergebnis überein.")}</span>` : r.words.map(w => `<span>• ${esc(T(w))}</span>`).join("")}</div>`; }
     if (a.type === "report") { const d = reportData(vendorOf(a.ref)); return `<div class="att"><b>${ic("report")} ${L("Test report", "Prüfbericht")} ${esc(vendorOf(a.ref).name)} · ${esc(d.release)}</b><span>${esc(reportSummary(d))}.</span>${act(L("Open report", "Bericht öffnen"))}</div>`; }
-    if (a.type === "pkgverdict") { const r = a.ref; return `<div class="att ${r.ok ? "ok" : "bad"}"><b>${r.ok ? "✓ " + L("PASS", "BESTANDEN") + ` · ${r.passed} ${L("of", "von")} ${r.total} ${L("test cases passed", "Testfällen bestanden")}` : "✕ " + `${r.total - r.passed} ${L("of", "von")} ${r.total} ${L("test cases failed", "Testfällen nicht bestanden")}`}</b><span class="muted" style="font-size:var(--fs-xs)">${esc(r.file)}</span>${r.rows.map(x => `<span>${x.ok ? "✓" : "✕"} <span class="mono">${esc(x.id)}</span> ${esc(x.title)}${x.ok ? "" : x.words.slice(0, 2).map(w => `<br>&nbsp;&nbsp;• ${esc(T(w))}`).join("")}</span>`).join("")}</div>`; }
+    if (a.type === "pkgverdict") { const r = a.ref; return `<div class="att ${r.ok ? "ok" : "bad"}"><b>${r.ok ? "✓ " + L("PASS", "BESTANDEN") + ` · ${r.passed} ${L("of", "von")} ${r.total} ${L("test cases passed", "Testfällen bestanden")}` : "✕ " + `${r.total - r.passed} ${L("of", "von")} ${r.total} ${L("test cases failed", "Testfällen nicht bestanden")}`}</b><span class="muted" style="font-size:var(--fs-xs)">${esc(r.file)}</span>${r.rows.map(x => `<span>${x.ok ? "✓" : "✕"} <span class="mono">${esc(x.id)}</span> ${esc(x.title)}${x.ok ? "" : x.words.slice(0, 2).map(w => `<br>&nbsp;&nbsp;• ${esc(T(w))}`).join("")}</span>${!x.ok && S.role === "vendor" && ST.uploads.indexOf(r) >= 0 ? `<div class="row"><button class="btn sm bad" data-act="ctxFail" data-id="${esc(x.id)}" data-u="${ST.uploads.indexOf(r)}">⧉ ${L("Copy debug context for your AI", "Debug-Kontext für Ihre KI kopieren")}</button></div>` : ""}`).join("")}</div>`; }
     if (a.type === "certificate") { const c = mailbox().certs[th.vendor]; return `<div class="att cert"><div class="actions" style="justify-content:flex-end"><button class="btn sm" data-act="certPdf">${ic("download")} PDF</button></div><b>${ic("check")} ${L("Certificate DTA EEL 2027", "Zertifikat DTA EEL 2027")}</b><span>${esc(v.productName)} ${esc(v.release)} · ${L("product", "Produkt")} <span class="mono">${v.product}</span> · ${L("modification", "Modifikation")} <span class="mono">${v.modification}</span></span><span>${L("Valid", "Gültig")} 01.01.2027 – 31.12.2027</span><span class="mono muted" style="font-size:11px">${L("seal", "Siegel")} ${c ? c.seal.slice(0, 32) : ""}…</span></div>`; }
     if (a.type === "rule") { const r = C.RULES.find(x => x.id === a.ref); return `<div class="att"><b>${ic("ai")} ${r.id} · ${esc(T(r.label))}</b><span class="muted">${esc(ruleText(r))}</span>${act(L("Open rule", "Regel öffnen"))}</div>`; }
     if (a.type === "case") { const rc = ruleCase(a.ref); return `<div class="att"><b>${ic("test")} ${rc.id} · ${esc(rc.title)}</b>${act(L("Open test case", "Testfall öffnen"))}</div>`; }
@@ -3251,31 +3263,63 @@ const APP = (() => {
     const v = vendorOf(S.vendorUser);
     if (!ST.sent) return `${head(L("Checklist", "Checkliste"), "")}<section class="panel"><div class="empty">${L("No test package yet. ITSG sends it by e-mail; it appears here.", "Noch kein Testpaket. ITSG schickt es per E-Mail; es erscheint hier.")}</div></section>`;
     const cs = storyCases().filter(c => caseStatus(c) !== "rejected"), r = RECAP(), n = cs.filter(c => ST.covered[c.id]).length, pct = Math.round(100 * n / cs.length), up = lastUpload();
+    const failRow = c => up && !up.ok ? up.rows.find(x => x.id === c.id && !x.ok) : null;
     const row = c => { const t = ST.covered[c.id], open = ST.clOpen === c.id; return `<tr class="${t ? "row-done" : ""} ${open ? "row-open" : ""}" data-row="${esc(c.id)}"><td><input type="checkbox" class="cover" data-cover="${esc(c.id)}" ${t ? "checked" : ""} aria-label="${esc(L("Checked: ", "Geprüft: ") + c.title)}"></td>
       <td><b>${esc(c.title)}</b><div class="row" style="gap:4px;margin-top:3px">${pill("§" + esc(c.section), "mono")}<span class="mono muted" style="font-size:11px">${esc(c.id)}</span></div><div class="recap-row">✦ ${esc(r.rows[c.id] || c.criterion)}</div>
         <details class="cot-more" style="margin-top:4px" ${open ? "open" : ""}><summary class="muted" style="font-size:var(--fs-xs)" data-act="clOpen" data-id="${esc(c.id)}">${L("How to run it", "Durchführung")}</summary>${tcSheet({ preconditions: c.preconditions, steps: c.steps })}
           <div class="cl-soll"><span class="field-label">${L("What should happen", "Was passieren soll")}</span><div>${esc(c.expected_outcome)}</div></div>
           ${t ? "" : `<div class="row" style="margin-top:8px"><button class="btn ok sm" data-act="clPass" data-id="${esc(c.id)}">✓ ${L("Works as expected", "Funktioniert wie erwartet")}</button></div>`}</details>
-        ${t ? `<div class="cl-pass">✓ ${L("Works as expected", "Funktioniert wie erwartet")} · ${esc(t)}</div>` : ""}</td>
+        ${t ? `<div class="cl-pass">✓ ${L("Works as expected", "Funktioniert wie erwartet")} · ${esc(t)}</div>` : ""}
+        ${failRow(c) ? `<div class="cl-fail">✕ ${L("Failed in", "Nicht bestanden in")} ${esc(up.file)}: ${esc(T(failRow(c).words[0] || { en: "", de: "" }))}</div>` : ""}
+        <div class="row" style="gap:6px;margin-top:6px"><button class="btn ghost sm" data-act="clCopy" data-id="${esc(c.id)}">⧉ ${L("Copy context for your AI", "Kontext für Ihre KI kopieren")}</button>${failRow(c) ? `<button class="btn sm bad" data-act="ctxFail" data-id="${esc(c.id)}" data-u="${ST.uploads.length - 1}">⧉ ${L("Copy debug context", "Debug-Kontext kopieren")}</button>` : ""}</div></td>
       <td><span class="mono">${esc(c.formula.result_name)}</span></td><td class="muted" style="font-size:var(--fs-xs);white-space:nowrap">${t || "—"}</td></tr>`; };
     return `${head(L("Checklist", "Checkliste"), `${esc(v.name)} · ${esc(v.productName)} ${esc(v.release)} · ${L("package", "Paket")} EEL 2027-01 ${L("from ITSG", "von ITSG")}`)}
       <section class="panel recap" data-tour="recap"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">✦ ${L("AI recap", "KI-Zusammenfassung")}</span><h4>${L("What changed and what you need to do", "Was sich geändert hat und was zu tun ist")}</h4></div></div>
         <div class="panel-body stack"><div class="callout accent"><b>${L("What changed", "Was sich geändert hat")}</b>${esc(r.changed)}</div>
           <div class="grid-2"><div><b class="recap-h">${L("What to do", "Was zu tun ist")}</b><ol class="recap-list">${r.todo.map(t => `<li>${esc(t)}</li>`).join("")}</ol></div><div><b class="recap-h">${L("What these tests verify", "Was diese Tests prüfen")}</b><ul class="recap-list check">${r.verify.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div></div>
           <span class="muted" style="font-size:var(--fs-xs)">${L("Each test case says what should happen. ITSG compares the exact file you upload.", "Jeder Testfall sagt, was passieren soll. ITSG vergleicht die genaue Datei, die Sie hochladen.")}</span></div></section>
-      <section class="panel" data-tour="cltable"><div class="panel-body stack" style="gap:6px"><div class="row between" style="font-size:var(--fs-sm)"><span><b>${n} / ${cs.length}</b> ${L("test cases covered", "Testfälle abgedeckt")}</span><span class="muted">${L("Tick a case when your program does what it should. ITSG still checks the exact file.", "Abhaken, wenn Ihr Programm tut, was es soll. ITSG prüft trotzdem die genaue Datei.")}</span></div><div class="cover-bar"><i style="width:${pct}%"></i></div></div>
+      <section class="panel" data-tour="cltable"><div class="panel-body stack" style="gap:6px"><div class="row between" style="font-size:var(--fs-sm)"><span><b>${n} / ${cs.length}</b> ${L("test cases covered", "Testfälle abgedeckt")}</span><span class="muted">${L("Tick a case when your program does what it should. ITSG still checks the exact file.", "Abhaken, wenn Ihr Programm tut, was es soll. ITSG prüft trotzdem die genaue Datei.")}</span></div>
+        <div class="row between ai-copy"><span>✦ ${L("Give the whole package to your AI assistant: steps, what should happen and the specification text. Next: it connects through MCP and runs the tests itself.", "Geben Sie das ganze Paket Ihrem KI-Assistenten: Schritte, Sollverhalten und Spezifikationstext. Als Nächstes verbindet er sich per MCP und führt die Tests selbst aus.")}</span><button class="btn sm" data-act="clCopyAll">⧉ ${L("Copy all test cases", "Alle Testfälle kopieren")}</button></div><div class="cover-bar"><i style="width:${pct}%"></i></div></div>
         <div class="panel-body flush tbl-wrap"><table class="tbl"><thead><tr><th>${L("Checked", "Geprüft")}</th><th>${L("Test case", "Testfall")}</th><th>${L("Result field", "Ergebnisfeld")}</th><th>${L("Checked at", "Geprüft am")}</th></tr></thead><tbody>
           ${RULE_ORDER.map(rid => { const list = cs.filter(c => c.rule === rid); const rr = C.RULES.find(x => x.id === rid); return list.length ? `<tr class="grp"><td colspan="4">${rid} · ${esc(T(rr.label))}</td></tr>${list.map(row).join("")}` : ""; }).join("")}</tbody></table></div></section>
       <section class="panel" data-tour="upload"><div class="panel-head"><h3>${ic("upload")} ${L("Send your result to ITSG", "Ergebnis an ITSG senden")}</h3>${up ? (up.ok ? pill(`✓ ${up.passed}/${up.total} ${L("passed", "bestanden")}`, "ok") : pill(`✕ ${up.total - up.passed} ${L("of", "von")} ${up.total} ${L("failed", "nicht bestanden")}`, "bad")) : ""}</div>
         <div class="panel-body"><div class="drop" data-act="uploadPick" role="button" tabindex="0">${ic("upload")}<b>${L("Upload the DTA file your software produced", "Die DTA-Datei Ihrer Software hochladen")}</b><span>${L("It is e-mailed to ITSG automatically and compared against the expected result at once.", "Sie geht automatisch per E-Mail an ITSG und wird sofort mit dem erwarteten Ergebnis verglichen.")}</span></div>
           ${up ? `<div class="callout ${up.ok ? "ok" : "bad"}"><b>${esc(up.file)} · ${L("sent to ITSG by automatic e-mail", "per automatischer E-Mail an ITSG gesendet")}</b>${up.ok ? L("All test cases match the expected results.", "Alle Testfälle stimmen mit den erwarteten Ergebnissen überein.") : `${esc(T(up.rows.find(x => !x.ok).words[0] || { en: "", de: "" }))}`}<div class="row"><button class="btn sm" data-act="go" data-screen="mail">${ic("inbox")} ${L("Open the e-mail", "E-Mail öffnen")}</button></div></div>` : ""}</div></section>${demoNote()}`;
   }
+  /* ---------- context for the developer's own AI: today a copy button, later an MCP connection ---------- */
+  const SPEC_DOC = "2026_03_10_Endfassung_Verfahrensbeschreibung_DTA_EEL_Version_13.4_ab_01.01.2027.pdf";
+  const SPEC_PDF = "../hackathon-files/ITSG - The Challenge Sponsor/" + SPEC_DOC;
+  const specBlock = sec => SEC[sec] ? `### §${sec} ${SEC[sec].title} (p. ${SEC[sec].page})\n${SEC[sec].text.join("\n")}` : "";
+  const caseSecs = c => [c.section, ...((C.SPEC.sections[c.section] || { links: [] }).links.filter(l => SEC[l] && l !== c.section))].slice(0, 3);
+  function caseContext(c, fail, withSpec = true) {
+    const out = [`# ${c.id} · ${c.title}`, `Test package EEL 2027-01 from ITSG · rule ${c.rule} · §${c.section} ${c.section_title}`,
+      "", "## Preconditions", ...(c.preconditions || []).map(x => "- " + x), "", "## Steps", ...(c.steps || []).map((x, i) => `${i + 1}. ${x}`),
+      "", "## What should happen", c.expected_outcome || "", `Result field: ${c.formula.result_name}`];
+    if (fail) out.push("", "## What failed", `Uploaded file: ${fail.file}`, ...fail.row.words.map(w => "- " + T(w)), "", "## The uploaded file (DTA, fixed width, ISO-8859-1)", "```", fail.text || "(not available)", "```");
+    if (withSpec) out.push("", `## Specification (verbatim): ${SPEC_DOC}, ${SF.pages} pages, the original PDF from GKV-Datenaustausch`, ...caseSecs(c).map(specBlock));
+    out.push("", "## Task", fail ? "Find out why our payroll program produced this file. Compare it with the specification text above, name the part of our logic that is wrong and propose the fix. Quote the § you rely on."
+      : "Help me set up and run this test case in our payroll program, then check the result against “What should happen”. Quote the § you rely on.");
+    return out.join("\n");
+  }
+  function packageContext() {
+    const cs = storyCases().filter(c => caseStatus(c) !== "rejected"), r = RECAP(), secs = [...new Set(cs.flatMap(caseSecs))];
+    return [`# Test package EEL 2027-01 · ${vendorOf(S.vendorUser).name} · ${cs.length} test cases`, "", "## What changed", r.changed, "", "## What to do", ...r.todo.map((x, i) => `${i + 1}. ${x}`),
+      "", ...cs.map(c => caseContext(c, null, false) + "\n"), `## Specification (verbatim): ${SPEC_DOC}, ${SF.pages} pages, the original PDF from GKV-Datenaustausch`, ...secs.map(specBlock)].join("\n");
+  }
+  function ctxModal(title, text, fail) {
+    S.ctxText = text;
+    try { navigator.clipboard.writeText(text).then(() => toast(L("Copied: paste it into your AI assistant", "Kopiert: in Ihren KI-Assistenten einfügen")), () => { /* the preview below still has it */ }); } catch (e) { /* no clipboard */ }
+    const pdf = location.protocol === "file:" ? `<a class="btn" style="text-decoration:none" href="${esc(encodeURI(SPEC_PDF))}" target="_blank" rel="noopener">${ic("doc")} ${L("Original PDF", "Original-PDF")}</a>` : "";
+    modal(title, `<p class="muted" style="font-size:var(--fs-sm);margin:0">${fail ? L("The test case, the failing values, your file and the specification text, ready for your AI agent to debug.", "Testfall, abweichende Werte, Ihre Datei und der Spezifikationstext, bereit für Ihren KI-Agenten zum Debuggen.") : L("Every test case with its steps, what should happen and the specification text, ready for your AI assistant.", "Jeder Testfall mit Schritten, Sollverhalten und Spezifikationstext, bereit für Ihren KI-Assistenten.")}
+      ${L("Next: your AI connects through MCP and runs the tests itself.", "Als Nächstes: Ihre KI verbindet sich per MCP und führt die Tests selbst aus.")}</p><pre class="ctx-pre">${esc(text)}</pre><span class="muted" style="font-size:var(--fs-xs)">${text.split("\n").length} ${L("lines", "Zeilen")} · ${Math.round(text.length / 4).toLocaleString()} ${L("tokens", "Tokens")} (≈)</span>`,
+      null, `${pdf}<button class="btn" data-act="closeModal">${L("Close", "Schließen")}</button><button class="btn primary" data-act="ctxCopy">⧉ ${L("Copy", "Kopieren")}</button>`);
+  }
   function uploadResult(key, file) {
     const vid = "sap", th = certThread(vid), v = ST.uploads.length + 1;
     file = file || { name: `SAP_EEL-2027-01_results_v${v}.dta`, text: key === "gap" ? C.brokenVariants().find(b => b.id === "gap").text : C.TEEL0 };
     const r = storeResult(vid, "R-3.12-B", file), cs = storyCases().filter(c => caseStatus(c) !== "rejected");
     const rows = cs.map(c => c.id === FOLLOWED ? { id: c.id, title: c.title, ok: r.res.ok, words: r.res.words } : { id: c.id, title: c.title, ok: true, words: [] });
-    const res = { file: file.name, rows, passed: rows.filter(x => x.ok).length, total: rows.length, ok: rows.every(x => x.ok) };
+    const res = { file: file.name, text: file.text, rows, passed: rows.filter(x => x.ok).length, total: rows.length, ok: rows.every(x => x.ok) };
     ST.uploads.push(res);
     if (res.ok) { ST.fixed = true; delete S.audit[vid]; }
     post(th, vid, { en: `Automatic message: result file for test package EEL 2027-01 (${rows.length} test cases), uploaded from the checklist.`, de: `Automatische Nachricht: Ergebnisdatei zum Testpaket EEL 2027-01 (${rows.length} Testfälle), aus der Checkliste hochgeladen.` }, [r.att]);
@@ -3413,7 +3457,7 @@ const APP = (() => {
   }
   function modal(title, html, node, foot) {
     const host = $("#modalHost");
-    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
+    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}" onclick="event.stopPropagation()"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
     if (node) host.querySelector(".modal-body").appendChild(node);
   }
   function aiSettings() {
@@ -3706,14 +3750,21 @@ const APP = (() => {
     notifyDismiss: () => { ST.notify = false; story.paintNotify(); },
     reasonToggle: () => { ST.reasonOpen = !ST.reasonOpen; render(); },
     clOpen: el => { ST.clOpen = ST.clOpen === el.dataset.id ? null : el.dataset.id; render(); },
+    clCopy: el => { const c = storyCases().find(x => x.id === el.dataset.id); if (c) { ctxModal(`${L("Context for your AI", "Kontext für Ihre KI")} · ${c.id}`, caseContext(c)); log("vendor", L("Test case copied for AI", "Testfall für KI kopiert"), c.id); } },
+    clCopyAll: () => { ctxModal(L("All test cases for your AI", "Alle Testfälle für Ihre KI"), packageContext()); log("vendor", L("Test package copied for AI", "Testpaket für KI kopiert"), "EEL 2027-01"); },
+    ctxFail: el => {
+      const u = ST.uploads[Number(el.dataset.u)], row = u && u.rows.find(x => x.id === el.dataset.id), c = storyCases().find(x => x.id === el.dataset.id);
+      if (!u || !row || !c) return;
+      ctxModal(`${L("Debug context", "Debug-Kontext")} · ${c.id}`, caseContext(c, { file: u.file, text: u.text, row }), true); log("vendor", L("Debug context copied", "Debug-Kontext kopiert"), `${c.id} · ${u.file}`);
+    },
+    ctxCopy: () => copyText(S.ctxText || "", L("Copied: paste it into your AI assistant", "Kopiert: in Ihren KI-Assistenten einfügen")),
     clPass: el => { const id = el.dataset.id; ST.covered[id] = fmtAt(S.clock || CLOCK0); ST.clOpen = null; log("vendor", L("Test case checked: works as expected", "Testfall geprüft: funktioniert wie erwartet"), id); render(); },
     uploadPick: () => modal(L("Upload a result file", "Ergebnisdatei hochladen"), `<p style="font-size:var(--fs-sm)">${L("In a real run this is the DTA file your software produced. For the demo, pick one:", "Im echten Ablauf ist das die DTA-Datei Ihrer Software. Für die Demo eine wählen:")}</p>
       <div class="stack"><button class="btn" data-act="uploadNow" data-f="gap">${L("Version 1: still includes the old period from Nov 2024", "Fassung 1: enthält noch den alten Zeitraum aus Nov. 2024")}</button><button class="btn" data-act="uploadNow" data-f="teel0">${L("Version 2: fixed (the real ITSG sample file)", "Fassung 2: korrigiert (die echte ITSG-Beispieldatei)")}</button><button class="btn" data-act="uploadNow" data-f="disk">${ic("upload")} ${L("Choose a file from disk…", "Datei von der Festplatte wählen…")}</button></div>`),
     uploadNow: el => { $("#modalHost").innerHTML = ""; if (el.dataset.f === "disk") { const fi = $("#fileInput"); fi.accept = ""; fi.onchange = () => { const x = fi.files[0]; fi.value = ""; if (x) readLatin1(x, f => story.uploadResult(null, f)); }; fi.click(); return; } story.uploadResult(el.dataset.f); },
     certIssue: () => { story.issueCert(); go("cert"); },
     certPdf: () => story.certPdf(),
-    // the scrim closes the dialog only when the click is on the scrim itself, not inside the dialog
-    closeModal: (el, e) => { if (el && el.classList && el.classList.contains("modal-scrim") && e && e.target !== el) return; $("#modalHost").innerHTML = ""; },
+    closeModal: () => { $("#modalHost").innerHTML = ""; },
     aiMode: el => { S.ai.mode = el.dataset.v; document.querySelectorAll('[data-act="aiMode"]').forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === S.ai.mode))); },
     saveAi: () => { S.ai.base = $("#aiBase").value.trim() || S.ai.base; S.ai.model = $("#aiModel").value; store.set("ai", S.ai); store.set("aikey", $("#aiKey").value.trim()); $("#modalHost").innerHTML = ""; toast(L("AI settings saved in this browser", "KI-Einstellungen in diesem Browser gespeichert")); render(); }
   };
@@ -3754,7 +3805,7 @@ const APP = (() => {
 })();
 
 /* ===================================================================================
-   GUIDED DEMO — business slides, then 17 steps through the app, then the closing slide.
+   GUIDED DEMO — business slides, then 17 steps through the app, then the closing slide and the QR code to the live app.
    Keys: → / Space next · ← back · P narrator window · T text only · Esc ends · D starts.
    The bar at the bottom shows one sentence per step. The narrator window (#presenter, a pop-up
    of this same file) shows the speaker notes, the next beat and a timer, synced both ways.
@@ -3764,30 +3815,36 @@ const TOUR = (() => {
   const A = APP, S = A.S, L = A.L, X = A.story, IMG = A.IMAGES;
   const $ = s => document.querySelector(s);
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const NAME = "ITSG Spec Pipeline", TAGLINE = "From specification to certified test, in one session.";
+  const NAME = "§pecs", TAGLINE = "From specification to certified test, in one session.";
   const IS_PRESENTER = location.hash === "#presenter";
 
   const SLIDES = [
-    { title: "Welcome", notes: ["We built ITSG Spec Pipeline for the ITSG challenge.", "In one line: from the yearly specification to certified test cases."],
+    { title: "Welcome", script: "Good afternoon. We built §pecs for the ITSG challenge. In one sentence: it takes the yearly government specification and turns it into certified test cases, in one session.",
       html: () => `<div class="slide">${IMG.logo ? `<img class="logo" src="${IMG.logo}" alt="ITSG">` : ""}<h1>${NAME}</h1><p class="tagline">${TAGLINE}</p></div>` },
-    { title: "The hustle", notes: ["Every December a new specification lands: the Verfahrensbeschreibung alone is 168 pages, around 400 with the other EEL documents.", "Experts read every line, highlight it by hand and rewrite the test cases."],
+    { title: "The hustle", script: "Every December a new specification lands. The Verfahrensbeschreibung alone has 168 pages, around 400 with the other EEL documents. Today, ITSG's experts read every line, highlight it by hand and rewrite the affected test cases.",
       html: () => `<div class="slide"><div class="slide-split">${IMG.patrick ? `<img src="${IMG.patrick}" alt="Patrick Star with red, tired eyes">` : ""}<div class="stack" style="gap:20px"><h2>400 pages.<br>Every year.<br>By hand.</h2><p>A new specification lands every December. <b>~400 pages.</b> Someone reads every line, and writes every test case.</p></div></div></div>` },
-    { title: "Where the hours go", notes: ["Four manual steps: read, extract the rules, write 3,000–4,000 test cases, and every vendor's developer types them in again.", "Zero error tolerance: one wrong expected value and a vendor fails certification."],
+    { title: "Where the hours go", script: "The hours go into four manual steps: read the specification, extract the rules, write three to four thousand test cases with hand-calculated values, and then every vendor's developer types them in again. With zero tolerance: one wrong value, and a vendor fails certification.",
       html: () => `<div class="slide"><span class="kicker">Where the hours go</span><h2>Four steps, all by hand</h2><div class="pain">
         <div><span class="ic">📖</span><b>Read the spec</b><span>~400 pages</span></div>
         <div><span class="ic">✍️</span><b>Extract rules</b><span>by hand, § by §</span></div>
         <div><span class="ic">☑️</span><b>Write test cases</b><span>3,000–4,000 cases</span></div>
         <div><span class="ic">⌨️</span><b>Dev types them in</b><span>manually, per vendor</span></div></div>
       <div class="pain-bar">Every year. By hand. Zero error tolerance.</div></div>` },
-    { title: "Our solution", notes: ["ITSG Spec Pipeline: the AI reads and drafts, you approve, tested code calculates.", "Every value traces back to a sentence in the spec. Let me show you."],
+    { title: "Our solution", script: "So we built §pecs. The AI reads the specification and drafts. A person approves. Tested code calculates every expected value. And every value traces back to a sentence in the specification. Let me show you.",
       html: () => `<div class="slide"><span class="kicker">Our solution</span><h1>${NAME}</h1><p class="tagline">${TAGLINE}</p><div class="promises">
         <div><span class="ic">🤖</span>AI reads the spec</div><div><span class="ic">👤</span>You approve</div><div><span class="ic">🔗</span>Every value traces to a §</div></div></div>` },
-    { title: "Before → after · Thank you", notes: ["Before: weeks of reading and typing. After: one session, every value traced to the spec.", "Thank you. Questions?"],
+    { title: "Before → after · Thank you", script: "Before: weeks of reading and typing, and test cases nobody can trace. After: one session, from the specification to the certificate, every value traced back to the law. Thank you. We look forward to your questions.",
       html: () => `<div class="slide"><div class="beforeafter">
         <figure>${IMG.tired ? `<img src="${IMG.tired}" alt="A tired man at a desk late at night">` : ""}<figcaption>Before<span>Weeks of reading. Thousands of test cases, written and typed in by hand.</span></figcaption></figure>
         <span class="arrow" aria-hidden="true">→</span>
         <figure>${IMG.squirrel ? `<img src="${IMG.squirrel}" alt="A happy squirrel riding a unicorn under a rainbow">` : ""}<figcaption>After<span>Spec in, certified tests out: in one session, every value traced to the spec.</span></figcaption></figure></div>
-      <h1 style="font-size:clamp(2.2rem,5vw,4.2rem)">Thank you!</h1></div>` }
+      <h1 style="font-size:clamp(2.2rem,5vw,4.2rem)">Thank you!</h1></div>` },
+    { title: "Try it yourself", script: "And now it's your turn. Scan the code: the app runs live on our server. Sign in as ITSG to drop a specification and review what the AI found, or as a vendor to see the developer's side. We'll give you the password.",
+      html: () => `<div class="slide"><div class="qr-slide"><div class="qr-box"><svg role="img" aria-label="QR code to the live app" viewBox="0 0 33 33" class="segno"><path fill="#fff" d="M0 0h33v33h-33z"/><path class="qrline" stroke="#111" d="M2 2.5h7m3 0h1m2 0h3m2 0h3m1 0h7m-29 1h1m5 0h1m1 0h3m2 0h2m2 0h1m1 0h1m2 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h5m2 0h1m1 0h1m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h3m6 0h4m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h3m2 0h1m1 0h3m1 0h2m1 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m4 0h1m2 0h2m1 0h2m3 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h3m2 0h1m2 0h1m1 0h3m-20 1h1m1 0h4m1 0h2m2 0h1m2 0h1m2 0h2m1 0h2m1 0h2m1 0h1m-28 1h1m4 0h1m1 0h5m1 0h2m1 0h6m2 0h1m1 0h2m-27 1h2m1 0h1m1 0h1m1 0h2m3 0h1m1 0h4m1 0h1m1 0h1m2 0h2m-26 1h1m1 0h1m4 0h1m3 0h1m1 0h2m1 0h2m2 0h1m1 0h2m3 0h1m-29 1h2m3 0h2m2 0h1m2 0h2m2 0h1m1 0h2m1 0h3m3 0h1m-24 1h2m1 0h1m1 0h3m1 0h5m2 0h1m1 0h1m1 0h1m1 0h3m-29 1h5m1 0h2m1 0h2m2 0h2m1 0h2m1 0h2m1 0h1m2 0h1m1 0h2m-29 1h1m2 0h1m1 0h1m2 0h3m2 0h1m1 0h6m1 0h1m2 0h2m-26 1h1m2 0h1m1 0h1m1 0h3m3 0h1m1 0h2m3 0h1m3 0h1m2 0h1m-29 1h3m8 0h2m3 0h4m1 0h1m1 0h2m1 0h1m-27 1h2m1 0h1m1 0h2m1 0h1m2 0h3m1 0h1m2 0h3m2 0h1m1 0h2m1 0h1m-29 1h2m1 0h2m2 0h8m4 0h4m2 0h4m-29 1h3m2 0h2m3 0h1m2 0h3m1 0h2m1 0h5m1 0h2m-20 1h1m4 0h1m1 0h2m1 0h3m3 0h3m-27 1h7m3 0h1m3 0h2m1 0h4m1 0h1m1 0h1m1 0h2m-28 1h1m5 0h1m1 0h4m1 0h1m2 0h2m2 0h1m3 0h2m1 0h2m-29 1h1m1 0h3m1 0h1m1 0h2m2 0h3m1 0h9m3 0h1m-29 1h1m1 0h3m1 0h1m1 0h5m3 0h2m2 0h1m2 0h1m1 0h3m-28 1h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h2m1 0h2m1 0h1m4 0h1m2 0h2m-29 1h1m5 0h1m1 0h2m3 0h3m2 0h2m2 0h1m1 0h1m1 0h1m1 0h1m-29 1h7m4 0h1m1 0h1m2 0h1m1 0h1m1 0h2m1 0h3"/></svg></div><div class="stack" style="gap:18px">
+        <span class="kicker">Try it yourself</span><h2>Scan. Sign in. Try it.</h2>
+        <p class="tagline">The app runs live on our server: drop a specification, review the AI's reading, send test cases.</p>
+        <span class="qr-url">130.83.85.181:34080</span>
+        <ol class="qr-steps"><li>ITSG examiner: <code>istg</code></li><li>Vendor: <code>sap</code> or <code>lexware</code> · developer: <code>dev</code></li><li>Password: ask us</li></ol></div></div></div>` }
   ];
 
   /* One step = one screen + one sentence. `before` sets the state the screen needs (it also runs when
@@ -3798,28 +3855,28 @@ const TOUR = (() => {
       after: async alive => { await wait(600); for (let i = 1; i <= 8; i++) { if (!alive()) return; await cur.move(`.pipe-step:nth-child(${i})`, { rest: 120 }); }
         if (!alive()) return; await wait(400); if (alive()) await cur.hover('[data-tour="ovattention"] h3', 900, { rest: 0 }); },
       say: "**One pipeline, eight stages:** from the new government PDF to a certified payroll release.",
-      notes: ["Eight stages, from the government PDF to the certificate.", "The AI reads and drafts; tested code calculates; a person decides.", "Below: the release at a glance. The deadline, what needs attention, e-mail notifications from the vendors, and an AI assistant for the whole release."] },
+      script: "This is the whole process in eight stages, from the government PDF to a certified payroll release. Below it, the release at a glance: the deadline, what needs attention, the vendors' e-mails and an AI assistant." },
     { title: "Import", screen: "ingest", sel: '[data-tour="drop"]', via: [{ sel: '.pipe-step[data-screen="ingest"]' }], before: () => { S.role = "itsg"; },
       after: async alive => { if (S.story.ingest) return; await wait(500); if (!alive()) return; await cur.click('[data-act="simDrop"]'); await until(() => S.story.ingest === 2, 8000); if (alive()) spotOn('[data-tour="drop"]', true); },
       say: "**December:** version 13.4 arrives. We import the original PDF; the archive already holds last year's version and tests.",
-      notes: ["We start from the original PDF, not a prepared copy.", "168 pages, 220 sections, a change log with 10 entries; the archive holds last year's spec, the catalogue and the audit reports."] },
+      script: "December: version 13.4 arrives. We import the original PDF, not a prepared copy. The archive already holds last year's version, the test catalogue and the audit reports." },
     { title: "Specification", screen: "specs", sel: '[data-tour="spectext"]', noZoom: true, via: [{ sel: '[data-tour="drop"] [data-act="go"][data-screen="specs"]' }],
       before: () => { S.role = "itsg"; X.ensureDrop(); S.selSec = "3.12"; S.selHl = null; S.specVersion = "13.4"; S.flashQuote = "nicht mehr als 6 Monate vergangen sind"; },
       after: async alive => { await wait(900); if (alive()) await cur.hover("#flashQuote", 600); },
       say: "**Every section, indexed.** The AI highlights each test-relevant sentence, the way ITSG experts do by hand.",
-      notes: ["All 220 sections, full text, indexed from the PDF's own structure.", "Highlights are verbatim spans: conditions, numbers, required fields, exceptions.", "The flashing sentence is the one that changed: „nicht mehr als 6 Monate“."] },
+      script: "Every section is indexed from the PDF's own structure, and the AI highlights the test-relevant sentences, as ITSG's experts do by hand." },
     { title: "The change", screen: "changes", sel: '[data-tour="chcard"]', via: [{ sel: '#rail [data-screen="changes"]' }],
       before: () => { S.role = "itsg"; X.ensureDrop(); S.story.selChange = "3.12"; S.story.reasonOpen = false; S.story.chEdit = null; },
       after: async alive => { await wait(700); if (!alive()) return; await cur.hover('[data-tour="chcard"] .callout', 1400); if (!alive()) return;
         await cur.hover('[data-tour="chcard"] > .row .pill', 900); if (!alive()) return; await cur.hover('[data-tour="ctexplain"] .ai', 600); },
       say: "**“Editorial”**, says the change log: only the wording changed. The AI finds **a condition change**: the same employee now gets a different result.",
-      notes: ["Editorial means only the wording changed: every test gives the same result, nothing to test.", "A condition change means the rule decides differently: same employee, different result, so tests change.", "Here: exactly 6 months used to stop the chain, now it continues. §3.12.6 is not in the change log at all; only the diff found it."] },
+      script: "The change log calls section 3.12 editorial: only wording, nothing to test. The AI disagrees: at a gap of exactly six months, the old text stops the chain, the new one keeps it going. Same employee, different result." },
     { title: "Edit & approve", screen: "changes", sel: '[data-tour="chcard"]', before: () => { S.role = "itsg"; X.ensureDrop(); S.story.selChange = "3.12"; S.story.reasonOpen = false; },
       after: async alive => { if (S.story.edits["3.12"]) return; await wait(900); if (!alive()) return; await cur.click('[data-tour="chcard"] [data-act="chEdit"]'); if (!alive()) return; spotOn('[data-tour="chcard"]', true);
         await cur.click("#chNew"); if (!alive()) return; await X.appendType(document.getElementById("chNew"), X.EDIT_SUFFIX); if (!alive()) return;
         await wait(500); if (!alive()) return; await cur.click('[data-act="chSave"][data-approve]'); if (alive()) spotOn('[data-tour="chcard"]', true); },
       say: "**The examiner corrects** the AI's reading in plain words, then approves it once for the rule.",
-      notes: ["The examiner stays in control: the AI's wording can be corrected in plain language.", "Approve once per rule, not once per test case."] },
+      script: "The examiner stays in control. They correct the AI's reading in plain language and approve it once per rule, not once per test case." },
     { title: "Reasoning & chat", screen: "changes", sel: '[data-tour="why"]', noZoom: true, before: () => { S.role = "itsg"; X.ensureEdited(); S.story.selChange = "3.12"; S.story.reasonOpen = false; S.story.chEdit = null; },
       after: async alive => { await wait(700); if (!alive()) return; await cur.click("#whyPanel > summary"); if (!alive()) return; spotOn('[data-tour="why"]');
         await wait(500); if (!alive()) return; await cur.hover("#whyPanel .cot-step.term", 1300); if (!alive() || S.story.chat.length) return;
@@ -3827,11 +3884,11 @@ const TOUR = (() => {
         await cur.click('[data-act="chatSend"]'); if (document.activeElement) document.activeElement.blur();
         await until(() => S.story.chat.length && !S.story.chat[S.story.chat.length - 1].busy, 15000); if (alive()) await cur.hover("#chatLog .src-chip", 600); },
       say: "**Every conclusion is traceable:** the AI's reasoning, its check in a terminal, and you can ask it why. Its source is one click away.",
-      notes: ["What went to the model: one section and its links, about 5,000 tokens, nothing else.", "It checked its claim in a terminal: same dates, v13.3 False, v13.4 True.", "The source chip opens §3.12 at the exact sentence. It also found that v13.4 contradicts itself on p. 136."] },
+      script: "Every conclusion is traceable: what went to the model, its reasoning, and the check it ran in a terminal. And we can simply ask it why. The answer quotes the specification, and the source is one click away." },
     { title: "Generate test cases", screen: "review", sel: '[data-tour="review"]', via: [{ sel: '.page-head .btn.primary[data-screen="review"]' }], before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); S.story.focus = null; },
       after: async alive => { if (S.story.generated) return; await wait(700); if (!alive()) return; await cur.click('[data-act="genCases"]'); await until(() => S.story.generated && !S.story.genBusy, 15000); if (alive()) spotOn('[data-tour="review"]'); },
       say: "**One test case per rule**, written from the approved changes. Tested code computes every expected result.",
-      notes: ["One case per rule, grouped by the rule it tests.", "The expected value comes from tested code. Checks G1–G5: quotes verbatim, formula safe, oracle equals AI, parameters quoted, formula run."] },
+      script: "From the approved changes, the AI writes one test case per rule. It never decides an expected value: tested code computes it, and five checks verify the quotes and the formula." },
     { title: "The case we follow", screen: "review", sel: '[data-tour="casedetail"]', noZoom: true,
       before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.caseIds().find(id => id !== X.FOLLOWED) || X.FOLLOWED; S.story.focus = null; S.story.caseFilter = "all"; S.story.caseEdit = null; },
       after: async alive => { await wait(700); if (!alive()) return; await cur.click('[data-tour="focuscase"]'); if (!alive()) return; S.story.focus = X.FOLLOWED; A.render(); spotOn('[data-tour="casedetail"]', true);
@@ -3841,64 +3898,70 @@ const TOUR = (() => {
         await X.appendType(ta, X.CASE_SUFFIX); if (!alive()) return; await wait(500); if (!alive()) return;
         await cur.click('[data-act="caseSave"][data-verify]'); if (alive()) spotOn('[data-tour="casedetail"]', true); },
       say: "**The case we follow:** ITSG's reference employee. The examiner can reword any test case, then verify it.",
-      notes: ["ITSG's own reference employee, Peter Mustermann, plus an older sick period from November 2024.", "Expected: request 41 with exactly 4 periods; the 2024 one stays out.", "Edit: the examiner adds “ANZAHL-AU must be 04.” The expected value itself stays with tested code."] },
+      script: "This is the case we follow: ITSG's own reference employee, with one older sick period from 2024 that must stay out of the request. The examiner can reword any test case, then verify it." },
     { title: "Send to developers", screen: "review", sel: '[data-tour="sendbtn"]', before: () => { S.role = "itsg"; S.story.caseEdit = null; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.FOLLOWED; S.story.focus = X.FOLLOWED; },
       after: async alive => { if (S.story.sent) return; await wait(600); if (!alive()) return; await cur.click('[data-act="sendOpen"]'); if (!alive()) return; spotOn(".modal");
         await cur.hover('.modal .sendTo[value="sap"]', 900); if (!alive()) return; await cur.click('[data-act="sendNow"]'); if (alive()) spotOn('[data-tour="sendbtn"]'); },
       say: "**One click** sends the package to the vendor's developers. ITSG keeps the expected file and compares every upload.",
-      notes: ["One click to SAP's developers.", "They get each case in words and as JSON, with what should happen; ITSG keeps the expected file."] },
+      script: "One click sends the package to SAP's developers: every case in words and as JSON. ITSG keeps the expected file and compares every upload." },
     { title: "SAP: notification", screen: "vhome", sel: ".notify", noZoom: true, via: [{ sel: '#roleSeg [data-v="vendor"]', run: () => { X.toVendor(); A.go("vhome"); } }],
       before: () => { X.ensureSent(); X.toVendor(); S.story.notify = true; },
       after: async alive => { await wait(1800); if (!alive() || !S.story.notify) return; await cur.click(".notify .stack"); if (!alive()) return; setTimeout(() => { X.scrollThread(); spotOn('[data-tour="mail"]'); }, 120); },
       say: "**On SAP's side**, the developer gets a notification, and the package lands in their e-mail inbox.",
-      notes: ["Now we are SAP's developer.", "A notification, then the package arrives as an e-mail in Messages."] },
+      script: "Now we are SAP's developer. A notification comes in, and the package lands in the inbox, like any e-mail." },
     { title: "Checklist", screen: "vcheck", sel: '[data-tour="recap"]', via: [{ sel: '.mail-msgs [data-act="mailOpen"][data-type="package"]' }],
       before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.clOpen = null; },
-      after: async alive => { await wait(700); if (alive()) await cur.hover('[data-tour="recap"] h4', 600); },
+      after: async alive => { await wait(700); if (!alive()) return; await cur.hover('[data-tour="recap"] h4', 600); if (!alive()) return;
+        await cur.click('[data-act="clCopyAll"]'); if (!alive()) return; await wait(2200); if (alive()) await cur.click('.modal-foot [data-act="closeModal"]'); },
       say: "**The package opens as a checklist.** An AI recap tells the developer what changed and what to do.",
-      notes: ["The AI recap: what changed in v13.4 and what the developer has to do.", "Below it, the 5 test cases to run, grouped by rule."] },
+      script: "It opens as a checklist with an AI recap of what changed. One click copies every test case as context for the developer's own AI, the first step towards fully automated testing." },
     { title: "Run each test", screen: "vcheck", sel: '[data-tour="cltable"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.covered = {}; S.story.clOpen = null; },
       after: async alive => { await wait(800); for (const id of X.caseIds()) { if (!alive()) return; if (S.story.covered[id]) continue;
           const main = id === X.FOLLOWED;
           await cur.click(`[data-act="clOpen"][data-id="${id}"]`); if (!alive()) return; spotOn(`[data-row="${id}"]`, true);
           if (main) { await cur.hover(`[data-row="${id}"] .tc-sheet`, 1100); if (!alive()) return; await cur.hover(`[data-row="${id}"] .cl-soll`, 1600); if (!alive()) return; }
-          else { await wait(400); if (!alive()) return; }
+          else { await wait(200); if (!alive()) return; }
           await cur.click(`[data-act="clPass"][data-id="${id}"]`); } if (alive()) spotOn('[data-tour="cltable"]', true); },
       say: "**Test by test:** the developer runs each case in SAP, following its steps, and checks it against what should happen.",
-      notes: ["How to run it: the setup and the steps, like ITSG's Testkonstellation.", "What should happen: in words, with the key values. They check it on screen and tick it off.", "The exact file stays with ITSG: it is compared after the upload."] },
+      script: "They work through the cases one by one: how to run it, with the setup and the steps; what should happen, in words with the key values. They run it in SAP and tick it off." },
     { title: "Upload", screen: "vcheck", sel: '[data-tour="upload"]', before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.clOpen = null; X.tickAll(); },
       after: async alive => { if (S.story.uploads.length) return; await wait(900); if (!alive()) return; await cur.click('[data-act="uploadPick"]'); if (!alive()) return; spotOn(".modal");
         await cur.click('[data-act="uploadNow"][data-f="gap"]'); if (alive()) spotOn('[data-tour="upload"]'); },
       say: "**Upload the result:** the DTA file their software produced. It is e-mailed to ITSG and compared automatically.",
-      notes: ["They upload the DTA file their payroll software produced.", "It goes to ITSG as an automatic e-mail and is compared at once."] },
+      script: "Then they upload the DTA file their software produced. It goes to ITSG and is compared automatically." },
     { title: "It fails", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, via: [{ sel: '#rail [data-screen="mail"]' }, { sel: () => `.mail-list [data-act="openThread"][data-id="${A.certThread("sap").id}"]` }],
       before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; X.tickAll(); X.ensureUpload(); S.selThread = A.certThread("sap").id; },
-      after: async alive => { await wait(80); X.scrollThread(); await wait(500); if (alive()) await cur.hover(".mail-msgs .att.bad", 600); },
+      after: async alive => { await wait(80); X.scrollThread(); await wait(500); if (!alive()) return; await cur.hover(".mail-msgs .att.bad", 900); if (!alive()) return;
+        await cur.click('.mail-msgs .att.bad [data-act="ctxFail"]'); if (!alive()) return; await wait(2600); if (alive()) await cur.click('.modal-foot [data-act="closeModal"]'); },
       say: "**One test fails:** SAP's screen looked right, but the exported file still lists the 2024 period.",
-      notes: ["1 of 5 failed: the reference case. On screen it showed 4 periods.", "The file has 5: the period from November 2024, and ANZAHL-AU 05 instead of 04.", "That is why ITSG compares the file, not the screen."] },
+      script: "And one test fails: the screen looked right, but the exported file still contains the 2024 period. Copy debug context hands the case, the failing values and the specification to the developer's AI." },
     { title: "Follow-up question", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); X.tickAll(); X.ensureUpload(); S.selThread = A.certThread("sap").id; },
       after: async alive => { setTimeout(X.scrollThread, 60); if (S.story.asked) return; await wait(1200); if (!alive()) return;
         await cur.click(".mail-compose textarea"); if (!alive()) return; await X.typeInto(document.querySelector(".mail-compose textarea"), X.DEV_QUESTION, 26); if (!alive()) return;
         await cur.click('.mail-compose [data-act="mailSend"]'); S.story.asked = true; if (document.activeElement) document.activeElement.blur(); X.scrollThread();
         await wait(1800); if (!alive()) return; X.itsgAnswer(); X.scrollThread(); await wait(300); if (alive()) await cur.hover(".mail-msgs .mail-msg:last-child .src-chip", 600); },
       say: "**Ask why, right in the thread.** ITSG answers with the exact quote and a link to the spec.",
-      notes: ["The developer asks: our screen shows 4 periods, why does the file have 5?", "ITSG answers with the exact quote and page: the export ignores the chain. The § chip opens the spec. Everything on record."] },
+      script: "Or they simply ask why, right in the thread, and ITSG answers with the exact quote and the page. Everything stays on record." },
     { title: "Retest", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); X.tickAll(); X.ensureUpload(); X.ensureAsked(); S.selThread = A.certThread("sap").id; },
       after: async alive => { setTimeout(X.scrollThread, 60); if (S.story.fixed) return; await wait(900); if (!alive()) return; timeSkip("Two days later"); await wait(2500); if (!alive()) return;
         await cur.click('#rail [data-screen="vcheck"]', { spot: true }); if (!alive()) return; await cur.click('[data-act="uploadPick"]'); if (!alive()) return; spotOn(".modal");
         await cur.click('[data-act="uploadNow"][data-f="teel0"]'); if (!alive()) return; await cur.click('#rail [data-screen="mail"]', { spot: true }); if (!alive()) return;
         spotOn('[data-tour="mail"]'); await wait(80); X.scrollThread(); await wait(400); if (alive()) await cur.hover(".mail-msgs .att.ok", 600); },
       say: "**Two days later:** the team fixes the program and uploads again. All 5 test cases pass.",
-      notes: ["Two days later: the team fixed it.", "New upload from the checklist: 5 of 5 pass."] },
+      script: "Two days later the team has fixed it. They upload again, and all five test cases pass. No second visit, no typing." },
     { title: "Report & certificate", screen: "cert", sel: '[data-tour="cert"]', noZoom: true, via: [{ sel: '#roleSeg [data-v="itsg"]', run: () => { S.role = "itsg"; A.go("overview"); } }, { sel: '#rail [data-screen="cert"]' }],
       before: () => { X.ensureSent(); X.tickAll(); X.ensureUpload(); X.ensureAsked(); X.ensureFixed(); S.role = "itsg"; },
       after: async alive => { await wait(1200); if (!alive()) return; if (!X.certIssued()) { await cur.click('[data-act="certIssue"]'); if (!alive()) return; spotOn('[data-tour="cert"]', true); }
         await wait(500); if (alive()) await cur.hover('[data-act="certPdf"]', 600); },
       say: "**Certified.** The final report passes, the certificate goes out by e-mail, and the PDF is one click away.",
-      notes: ["The final report passes: the test cases and the on-site criteria.", "The certificate goes out by e-mail, sealed with SHA-256, and as a PDF."] }
+      script: "Back at ITSG, the final report passes. The certificate for SAP's 2027 release goes out by e-mail, sealed with SHA-256, and as a PDF." }
   ];
-  const SEQ = [...SLIDES.slice(0, 4).map((_, i) => ({ slide: i })), ...STEPS.map((_, i) => ({ step: i })), { slide: 4 }];
+  const SEQ = [...SLIDES.slice(0, 4).map((_, i) => ({ slide: i })), ...STEPS.map((_, i) => ({ step: i })), { slide: 4 }, { slide: 5 }];
   const beat = p => { const it = SEQ[p]; return it.slide != null ? SLIDES[it.slide] : STEPS[it.step]; };
+  // Speaking pace 138 words a minute: each beat's length and when it should be done, so the whole demo is 5 minutes.
+  const secOf = b => Math.max(5, Math.round(b.script.split(/\s+/).length / 2.3));
+  const DONE_BY = SEQ.reduce((acc, _, p) => (acc.push((acc[p - 1] || 0) + secOf(beat(p))), acc), []);
+  const mmss = t => `${Math.floor(t / 60)}:${String(Math.round(t) % 60).padStart(2, "0")}`;
   const beatLabel = p => { const it = SEQ[p]; return it.slide != null ? `${L("Slide", "Folie")} ${it.slide + 1}` : `${L("Step", "Schritt")} ${it.step + 1}/${STEPS.length}`; };
 
   let pos = -1, token = 0;
@@ -4010,6 +4073,7 @@ const TOUR = (() => {
       let n = find(t); if (!n) return null;
       await scrollTo(n);
       if (typeof t === "string" && !document.contains(n)) n = find(t); if (!n) return null;
+      if (!n.getClientRects().length || !n.offsetWidth) return null; // hidden: no position to aim at
       if (o.spot && typeof t === "string") spotOn(t, true);
       document.querySelectorAll(".cur-hover").forEach(e => e.classList.remove("cur-hover")); n.classList.add("cur-hover");
       const r = n.getBoundingClientRect();
@@ -4064,7 +4128,7 @@ const TOUR = (() => {
       document.body.innerHTML = `<div class="presenter"><div class="row between"><div class="stack" style="gap:4px"><span class="eyebrow">${at >= 0 ? `${at + 1} / ${SEQ.length} · ${beatLabel(at)}` : L("Not started", "Nicht gestartet")}</span><h1>${b ? b.title : L("Press › or D in the main window to start", "› oder im Hauptfenster D drücken, um zu starten")}</h1></div><span class="clock" id="pClock">${clock()}</span></div>
         <div class="row"><button class="btn" data-p="prev">‹ ${L("Back", "Zurück")}</button><button class="btn primary" data-p="next">${L("Next", "Weiter")} ›</button><button class="btn ghost" data-p="reset">${L("Reset clock", "Uhr zurücksetzen")}</button><button class="btn ghost" data-p="end">${L("End demo", "Demo beenden")}</button></div>
         <div class="stack" style="gap:var(--s-4);align-content:start">${b && b.say ? `<div class="callout accent"><b>${L("On screen", "Auf dem Bildschirm")}</b><span style="font-size:1.1rem">${capHtml(b.say)}</span></div>` : ""}
-          ${b ? `<ul class="notes">${b.notes.map(n => `<li>${n}</li>`).join("")}</ul>` : ""}</div>
+          ${b ? `<p class="script">${b.script}</p><div class="pace">≈ ${secOf(b)} s · ${L("done by", "fertig bis")} <b>${mmss(DONE_BY[at])}</b> · ${L("total", "gesamt")} ${mmss(DONE_BY[DONE_BY.length - 1])}</div>` : ""}</div>
         <div class="next">${next ? `${L("Next", "Als Nächstes")}: <b>${next.title}</b>` : L("Last beat", "Letzter Schritt")}</div></div>`;
     }
     const onState = d => { if (!d || d.type !== "tour") return; if (d.pos >= 0 && t0 == null) t0 = Date.now(); at = d.pos; paint(); };
@@ -4072,7 +4136,7 @@ const TOUR = (() => {
     if (chan) chan.onmessage = e => onState(e.data);
     document.addEventListener("click", e => { const b = e.target.closest("[data-p]"); if (!b) return; if (b.dataset.p === "reset") { t0 = Date.now(); paint(); } else toMain(b.dataset.p); });
     document.addEventListener("keydown", e => { if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); toMain("next"); } else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); toMain("prev"); } else if (e.key === "Escape") toMain("end"); });
-    setInterval(() => { const c = document.getElementById("pClock"); if (c) c.textContent = clock(); }, 1000);
+    setInterval(() => { const c = document.getElementById("pClock"); if (c) { c.textContent = clock(); c.classList.toggle("late", t0 != null && at >= 0 && (Date.now() - t0) / 1000 > DONE_BY[at] + 5); } }, 1000);
     paint(); toMain("hello");
   }
 
@@ -4129,7 +4193,7 @@ const TOUR = (() => {
     // a dialog opening or closing moves the frame onto it and back, following its entrance animation
     new MutationObserver(() => { if (pos >= 0) { followUntil = performance.now() + 700; follow(); } }).observe($("#modalHost"), { childList: true });
     $("#main").addEventListener("transitionend", () => { if (pos >= 0) respot(); });
-    // #demo opens the demo, #demo=8 jumps to beat 8 (1–22: slides 1–4, steps 1–17, closing slide)
+    // #demo opens the demo, #demo=8 jumps to beat 8 (1–23: slides 1–4, steps 1–17, closing slide, QR code to the live app)
     const m = location.hash.match(/^#demo(?:=(\d+))?$/);
     if (m) setTimeout(() => start(Math.max(0, Math.min(SEQ.length, Number(m[1] || 1)) - 1)), 50);
   }

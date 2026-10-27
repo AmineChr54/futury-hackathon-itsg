@@ -14,6 +14,7 @@ value, numbers appear in their quotes, the formula was tried in the terminal) an
 sent back to the model so it can fix its answer.
 """
 import json
+import random
 import re
 import socket
 import time
@@ -206,6 +207,32 @@ class Stopped(Exception):
     """The examiner pressed Stop."""
 
 
+BUSY_STATUS = {429, 502, 503, 504}  # the gateway is overloaded or rate-limits us: wait, then try again
+BACKOFF_S = (2, 4, 8, 16, 30)
+
+
+def _open(req, should_stop):
+    """urlopen that waits and tries again while the gateway is busy or refuses the connection.
+    Nothing has been streamed yet at this point, so a retry repeats nothing."""
+    for wait in BACKOFF_S + (None,):
+        try:
+            return urllib.request.urlopen(req, timeout=180)
+        except urllib.error.HTTPError as e:
+            if wait is None or e.code not in BUSY_STATUS:
+                raise
+            after = (e.headers or {}).get("Retry-After") or ""
+            delay = min(float(after), 60) if after.isdigit() else wait * random.uniform(0.75, 1.25)
+        except urllib.error.URLError as e:
+            if wait is None or not isinstance(e.reason, ConnectionError):  # a timeout is not worth another 180 s
+                raise
+            delay = wait * random.uniform(0.75, 1.25)
+        until = time.time() + delay
+        while time.time() < until:
+            if should_stop():
+                raise Stopped()
+            time.sleep(min(0.5, max(0.0, until - time.time())))
+
+
 def chat(cfg, messages, on_delta=None, should_stop=lambda: False):
     """One streamed chat completion. Returns {reasoning, content, tool_calls}.
     Raises Stopped as soon as should_stop() turns true; the stream is closed, so the
@@ -218,7 +245,7 @@ def chat(cfg, messages, on_delta=None, should_stop=lambda: False):
     out = {"reasoning": "", "content": "", "tool_calls": {}, "finish_reason": None}
     last = 0.0
     try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with _open(req, should_stop) as resp:
             for raw in resp:
                 if should_stop():
                     raise Stopped()

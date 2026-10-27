@@ -20,7 +20,7 @@ For how to run it, see [`demo/README.md`](../demo/README.md).
 | Data | ITSG's reference case + generated employees; vendors are **SAP and Lexware as illustrative examples** (team decision, 26.10.); every result shown for them is imagined and labelled as such on each results screen |
 | Style | Clean, professional tool, crimson accent, light and dark; built from tokens so it can move into Claude Design |
 | Tech | One HTML file, vanilla JS, works offline; CDN only for optional extras |
-| Name | **ITSG Spec Pipeline**, tagline *“From specification to certified test, in one session.”* (decided 27.10.; was the working title “EEL Review Assistant”) |
+| Name | **§pecs** (spoken “Specs”; the § marks it as a tool for legal specifications), tagline *“From specification to certified test, in one session.”* (renamed 27.10. from “ITSG Spec Pipeline”, before that the working title “EEL Review Assistant”) |
 
 ## Changes after the ITSG review (evening, 26.10.)
 
@@ -49,7 +49,7 @@ review, developer checklist with AI recap) into this app. How to run it:
 
 | Area | Decision |
 |---|---|
-| Name | **ITSG Spec Pipeline** |
+| Name | **§pecs** (was “ITSG Spec Pipeline”) |
 | Language | English on the slides and in the bar; German spec quotes verbatim |
 | Slides | Same file. Demo button → slides 1–4 → steps → closing slide. 1: ITSG logo, name, tagline. 2: Patrick meme, “400 pages. Every year. By hand.” 3: the four manual steps with their cost, “Every year. By hand. Zero error tolerance.” 4: name, tagline, three promises (AI reads · you approve · every value traces to a §). 5: tired guy → happy squirrel, “Thank you!” |
 | Caption | One sentence per step in a dark caption next to the spotlight, key words highlighted (inspired by the KMR2 demo); controls `n/17 ‹ › Narrator ✕` in a pill at the bottom right. **T** hides the controls (text only) |

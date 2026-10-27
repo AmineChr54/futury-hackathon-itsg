@@ -3228,7 +3228,8 @@ const APP = (() => {
   function init() {
     if (IS_PRESENTER) return;
     setInterval(() => xSync(), 4000);
-    document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (!el || el.tagName === "SELECT") return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
+    document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); // a click inside a dialog that hits no control of its own must not count as a click on the backdrop
+      if (!el || el.tagName === "SELECT" || (el.classList.contains("modal-scrim") && e.target !== el)) return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
     document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-act][role=button], .prov")) { e.preventDefault(); e.target.click(); } if (e.key === "Escape") { closeDrawer(); $("#modalHost").innerHTML = ""; } });
     document.addEventListener("change", e => { if (e.target.id === "sampleSel") {
       const val = e.target.value;

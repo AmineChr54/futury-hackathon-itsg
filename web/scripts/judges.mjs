@@ -48,6 +48,6 @@ if (!existsSync(path.join(WEB, ".next", "BUILD_ID"))) await next(["build"]);
 const url = `http://${lanAddress() ?? "localhost"}:${PORT}/`;
 run(process.execPath, [NEXT, "start", "-H", "0.0.0.0", "-p", PORT], { cwd: WEB }).on("exit", code => stopAll(code ?? 0));
 
-console.log(`\n  ITSG Spec Pipeline for the judges\n  ${url}\n`);
+console.log(`\n  §pecs for the judges\n  ${url}\n`);
 console.log(await QRCode.toString(url, { type: "terminal", small: true }));
 console.log("  Phones must be on the same Wi-Fi. On Windows, allow Node.js on private networks when the firewall asks.\n");

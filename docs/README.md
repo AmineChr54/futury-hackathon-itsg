@@ -1,5 +1,7 @@
 # ITSG Challenge: AI Review Assistant for System Review
 
+← [Project README](../README.md): what we built, how to run it, the architecture.
+
 **Futury Build Days #3, 26–27 Oct 2026.** Challenge sponsor: ITSG GmbH. Tech sponsor: hessian.AI.
 
 ## TL;DR

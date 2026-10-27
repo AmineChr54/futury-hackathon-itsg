@@ -29,6 +29,9 @@ jobs:
           mkdir -p _site/demo
           cp site/index.html _site/
           cp demo/index.html _site/demo/
+          # light mode by default on Pages (the moon button still switches to dark)
+          sed -i 's/store.get("theme", "system")/store.get("theme", "light")/' _site/demo/index.html
+          grep -q 'store.get("theme", "light")' _site/demo/index.html
           cp images/ITSG-logo.png deploy/qr.svg pitch/ITSG-Spec-Pipeline.pdf _site/
           touch _site/.nojekyll
       - uses: actions/configure-pages@v5

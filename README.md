@@ -2,7 +2,7 @@
 
 <img src="images/ITSG-logo.png" alt="ITSG" width="260">
 
-# ITSG Spec Pipeline
+# §pecs
 
 **From the new specification to a certified release — with AI that shows its work.**
 
@@ -15,9 +15,13 @@ built at **Futury Build Days #3** (26–27 Oct 2026) · challenge sponsor **ITSG
 ![LLM](https://img.shields.io/badge/LLM-hessian.AI%20Kolibri--1-b31b3b)
 ![Tests](https://img.shields.io/badge/tests-59%20unit%20%2B%206%20UI-2ea44f)
 
+### [▶ Try the demo in your browser](https://aminechr54.github.io/futury-hackathon-itsg/)
+
+[**Guided demo**](https://aminechr54.github.io/futury-hackathon-itsg/demo/#demo) · [**Pitch deck**](https://aminechr54.github.io/futury-hackathon-itsg/ITSG-Spec-Pipeline.pdf) · [**Live app**](http://130.83.85.181:34080/) (our hackathon server, real AI)
+
 [**Quick start**](#-quick-start) · [**Architecture**](#-architecture) · [**How it works**](#-how-it-works) · [**Trust model**](#-trust-model) · [**Docs**](#-documentation)
 
-<img src="docs/images/overview.png" alt="ITSG Spec Pipeline: overview screen" width="100%">
+<img src="docs/images/overview.png" alt="§pecs: overview screen" width="100%">
 
 </div>
 
@@ -52,7 +56,7 @@ built at **Futury Build Days #3** (26–27 Oct 2026) · challenge sponsor **ITSG
 
 Every payroll program in Germany (SAP, DATEV, Lexware, ~100 in total) must pass a **system review** by ITSG before it may send reports to the social insurance institutions (§95b SGB IV). Each year the government publishes a new version of the specification — hundreds of pages — and today experts read it by hand, write test cases by hand, and vendor engineers type them into their software by hand.
 
-**ITSG Spec Pipeline** automates that loop for income replacement benefits (*Entgeltersatzleistungen*, DTA EEL):
+**§pecs** automates that loop for income replacement benefits (*Entgeltersatzleistungen*, DTA EEL):
 
 1. **Import** the new specification PDF next to last year's version.
 2. **Detect changes** — the official change log, reconciled with a section-by-section diff (it catches changes the log forgot).
@@ -160,7 +164,7 @@ flowchart LR
     examiner(["👩‍⚖️ ITSG examiner"])
     vendor(["👨‍💻 Vendor developer<br/>SAP, Lexware …"])
 
-    subgraph system ["ITSG Spec Pipeline"]
+    subgraph system ["§pecs"]
         app["Web app + API<br/>one container"]
     end
 
@@ -549,5 +553,3 @@ The unit tests cover the formula language, the sandbox, PDF sectioning and diff,
 ## 🤝 Team
 
 Built in 48 hours at Futury Build Days #3 by **Achraf**, **Amine Cheikhrouhou** and **Yassine**.
-
-Thanks to **ITSG GmbH** for the challenge, the specifications and their time, and to **hessian.AI** for the inference platform.

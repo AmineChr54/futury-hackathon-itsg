@@ -1,0 +1,222 @@
+<!doctype html>
+<!-- GitHub Pages welcome page: a static copy of the Next.js portal (web/app/page.tsx).
+     .github/workflows/pages.yml publishes it with demo/index.html (recorded data) next to it. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>§pecs</title>
+<meta name="description" content="§pecs: from the yearly government specification to certified test cases for payroll software. Futury Build Days 2026, ITSG challenge.">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f6f4f4">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#131112">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;600;700&display=swap">
+<style>
+/* Tokens copied from demo/index.html so the page looks like the app. */
+:root {
+  --bg: #f6f4f4; --surface: #ffffff; --surface-2: #f1eeee; --line: #e0d9d9; --line-strong: #c9c0c1;
+  --fg: #1c1819; --fg-2: #3d3537; --muted: #6d6366;
+  --accent: #b0142f; --accent-ink: #ffffff; --accent-soft: #f8e1e5; --accent-line: #e8a9b4;
+  --shadow: 0 1px 2px rgba(40, 20, 24, .06), 0 6px 24px rgba(40, 20, 24, .07);
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131112; --surface: #1b1819; --surface-2: #231f20; --line: #342e30; --line-strong: #4a4144;
+    --fg: #f0ebec; --fg-2: #d6cfd0; --muted: #a59a9d;
+    --accent: #f0566c; --accent-ink: #1b0a0d; --accent-soft: #3b1a20; --accent-line: #7c3341;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131112; --surface: #1b1819; --surface-2: #231f20; --line: #342e30; --line-strong: #4a4144;
+  --fg: #f0ebec; --fg-2: #d6cfd0; --muted: #a59a9d;
+  --accent: #f0566c; --accent-ink: #1b0a0d; --accent-soft: #3b1a20; --accent-line: #7c3341;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 28px rgba(0,0,0,.45);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 400 16px/1.55 var(--font-body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+a { color: inherit; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; }
+.mono { font-family: var(--font-mono); }
+
+main { width: min(1160px, 100%); margin: 0 auto; padding: 20px 16px 40px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 56px; }
+@media (min-width: 720px) { main { padding: 28px 32px 48px; } }
+
+.top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.logo { height: 40px; width: auto; background: #fff; border-radius: 8px; padding: 4px 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: .8125rem; font-weight: 600; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+
+.kicker { font-size: .8rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+
+.hero { display: grid; gap: 32px; align-items: center; }
+@media (min-width: 860px) { .hero { grid-template-columns: minmax(0, 1fr) 300px; gap: 56px; } }
+.hero-text { display: grid; gap: 14px; justify-items: start; }
+.hero h1 { font-size: clamp(2.6rem, 7vw, 4.6rem); line-height: 1.02; letter-spacing: -.02em; }
+.tagline { font-size: clamp(1.15rem, 2.4vw, 1.5rem); color: var(--fg-2); margin: 0; }
+.lede { color: var(--fg-2); max-width: 60ch; margin: 0; }
+.lede b { color: var(--fg); }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.btn { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); font-weight: 600; text-decoration: none; }
+.btn:hover { border-color: var(--fg-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.big { min-height: 56px; padding: 0 28px; font-size: 1.125rem; border-radius: 12px; }
+.hint { font-size: .875rem; color: var(--muted); margin: 0; }
+.kbd { font-family: var(--font-mono); font-size: .8125rem; padding: 1px 6px; border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface); }
+
+.qr { margin: 0; justify-self: center; width: min(300px, 100%); background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: var(--shadow); display: grid; gap: 12px; text-align: center; }
+.qr-code { background: #fff; border-radius: 10px; padding: 8px; aspect-ratio: 1; }
+.qr-code img { display: block; width: 100%; height: auto; }
+.qr figcaption { display: grid; gap: 4px; }
+.qr figcaption a { font-size: .875rem; color: var(--accent); overflow-wrap: anywhere; }
+.qr figcaption span { font-size: .8125rem; color: var(--muted); }
+
+section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+section > h2 { font-size: clamp(1.6rem, 3.4vw, 2.2rem); }
+
+.cards { display: grid; gap: 16px; }
+@media (min-width: 860px) { .cards.three { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px; display: grid; gap: 10px; align-content: start; }
+.card h3 { font-size: 1.4rem; line-height: 1.2; }
+.card p { margin: 0; color: var(--fg-2); }
+.card ul { margin: 0; padding-left: 1.1em; display: grid; gap: 8px; color: var(--fg-2); }
+.card.link { text-decoration: none; transition: border-color .15s, transform .15s; }
+.card.link:hover { border-color: var(--accent-line); transform: translateY(-2px); }
+.card.link h3 span { color: var(--accent); }
+.guards { list-style: none; padding: 0 !important; }
+.guards li { display: grid; grid-template-columns: 2.4em 1fr; gap: 6px; }
+.guards .mono { color: var(--accent); font-weight: 600; }
+.small { font-size: .875rem; }
+
+.pipe { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); }
+.pipe li { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 4px; align-content: start; }
+.pipe .n { color: var(--accent); font-size: .8125rem; }
+.pipe b { font-family: var(--font-display); font-size: 1.15rem; }
+.pipe li > span:last-child { color: var(--muted); font-size: .9rem; }
+.trail { margin: 0; padding: 14px 16px; border-radius: 12px; background: var(--accent-soft); color: var(--fg); font-size: .875rem; overflow-wrap: anywhere; }
+
+footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: .875rem; border-top: 1px solid var(--line); padding-top: 20px; }
+footer a { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) { .card.link { transition: none; } .card.link:hover { transform: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <img src="ITSG-logo.png" alt="ITSG" width="681" height="293" class="logo">
+    <span class="chip">Recorded demo · runs in your browser</span>
+  </header>
+
+  <section class="hero">
+    <div class="hero-text">
+      <span class="kicker">Futury Build Days 2026 · ITSG challenge</span>
+      <h1>§pecs</h1>
+      <p class="tagline">From specification to certified test, in one session.</p>
+      <p class="lede">
+        Every December a new ~400-page specification lands, and ITSG rewrites 3,000–4,000 test cases by hand.
+        Our pipeline reads the spec, finds what changed, drafts the rules for an examiner to approve and turns them
+        into test cases. <b>Every expected value traces back to a sentence in the spec.</b>
+      </p>
+      <div class="actions">
+        <a class="btn primary big" href="demo/#demo">▶ Start demo</a>
+        <a class="btn big" href="demo/">Explore the app</a>
+      </div>
+      <p class="hint">5 minutes: four slides, then 17 steps through the app. <span class="kbd">→</span> next · <span class="kbd">←</span> back · <span class="kbd">Esc</span> ends.</p>
+    </div>
+    <figure class="qr">
+      <div class="qr-code"><img src="qr.svg" alt="QR code to the live app on our server" width="420" height="420"></div>
+      <figcaption>
+        <a href="http://130.83.85.181:34080/">130.83.85.181:34080</a>
+        <span>The live app with the real AI, on our hackathon server</span>
+      </figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Try it</h2>
+    <div class="cards three">
+      <a href="demo/#demo" class="card link">
+        <span class="kicker">5 minutes</span>
+        <h3>Guided demo <span aria-hidden="true">→</span></h3>
+        <p>The pitch as we present it: four slides, then 17 steps through the app with recorded data. → and ← step through.</p>
+      </a>
+      <a href="demo/" class="card link">
+        <span class="kicker">Recorded data</span>
+        <h3>Explore the app <span aria-hidden="true">→</span></h3>
+        <p>Click through every screen yourself: switch between the ITSG examiner and a vendor (SAP, Lexware) at the top.</p>
+      </a>
+      <a href="ITSG-Spec-Pipeline.pdf" class="card link">
+        <span class="kicker">PDF</span>
+        <h3>Pitch deck <span aria-hidden="true">→</span></h3>
+        <p>The five slides from the pitch, with speaker notes.</p>
+      </a>
+    </div>
+  </section>
+
+  <section>
+    <h2>Data · Model · Logic</h2>
+    <div class="cards three">
+      <article class="card">
+        <span class="kicker">Data</span>
+        <h3>Real ITSG documents</h3>
+        <ul>
+          <li>The government's <b>DTA EEL Verfahrensbeschreibung v13.4</b> PDF: all 220 sections, full text.</li>
+          <li>Last year's <b>v13.3</b> from the archive, for the diff.</li>
+          <li>ITSG's reference case (prior-illness request) and its real <span class="mono">TEEL0-Test1-DBVO</span> file, which our expected output matches byte for byte.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <span class="kicker">Model</span>
+        <h3>Kolibri-1 on hessian.AI</h3>
+        <ul>
+          <li><b>Aleph Alpha's Kolibri-1</b> through the hessian.AI OpenAI-compatible gateway, with tool calls.</li>
+          <li>It gets one § section, the sections it links to and the old version. Never the whole archive.</li>
+          <li>It extracts parameters with <b>verbatim German quotes</b> and writes the formula. It never decides an expected value on its own.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <span class="kicker">Logic</span>
+        <h3>Deterministic guards</h3>
+        <ul class="guards">
+          <li><span class="mono">G1</span>Every quote appears verbatim in the spec</li>
+          <li><span class="mono">G2</span>The formula parses in a small, safe language</li>
+          <li><span class="mono">G3</span>Our oracle's result equals the AI's own value</li>
+          <li><span class="mono">G4</span>Every legal number appears in its quote (sechs Wochen = 42 days)</li>
+          <li><span class="mono">G5</span>The formula was actually run</li>
+        </ul>
+        <p class="small">Failed guards go back to the AI. An examiner approves every rule. The value a developer receives always comes from tested code.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>The pipeline</h2>
+    <ol class="pipe">
+      <li><span class="n mono">01</span><b>Import</b><span>Drop the government's new spec PDF.</span></li>
+      <li><span class="n mono">02</span><b>Index &amp; highlight</b><span>§ index from the PDF's own headings and links.</span></li>
+      <li><span class="n mono">03</span><b>Detect changes</b><span>Change log + section diff against last year.</span></li>
+      <li><span class="n mono">04</span><b>Understand &amp; approve</b><span>AI drafts each rule; the examiner approves.</span></li>
+      <li><span class="n mono">05</span><b>Generate test cases</b><span>In plain words; tested code computes the values.</span></li>
+      <li><span class="n mono">06</span><b>Hand over</b><span>Checklist and AI recap for each vendor's developer.</span></li>
+      <li><span class="n mono">07</span><b>Compare</b><span>Vendor file vs. expected, every difference in words.</span></li>
+      <li><span class="n mono">08</span><b>Report &amp; certify</b><span>Sealed report, certificate, next audit scope.</span></li>
+    </ol>
+    <p class="trail mono">spec § → AI reads (quotes + formula) → 5 guards → examiner approves → tested function → expected value → vendor check</p>
+  </section>
+
+  <footer>
+    <span>Futury Build Days · 26–27 Oct 2026 · ITSG challenge</span>
+    <a href="https://github.com/AmineChr54/futury-hackathon-itsg">Source on GitHub</a>
+  </footer>
+</main>
+</body>
+</html>

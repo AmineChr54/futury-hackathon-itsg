@@ -1,6 +1,6 @@
-<title>ITSG Spec Pipeline</title>
+<title>§pecs</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="ITSG Spec Pipeline: from the yearly government specification to certified test cases for payroll software (DTA EEL). Built for the ITSG challenge at Futury Build Days 2026.">
+<meta name="description" content="§pecs: from the yearly government specification to certified test cases for payroll software (DTA EEL). Built for the ITSG challenge at Futury Build Days 2026.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <style>
@@ -734,7 +734,7 @@ body.touring .ov-dash { filter: grayscale(1); opacity: .55; pointer-events: none
   <div class="brand">
     <div class="brand-mark" aria-hidden="true">§</div>
     <div style="min-width:0">
-      <div class="brand-name" id="brandName">ITSG Spec Pipeline</div>
+      <div class="brand-name" id="brandName">§pecs</div>
       <div class="brand-sub" id="brandSub"></div>
     </div>
   </div>
@@ -1682,7 +1682,7 @@ const IMAGES = /*IMAGES-START*/{"logo":"data:image/png;base64,iVBORw0KGgoAAAANSU
 const APP = (() => {
   "use strict";
   const C = CORE;
-  const PRODUCT_NAME = "ITSG Spec Pipeline";
+  const PRODUCT_NAME = "§pecs";
   const $ = (s, r = document) => r.querySelector(s);
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c]));
   const store = {
@@ -3808,11 +3808,11 @@ const TOUR = (() => {
   const A = APP, S = A.S, L = A.L, X = A.story, IMG = A.IMAGES;
   const $ = s => document.querySelector(s);
   const wait = ms => new Promise(r => setTimeout(r, ms));
-  const NAME = "ITSG Spec Pipeline", TAGLINE = "From specification to certified test, in one session.";
+  const NAME = "§pecs", TAGLINE = "From specification to certified test, in one session.";
   const IS_PRESENTER = location.hash === "#presenter";
 
   const SLIDES = [
-    { title: "Welcome", script: "Good afternoon. We built ITSG Spec Pipeline for the ITSG challenge. In one sentence: it takes the yearly government specification and turns it into certified test cases, in one session.",
+    { title: "Welcome", script: "Good afternoon. We built §pecs for the ITSG challenge. In one sentence: it takes the yearly government specification and turns it into certified test cases, in one session.",
       html: () => `<div class="slide">${IMG.logo ? `<img class="logo" src="${IMG.logo}" alt="ITSG">` : ""}<h1>${NAME}</h1><p class="tagline">${TAGLINE}</p></div>` },
     { title: "The hustle", script: "Every December a new specification lands. The Verfahrensbeschreibung alone has 168 pages, around 400 with the other EEL documents. Today, ITSG's experts read every line, highlight it by hand and rewrite the affected test cases.",
       html: () => `<div class="slide"><div class="slide-split">${IMG.patrick ? `<img src="${IMG.patrick}" alt="Patrick Star with red, tired eyes">` : ""}<div class="stack" style="gap:20px"><h2>400 pages.<br>Every year.<br>By hand.</h2><p>A new specification lands every December. <b>~400 pages.</b> Someone reads every line, and writes every test case.</p></div></div></div>` },
@@ -3823,7 +3823,7 @@ const TOUR = (() => {
         <div><span class="ic">☑️</span><b>Write test cases</b><span>3,000–4,000 cases</span></div>
         <div><span class="ic">⌨️</span><b>Dev types them in</b><span>manually, per vendor</span></div></div>
       <div class="pain-bar">Every year. By hand. Zero error tolerance.</div></div>` },
-    { title: "Our solution", script: "So we built ITSG Spec Pipeline. The AI reads the specification and drafts. A person approves. Tested code calculates every expected value. And every value traces back to a sentence in the specification. Let me show you.",
+    { title: "Our solution", script: "So we built §pecs. The AI reads the specification and drafts. A person approves. Tested code calculates every expected value. And every value traces back to a sentence in the specification. Let me show you.",
       html: () => `<div class="slide"><span class="kicker">Our solution</span><h1>${NAME}</h1><p class="tagline">${TAGLINE}</p><div class="promises">
         <div><span class="ic">🤖</span>AI reads the spec</div><div><span class="ic">👤</span>You approve</div><div><span class="ic">🔗</span>Every value traces to a §</div></div></div>` },
     { title: "Before → after · Thank you", script: "Before: weeks of reading and typing, and test cases nobody can trace. After: one session, from the specification to the certificate, every value traced back to the law. Thank you. We look forward to your questions.",

@@ -48,7 +48,7 @@ export default function Home() {
       <section className="hero">
         <div className="hero-text">
           <span className="kicker">Futury Build Days 2026 · ITSG challenge</span>
-          <h1>ITSG Spec Pipeline</h1>
+          <h1>§pecs</h1>
           <p className="tagline">From specification to certified test, in one session.</p>
           <p className="lede">
             Every December a new ~400-page specification lands, and ITSG rewrites 3,000–4,000 test cases by hand.

@@ -1,4 +1,4 @@
-# Demo: ITSG Spec Pipeline
+# Demo: §pecs
 
 *From specification to certified test, in one session.*
 
@@ -71,7 +71,7 @@ turn the animations on, use either of these:
 
 | # | Beat | What happens on screen |
 |---|---|---|
-| 1 | Slide | ITSG logo, **ITSG Spec Pipeline**, tagline |
+| 1 | Slide | ITSG logo, **§pecs**, tagline |
 | 2 | Slide | Patrick: "400 pages. Every year. By hand." |
 | 3 | Slide | Read the spec → extract rules → write test cases → dev types them in; "Every year. By hand. Zero error tolerance." |
 | 4 | Slide | The name, the tagline, three promises |

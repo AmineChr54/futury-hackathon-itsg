@@ -20,6 +20,7 @@ import secrets
 import json
 import os
 import re
+import signal
 import sys
 import tempfile
 import threading
@@ -29,7 +30,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -40,6 +40,7 @@ import agent  # noqa: E402
 import documents  # noqa: E402
 import formula as F  # noqa: E402
 import recap  # noqa: E402
+from scheduler import Scheduler  # noqa: E402
 
 
 def load_env():
@@ -76,8 +77,10 @@ for d in (DATA, UPLOADS, CACHE, LAW_DIR):
     os.makedirs(d, exist_ok=True)
 
 LOCK = threading.RLock()
-POOL = ThreadPoolExecutor(max_workers=2)
-RUNS = {}  # run id → run (in memory; finished runs are also written to data/runs/)
+# AI jobs: AI_CONCURRENCY in flight against the gateway, at most AI_PER_RUN of them from one run
+SCHED = Scheduler(int(os.environ.get("AI_CONCURRENCY") or 16), int(os.environ.get("AI_PER_RUN") or 6))
+RUNS = {}  # run id → run (in memory; written to data/runs/, and dropped from memory when idle)
+RUN_IDLE_S = 15 * 60  # a finished run nobody has polled for this long is reloaded from disk when needed
 
 
 # ------------------------------------------------------------------ persistence
@@ -97,29 +100,78 @@ if not any(u["name"] == "dev" for u in STORE["users"]):  # the developer account
     STORE["users"].append({"name": "dev", "role": "dev", "since": "2025-11-01T09:00:00", "seen": None})
 
 
+# Saving only marks what changed; the persister thread writes it within a second, outside the lock,
+# so a busy run never makes the other requests wait for a disk write. flush_all() writes at once.
+_DIRTY = {"store": False, "runs": set()}
+_FLUSH = threading.Lock()  # one writer at a time
+
+
 def save_store():
     with LOCK:
-        tmp = STORE_PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(STORE, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, STORE_PATH)
+        _DIRTY["store"] = True
 
 
 def save_run(run):
-    os.makedirs(os.path.join(DATA, "runs"), exist_ok=True)
     with LOCK:
-        snap = json.dumps(run, ensure_ascii=False, default=str)
-    with open(os.path.join(DATA, "runs", run["id"] + ".json"), "w", encoding="utf-8") as f:
-        f.write(snap)
+        _DIRTY["runs"].add(run["id"])
+
+
+def _write_atomic(path, text):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def flush_all():
+    with _FLUSH:
+        with LOCK:  # snapshot under the lock, write without it
+            store = json.dumps(STORE, ensure_ascii=False, indent=1) if _DIRTY["store"] else None
+            runs = [(rid, json.dumps({k: v for k, v in RUNS[rid].items() if k != "_seen"}, ensure_ascii=False, default=str))
+                    for rid in _DIRTY["runs"] if rid in RUNS]
+            _DIRTY["store"], _DIRTY["runs"] = False, set()
+        try:
+            if store is not None:
+                _write_atomic(STORE_PATH, store)
+            os.makedirs(os.path.join(DATA, "runs"), exist_ok=True)
+            for rid, text in runs:
+                _write_atomic(os.path.join(DATA, "runs", rid + ".json"), text)
+        except OSError:
+            with LOCK:  # e.g. disk full: keep it dirty and try again on the next tick
+                _DIRTY["store"] = _DIRTY["store"] or store is not None
+                _DIRTY["runs"].update(rid for rid, _ in runs)
+            raise
+
+
+def evict_idle_runs():
+    cutoff = time.time() - RUN_IDLE_S
+    with LOCK:
+        for rid, run in list(RUNS.items()):
+            busy = run.get("status") in ("running", "queued") or any(i.get("status") in ("queued", "running") for i in run["items"])
+            if not busy and rid not in _DIRTY["runs"] and run.get("_seen", 0) < cutoff:
+                del RUNS[rid]
+
+
+def persister():
+    while True:
+        time.sleep(1)
+        try:
+            flush_all()
+            evict_idle_runs()
+        except Exception:  # noqa: BLE001 — log and retry on the next tick
+            traceback.print_exc()
 
 
 def load_run(run_id):
-    if run_id in RUNS:
-        return RUNS[run_id]
-    path = os.path.join(DATA, "runs", re.sub(r"[^\w-]", "", run_id) + ".json")
-    if os.path.exists(path):
+    with LOCK:  # two requests for an evicted run must get the same object
+        if run_id in RUNS:
+            return RUNS[run_id]
+        path = os.path.join(DATA, "runs", re.sub(r"[^\w-]", "", run_id) + ".json")
+        if not os.path.exists(path):
+            return None
         with open(path, encoding="utf-8") as f:
             run = json.load(f)
+        run["_seen"] = time.time()
         if run.get("status") in ("running", "queued"):
             run["status"] = "interrupted"
         for it in run.get("items", []):  # the server restarted mid-run: these can be generated again
@@ -128,7 +180,6 @@ def load_run(run_id):
                 it["summary"] = "interrupted (server restarted)"
         RUNS[run_id] = run
         return run
-    return None
 
 
 def now():
@@ -257,11 +308,11 @@ def start_run(body, user):
         items = documents.single_document_items(p["new"])
     run_id = time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4]
     run = {"id": run_id, "created": now(), "by": user, "status": "running", "model": model, "lang": body.get("lang", "en"),
-           "plan": plan_public(p), "items": [], "events": [], "seq": 0, "live": {}, "stop": False}
+           "plan": plan_public(p), "items": [], "events": [], "seq": 0, "live": {}, "stop": False, "_seen": time.time()}
     for i, it in enumerate(items[:200]):
         run["items"].append({**it, "status": "queued" if not max_items or i < max_items else "candidate", "cases": [], "spec_change": None})
-    RUNS[run_id] = run
     with LOCK:
+        RUNS[run_id] = run
         STORE["runs"].insert(0, {"id": run_id, "created": run["created"], "by": user, "mode": p["mode"],
                                  "new": p["new"]["name"], "old": p["old"]["name"] if p["old"] else None})
         save_store()
@@ -283,10 +334,15 @@ def start_run(body, user):
     if not CFG["key"]:
         emit(run, None, "error", {"message": "HAI_API_KEY is not set (pipeline/.env)"})
     for it in queued:
-        POOL.submit(process_item, run, it["sec"])
+        enqueue(run, it["sec"], "extract")
     if not queued:
         finish_run_if_done(run)
     return run
+
+
+def enqueue(run, sec, phase):
+    """Hand one section to the AI workers; runs share them fairly (scheduler.py)."""
+    SCHED.submit(run["id"], (run["id"], sec, phase), process_item, run, sec, phase)
 
 
 def finish_run_if_done(run):
@@ -309,14 +365,16 @@ def process_item(run, sec, phase="extract"):
     """phase "extract": the AI records the spec change, which then waits for the examiner (status "review").
     phase "cases": the AI writes test cases for the approved spec change."""
     it = item_of(run, sec)
-    if run.get("stop"):
-        it["status"] = "skipped" if phase == "extract" else "review"
+    with LOCK:
+        stopped = run.get("stop")
+        if stopped:
+            it["status"] = "skipped" if phase == "extract" else "review"
+        else:
+            it["status"], it["phase"], run["status"] = "running", phase, "running"
+            start_seq = run["seq"]
+    if stopped:
         finish_run_if_done(run)
         return
-    it["status"] = "running"
-    it["phase"] = phase
-    run["status"] = "running"
-    start_seq = run["seq"]
     plan_ = run["plan"]
     new_doc = {"name": plan_["new"]["name"], "version": plan_["new"]["version"]}
     old_doc = {"name": plan_["old"]["name"], "version": plan_["old"]["version"]} if plan_["old"] else None
@@ -910,7 +968,7 @@ class Handler(BaseHTTPRequestHandler):
     def api_get_status(self, parts, q):
         self.send_json({"ok": True, "model": CFG["model"], "models": MODELS, "key_configured": bool(CFG["key"]),
                         "base": CFG["base"], "law_dir": os.path.relpath(LAW_DIR, ROOT).replace("\\", "/"),
-                        "functions": F.FUNC_DOCS, "auth": AUTH, "problems": setup_problems()})
+                        "functions": F.FUNC_DOCS, "auth": AUTH, "problems": setup_problems(), "queue": SCHED.stats()})
 
     def api_post_login(self, parts, q):
         b = self.json_body()
@@ -1013,22 +1071,25 @@ class Handler(BaseHTTPRequestHandler):
             it = item_of(run, parts[2])
             if not it:
                 raise ApiError(404, "section not in this run")
-            if it["status"] in ("queued", "running"):
-                raise ApiError(409, "already in progress")
-            # extract the spec change again; it goes back to the examiner before any test case is written
-            it["status"], it["cases"], it["decision"] = "queued", [], None
-            run["status"], run["stop"] = "running", False
+            with LOCK:
+                if it["status"] in ("queued", "running"):
+                    raise ApiError(409, "already in progress")
+                # extract the spec change again; it goes back to the examiner before any test case is written
+                it["status"], it["cases"], it["decision"] = "queued", [], None
+                run["status"], run["stop"] = "running", False
             emit(run, None, "stage", {"step": "queue", "text": f"{self.user} started §{it['sec']} by hand"})
-            POOL.submit(process_item, run, it["sec"], "extract")
+            enqueue(run, it["sec"], "extract")
             return self.send_json({"ok": True})
         if parts and len(parts) == 2 and parts[1] == "stop":
             run = load_run(parts[0])
             if not run:
                 raise ApiError(404, "run not found")
-            run["stop"] = True
-            for it in run["items"]:
-                if it["status"] == "queued":
-                    it["status"] = "review" if it.get("phase") == "cases" else "skipped"
+            SCHED.cancel(run["id"])  # frees the queue at once; running sections stop at their next check
+            with LOCK:
+                run["stop"] = True
+                for it in run["items"]:
+                    if it["status"] == "queued":
+                        it["status"] = "review" if it.get("phase") == "cases" else "skipped"
             emit(run, None, "stage", {"step": "stop", "text": f"{self.user} stopped the run"})
             finish_run_if_done(run)
             return self.send_json({"ok": True})
@@ -1058,7 +1119,7 @@ class Handler(BaseHTTPRequestHandler):
             emit(run, None, "stage", {"step": "queue", "text": f"{self.user} approved {len(items)} spec change(s): the AI writes test cases for "
                                       + ", ".join("§" + i["sec"] for i in items)})
             for it in items:
-                POOL.submit(process_item, run, it["sec"], "cases")
+                enqueue(run, it["sec"], "cases")
             return self.send_json({"ok": True, "queued": [i["sec"] for i in items]})
         run = start_run(self.json_body(), self.user)
         self.send_json({"id": run["id"]})
@@ -1109,11 +1170,13 @@ class Handler(BaseHTTPRequestHandler):
             raise ApiError(404, "run not found")
         after = int((q.get("after") or ["0"])[0])
         with LOCK:
-            items = [{k: v for k, v in i.items() if k not in ("old_text", "new_text")} | {"has_old": bool(i.get("old_text"))} for i in run["items"]]
+            run["_seen"] = time.time()
+            items =[{k: v for k, v in i.items() if k not in ("old_text", "new_text")} | {"has_old": bool(i.get("old_text"))} for i in run["items"]]
             out = {k: run[k] for k in ("id", "created", "by", "status", "model", "plan", "seq")}
             out["items"] = items
             out["events"] = [e for e in run["events"] if e["seq"] > after]
             out["live"] = dict(run["live"])
+        out["queue"] = SCHED.position(run["id"])
         self.send_json(out)
 
     # ---- test cases
@@ -1403,6 +1466,15 @@ def setup_problems():
     return out
 
 
+def warm_cache():
+    """Parse the archived spec versions at start-up, so the first runs do not wait for pypdf."""
+    for d in list_docs()["law_files"]:
+        try:
+            load_doc(d)
+        except Exception as e:  # noqa: BLE001 — a broken file is reported when someone uses it
+            print(f"  ! could not read {d['name']}: {e}", file=sys.stderr)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--host", default=os.environ.get("PIPELINE_HOST", "127.0.0.1"))
@@ -1416,11 +1488,22 @@ def main():
     # old connections are still closing (TIME_WAIT), so keep it there
     ThreadingHTTPServer.allow_reuse_address = os.name != "nt"
     ThreadingHTTPServer.daemon_threads = True
+    ThreadingHTTPServer.request_queue_size = 128  # a room full of phones polling at once
     try:
         srv = ThreadingHTTPServer((a.host, a.port), Handler)
     except OSError as e:
         sys.exit(f"Port {a.port} is in use ({e}). Is the pipeline already running? Use --port to pick another.")
-    srv.serve_forever()
+    threading.Thread(target=persister, name="persister", daemon=True).start()
+    threading.Thread(target=warm_cache, name="warm-cache", daemon=True).start()
+    # docker stop sends SIGTERM: stop serving, then write what is still unsaved (shutdown() must not run on this thread)
+    signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=srv.shutdown).start())
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        flush_all()
+        print("EEL pipeline stopped, data saved", file=sys.stderr)
 
 
 if __name__ == "__main__":

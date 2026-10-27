@@ -274,15 +274,22 @@ class ChangelogDiffTests(unittest.TestCase):
         self.assertEqual(ch[0]["log"], ["3.12.7 „AU-Beginn“"])
 
 
+def import_server():
+    """server.py with its data in a temp folder; imported once, shared by the test classes."""
+    if "server" not in sys.modules:
+        import tempfile
+        tmp = tempfile.mkdtemp()
+        os.environ["PIPELINE_DATA"] = tmp
+        os.environ["LAW_DIR"] = os.path.join(tmp, "law")
+    import server
+    return server
+
+
 class ServerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        import tempfile
-        cls.tmp = tempfile.mkdtemp()
-        os.environ["PIPELINE_DATA"] = cls.tmp
-        os.environ["LAW_DIR"] = os.path.join(cls.tmp, "law")
-        import server
-        cls.S = server
+        cls.S = import_server()
+        cls.tmp = cls.S.DATA
 
     def run_with(self, n_cases):
         S = self.S
@@ -342,9 +349,13 @@ class ServerTests(unittest.TestCase):
         from http.server import ThreadingHTTPServer
         S = self.S
 
-        class Now:  # run queued work right away instead of in the thread pool
-            def submit(self, fn, *a):
+        class Now:  # run queued work right away instead of on the AI workers
+            def submit(self, owner, key, fn, *a):
                 fn(*a)
+                return True
+
+            def position(self, owner):
+                return {}
         srv = ThreadingHTTPServer(("127.0.0.1", 0), S.Handler)
         self.port = srv.server_address[1]
         threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -359,8 +370,8 @@ class ServerTests(unittest.TestCase):
                         "cases": [], "summary": ""}
             return {"spec_change": approved, "summary": "", "cases": [
                 {"local_id": "case-1", "title": "boundary", "formula": {"expression": "1 + 1", "variables": []}}]}
-        real_run_item, real_pool = S.agent.run_item, S.POOL
-        S.agent.run_item, S.POOL = fake_run_item, Now()
+        real_run_item, real_sched = S.agent.run_item, S.SCHED
+        S.agent.run_item, S.SCHED = fake_run_item, Now()
         try:
             run = {"id": "20261026-130000-beef", "model": "m", "lang": "en", "seq": 0, "events": [], "live": {}, "stop": False,
                    "status": "running", "plan": {"new": {"name": "n.pdf", "version": "1"}, "old": None},
@@ -403,7 +414,7 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(texts, ["extract §1", "cases §1"])  # the extraction reasoning stays with the case
             self.assertTrue(any(e["type"] == "change_edited" for e in tc["cot"]))
         finally:
-            S.agent.run_item, S.POOL = real_run_item, real_pool
+            S.agent.run_item, S.SCHED = real_run_item, real_sched
             srv.shutdown()
 
     def test_interrupted_run_can_be_generated_again(self):
@@ -491,6 +502,156 @@ class RecapTests(unittest.TestCase):
         self.assertIn("Only confirmed days count.", out["changed"])
         self.assertEqual(set(out["rows"]), {"A", "B"})
         self.assertTrue(out["todo"] and out["verify"])
+
+
+class SchedulerTests(unittest.TestCase):
+    def drain(self, s, timeout=5):
+        import time
+        t0 = time.time()
+        while s.stats()["running"] or s.stats()["queued"]:
+            self.assertLess(time.time() - t0, timeout, "jobs did not finish")
+            time.sleep(0.01)
+
+    def test_a_late_run_is_not_stuck_behind_a_big_one(self):
+        import threading
+        import time
+        from scheduler import Scheduler
+        s, order, lock = Scheduler(2, 2), [], threading.Lock()
+
+        def job(name):
+            with lock:
+                order.append(name)
+            time.sleep(0.01)
+        for i in range(30):
+            s.submit("A", ("A", i), job, "A")
+        s.submit("B", ("B", 0), job, "B")
+        self.drain(s)
+        self.assertEqual(len(order), 31)
+        self.assertLessEqual(order.index("B"), 4)  # not after A's 30 sections
+
+    def test_one_run_never_takes_more_than_its_share(self):
+        import threading
+        import time
+        from scheduler import Scheduler
+        s, lock, now = Scheduler(8, 3), threading.Lock(), {"in": 0, "max": 0, "done": 0}
+
+        def job():
+            with lock:
+                now["in"] += 1
+                now["max"] = max(now["max"], now["in"])
+            time.sleep(0.02)
+            with lock:
+                now["in"] -= 1
+                now["done"] += 1
+        for i in range(12):
+            s.submit("A", i, job)
+        self.drain(s)
+        self.assertEqual((now["max"], now["done"]), (3, 12))
+
+    def test_duplicates_are_dropped_and_stop_cancels_only_that_run(self):
+        import threading
+        from scheduler import Scheduler
+        s, gate, ran = Scheduler(1, 1), threading.Event(), []
+        s.submit("X", "block", gate.wait)
+        self.assertTrue(s.submit("A", "a1", ran.append, "a1"))
+        self.assertFalse(s.submit("A", "a1", ran.append, "a1"))  # double click on Generate
+        s.submit("B", "b1", ran.append, "b1")
+        self.assertEqual(s.position("B")["queued"], 1)
+        self.assertEqual(s.cancel("A"), 1)
+        gate.set()
+        self.drain(s)
+        self.assertEqual(ran, ["b1"])
+        self.assertTrue(s.submit("A", "a1", ran.append, "a1"))  # a cancelled key can be queued again
+        self.drain(s)
+        self.assertEqual(ran, ["b1", "a1"])
+
+    def test_a_failing_job_does_not_kill_its_worker(self):
+        import contextlib
+        import io
+        from scheduler import Scheduler
+        s, ran = Scheduler(1, 1), []
+        with contextlib.redirect_stderr(io.StringIO()):
+            s.submit("A", 1, lambda: 1 / 0)
+            s.submit("A", 2, ran.append, "ok")
+            self.drain(s)
+        self.assertEqual(ran, ["ok"])
+
+
+class BackoffTests(unittest.TestCase):
+    SSE = [b'data: {"choices": [{"delta": {"content": "hi"}, "finish_reason": "stop"}]}\n', b"data: [DONE]\n"]
+
+    def http_error(self, code):
+        import io
+        import urllib.error
+        return urllib.error.HTTPError("http://x", code, "busy", {}, io.BytesIO(b"busy"))
+
+    def call(self, effects):
+        from unittest import mock
+        ok = mock.MagicMock(__enter__=lambda s: iter(self.SSE), __exit__=lambda *a: False)
+        effects = [ok if e == "ok" else e for e in effects]
+        with mock.patch.object(agent, "BACKOFF_S", (0, 0, 0, 0, 0)), \
+                mock.patch("urllib.request.urlopen", side_effect=effects) as m:
+            try:
+                return agent.chat({"model": "m", "key": "k", "base": "http://x"}, []), m.call_count
+            except agent.LLMError as e:
+                return e, m.call_count
+
+    def test_busy_gateway_is_waited_out(self):
+        out, calls = self.call([self.http_error(429), self.http_error(503), "ok"])
+        self.assertEqual((out["content"], calls), ("hi", 3))
+
+    def test_a_real_error_is_not_retried(self):
+        out, calls = self.call([self.http_error(400), "ok"])
+        self.assertIsInstance(out, agent.LLMError)
+        self.assertEqual(calls, 1)
+
+    def test_gives_up_after_the_last_wait(self):
+        out, calls = self.call([self.http_error(429)] * 6 + ["ok"])
+        self.assertIsInstance(out, agent.LLMError)
+        self.assertEqual(calls, 6)
+
+
+class PersistTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.S = import_server()
+
+    def test_many_saves_are_one_write_and_the_file_stays_valid(self):
+        import json
+        from unittest import mock
+        S, writes = self.S, []
+        real = S._write_atomic
+        with mock.patch.object(S, "_write_atomic", lambda p, t: (writes.append(p), real(p, t))):
+            for _ in range(50):
+                S.save_store()
+            S.flush_all()
+            S.flush_all()  # nothing changed since
+        self.assertEqual(writes, [S.STORE_PATH])
+        with open(S.STORE_PATH, encoding="utf-8") as f:
+            self.assertIn("testcases", json.load(f))
+
+    def test_a_failed_write_is_tried_again(self):
+        from unittest import mock
+        S = self.S
+        S.save_store()
+        with mock.patch.object(S, "_write_atomic", side_effect=OSError("disk full")):
+            with self.assertRaises(OSError):
+                S.flush_all()
+        self.assertTrue(S._DIRTY["store"])
+        S.flush_all()
+        self.assertFalse(S._DIRTY["store"])
+
+    def test_idle_finished_runs_leave_memory_and_come_back_from_disk(self):
+        S = self.S
+        run = {"id": "20261027-090000-cafe", "status": "done", "items": [{"sec": "1", "status": "done"}], "events": [], "_seen": 0}
+        S.RUNS[run["id"]] = run
+        S.save_run(run)
+        S.flush_all()
+        S.evict_idle_runs()
+        self.assertNotIn(run["id"], S.RUNS)
+        back = S.load_run(run["id"])
+        self.assertEqual(back["items"], run["items"])
+        self.assertNotIn("_seen", open(os.path.join(S.DATA, "runs", run["id"] + ".json"), encoding="utf-8").read())
 
 
 if __name__ == "__main__":

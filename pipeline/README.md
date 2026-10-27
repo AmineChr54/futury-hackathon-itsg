@@ -37,7 +37,20 @@ Open `http://localhost:8787` (the demo page, served by the pipeline). Then:
 
 ## Sign-in and the developer loop
 
-The page opens with a **Login** tab: username `istg` (ITSG examiner) or `dev` (developer). On a local server no password is needed. With `PIPELINE_PASSWORD` set in `pipeline/.env` (or `PIPELINE_PASSWORD_ISTG` / `PIPELINE_PASSWORD_DEV` per account) the Login tab asks for it: the server checks it, hands out a session token, and every API call and the `/v1` AI proxy need that token. The server then takes the user and role from the token, not from what the browser sends. Hosting: `deploy/setup.sh`.
+The page opens with a **Login** tab: username `istg` (ITSG examiner) or `dev` (developer). On a local server no password is needed. With `PIPELINE_PASSWORD` set in `pipeline/.env` (or `PIPELINE_PASSWORD_ISTG` / `PIPELINE_PASSWORD_DEV` per account) the Login tab asks for it: the server checks it, hands out a session token, and every API call and the `/v1` AI proxy need that token. The server then takes the user and role from the token, not from what the browser sends.
+
+## Hosting
+
+With Docker (one container, data in the `eel-data` volume): put `HAI_API_KEY` and `PIPELINE_PASSWORD` in `pipeline/.env`, then
+
+```
+bash deploy/docker.sh 8787        # builds the image and (re)starts the container "eel" on that port
+docker logs -f eel                # what the server is doing
+```
+
+Without Docker: `deploy/setup.sh`.
+
+Many people can run the AI at the same time. All runs share `AI_CONCURRENCY` AI workers (default 16), and one run has at most `AI_PER_RUN` of them (default 6). Free workers take sections round-robin across the runs (`scheduler.py`), so a run of 100 sections never holds up the person who starts after it, and a queued section shows how many runs go first. When the gateway is busy (HTTP 429/502/503/504) a call waits and tries again (2 → 30 s) instead of failing the section. Saves are written by a background thread within a second, and `docker stop` writes what is still unsaved before the server exits.
 
 | | ITSG | Developer |
 |---|---|---|
@@ -79,13 +92,14 @@ Failed guards go back to the AI, which corrects itself. Verifying a case with a 
 
 The terminal (`sandbox.py`) runs the AI's Python in a separate process with an import allow-list, banned file/process/introspection built-ins, an empty temp folder and a 10 s timeout. It is a guard rail for a local prototype, not a security boundary for hostile input.
 
-Roles are taken from the page (the `X-Role` header). There are no logins, so this is suitable only for a trusted local network.
+Without `PIPELINE_PASSWORD`, roles are taken from the page (the `X-Role` header), so a server without a password is suitable only for a trusted local network.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `server.py` | HTTP API, run queue (2 parallel AI workers), storage in `data/store.json`, serves `demo/index.html`, `/v1` proxy |
+| `server.py` | HTTP API, runs on the shared AI workers, storage in `data/store.json`, serves `demo/index.html`, `/v1` proxy |
+| `scheduler.py` | Fair queue for the AI workers: round-robin across runs, a cap per run, Stop drops a run's queued sections |
 | `documents.py` | PDF → pages → numbered sections (longest increasing heading sequence), change log, word diff |
 | `agent.py` | Prompt, tools, streamed LLM loop, guards |
 | `formula.py` | Safe formula evaluator, also preloaded in the AI's terminal |

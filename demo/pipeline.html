@@ -2546,6 +2546,12 @@ const PIPE = (() => {
   const kindPill = k => { const [en, cls] = KIND[k] || [k, ""]; return pill(({ changed: L("changed", "geändert"), new: L("new", "neu"), removed: L("removed", "entfernt"), "change log": L("change log", "Protokoll"), rule: L("rule", "Regel") })[en] || en, cls); };
   const srcPill = s => s === "diff-only" ? pill(L("not in change log", "nicht im Protokoll"), "bad") : s === "log+diff" ? pill(L("log + diff", "Protokoll + Diff"), "ok") : pill(esc(s), "");
   const stIc = s => `<span class="st ${s}" title="${esc(s)}">${{ queued: "○", running: "◐", done: "✓", error: "✕", candidate: "+", skipped: "–", stopped: "■", review: "◇" }[s] || "·"}</span>`;
+  // the server shares the AI workers fairly between everyone's runs; say where this run stands
+  const queueInfo = () => {
+    const q = P.run && P.run.queue;
+    return q && q.queued ? ` · ${q.running} ${L("running", "laufen")}, ${q.queued} ${L("waiting", "warten")}`
+      + (q.ahead ? `, ${q.ahead} ${L("other run(s) go first", "andere(r) Lauf/Läufe zuerst")}` : "") : "";
+  };
   const stopAction = r => r && r.status === "running" ? `<button class="btn" data-act="pipeStop">■ ${L("Stop", "Stoppen")}</button>` : "";
 
   function vPipeline() {
@@ -2597,7 +2603,7 @@ const PIPE = (() => {
     const near = window.innerHeight + window.scrollY >= document.body.scrollHeight - 160;
     const red = it.ops && it.ops.length && it.kind === "changed" ? `<details class="cot-more"><summary><b>${L("Word diff", "Wort-Diff")}</b> <span class="muted">(${it.changed_words} ${L("changed words", "geänderte Wörter")})</span></summary><div class="spec redline" style="margin-top:8px;font-size:var(--fs-sm)">${redline(it.ops)}</div></details>` : "";
     const log = it.log && it.log.length ? `<div class="callout"><b>${L("Change log", "Änderungsprotokoll")}</b>${it.log.map(esc).join("<br>")}</div>` : "";
-    body.innerHTML = `${log}${red}<div class="cot">${evs.map(e => evHtml(e)).join("") || (it.status === "candidate" ? `<div class="muted" style="font-size:var(--fs-sm)">${L("Not processed yet. Start it with “Generate test cases”.", "Noch nicht bearbeitet. Mit „Testfälle erzeugen“ starten.")}</div>` : it.status === "queued" ? `<div class="muted">${L("Waiting for a free AI worker…", "Wartet auf einen freien KI-Worker…")}</div>` : "")}
+    body.innerHTML = `${log}${red}<div class="cot">${evs.map(e => evHtml(e)).join("") || (it.status === "candidate" ? `<div class="muted" style="font-size:var(--fs-sm)">${L("Not processed yet. Start it with “Generate test cases”.", "Noch nicht bearbeitet. Mit „Testfälle erzeugen“ starten.")}</div>` : it.status === "queued" ? `<div class="muted">${L("Waiting for a free AI worker…", "Wartet auf einen freien KI-Worker…")}${queueInfo()}</div>` : "")}
       ${live ? `<div class="cot-step thought"><span class="cot-ic">…</span><div class="cot-body"><div class="cot-title">${L("AI is thinking", "KI denkt nach")}${live.tool ? " · " + L("preparing", "bereitet vor") + " " + esc(live.tool) : ""}</div><div class="cot-text live typing" id="pipeLive">${esc((live.reasoning || "") + (live.content ? "\n\n" + live.content : "")) || "…"}</div></div></div>` : ""}</div>`;
     const lv = document.getElementById("pipeLive"); if (lv) lv.scrollTop = lv.scrollHeight;
     if (changed && P.follow && near && it.status === "running") window.scrollTo({ top: document.body.scrollHeight });

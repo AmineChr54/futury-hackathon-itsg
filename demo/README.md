@@ -72,9 +72,9 @@ turn the animations on, use either of these:
 | 7 | Step 3 | Click **Open the specification →**. The full specification: § index left, §3.12 right with the AI's highlights; the changed sentence flashes |
 | 8 | Step 4 | Click **Changes & review**. The log calls §3.12 *editorial* (only the wording changed, nothing to test); the AI says *a condition changed* (same employee, different result). A box under the pills explains both |
 | 9 | Step 5 | Click **Edit**, type, **Save and approve**: the examiner edits the AI's reading ("More than 6 months stops it.") and approves |
-| 10 | Step 6 | Click the reasoning panel open: what was sent to the model, its reasoning, a check in the terminal, the extracted change. The demo types a question into the chat; the answer streams back in Markdown (key words in gray) with a **§3.12 · p. 135** source chip that opens the spec at the sentence |
+| 10 | Step 6 | Click the reasoning panel open: what was sent to the model, its reasoning, a check in the terminal, the extracted change. The demo types a question into the chat; the chat panel (input at the bottom right) answers in Markdown (key words in gray) with a **§3.12 · p. 135** source chip that opens the spec at the sentence |
 | 11 | Step 7 | Click **Create test cases →**, then **Create test cases**: the AI writes 5 cases, grouped by the rule they test |
-| 12 | Step 8 | Click the case we follow (TC-3.12-B-01, ITSG's reference employee) in the list |
+| 12 | Step 8 | Click the case we follow (TC-3.12-B-01, ITSG's reference employee) in the list, then **Edit**: the examiner adds “ANZAHL-AU must be 04.” to *What should happen* and clicks **Save and verify**. The computed expected value is not editable; it comes from tested code |
 | 13 | Step 9 | Click **Send to developers**: SAP's team is ticked, click **Send** |
 | 14 | Step 10 | Switch to **Vendor**. SAP's side: click the notification, then the package e-mail in Messages |
 | 15 | Step 11 | Click the **Test package** in the e-mail. The checklist: the AI recap (what changed, what to do) |

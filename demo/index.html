@@ -419,7 +419,7 @@ body.touring .bar-tools > :not(#demoBtn) { display: none; }
 .skip-clock .mh { animation-duration: .28s; }
 @keyframes clockspin { to { transform: rotate(360deg); } }
 /* the demo cursor: glides to each target, presses, scrolls */
-.tour-cursor { position: fixed; left: 0; top: 0; z-index: 90; width: 30px; height: 30px; pointer-events: none; opacity: 0; transform: translate(50vw, 60vh); transition: transform .62s cubic-bezier(.3,.7,.2,1), opacity .25s; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
+.tour-cursor { position: fixed; left: 0; top: 0; z-index: 90; width: 30px; height: 30px; pointer-events: none; opacity: 0; transform: translate(50vw, 60vh); transition: transform .8s cubic-bezier(.45,.05,.25,1), opacity .25s; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
 .tour-cursor.on { opacity: 1; }
 .tour-cursor svg { width: 30px; height: 30px; display: block; transform-origin: 3px 3px; transition: transform .12s ease; }
 .tour-cursor.down svg { transform: scale(.82); }
@@ -512,6 +512,7 @@ details.cot-more summary::marker { color: var(--accent); }
 .term .term-code { color: #b8d4ff; border-bottom: 1px solid #2a2e36; }
 .term .term-out { color: #c8f0d0; }
 .json { font: 400 12px/1.5 var(--font-mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 380px; overflow: auto; margin: 0; }
+.tc-edit { display: grid; gap: 10px; border: 1px solid var(--accent); border-radius: var(--r-md); padding: 12px; background: var(--surface); }
 .tc-sheet { display: grid; gap: 8px; font-size: var(--fs-sm); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; background: var(--surface-2); }
 .tc-sheet ul, .tc-sheet ol { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 2px; }
 .tc-expect { border-left: 3px solid var(--ok); padding-left: 8px; }
@@ -585,10 +586,22 @@ input.cover { width: 20px; height: 20px; accent-color: var(--ok); cursor: pointe
 .why-panel > summary::after { content: "▸"; color: var(--muted); }
 .why-panel[open] > summary::after { content: "▾"; }
 .why-panel > .why-body { padding: 0 var(--s-4) var(--s-4); display: grid; gap: var(--s-3); }
-.reason-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--s-4); align-items: start; }
+.reason-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--s-4); align-items: stretch; }
 @media (max-width: 1000px) { .reason-grid { grid-template-columns: minmax(0, 1fr); } }
-.chat { display: grid; gap: 10px; }
-.chat-log { display: grid; gap: 8px; max-height: 320px; overflow: auto; }
+/* the chat fills the right column: header on top, messages grow upwards from the input at the bottom */
+.chat { display: flex; flex-direction: column; min-height: 420px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.chat-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.chat-head .who { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font: 700 10px/1 var(--font-mono); background: var(--info); color: var(--surface); flex: none; }
+.chat-head b { font: 600 var(--fs-md)/1.2 var(--font-display); }
+.chat-head span { font-size: var(--fs-xs); color: var(--muted); }
+.chat-log { flex: 1 1 0; min-height: 200px; display: flex; flex-direction: column; gap: 10px; overflow: auto; padding: 14px; }
+.chat-log > :first-child { margin-top: auto; }
+.chat-empty { display: grid; gap: 10px; justify-items: start; color: var(--muted); font-size: var(--fs-sm); }
+.chat-sugg { display: flex; flex-wrap: wrap; gap: 6px; }
+.chat-sugg button { font: 500 var(--fs-xs)/1.3 var(--font-body); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; cursor: pointer; }
+.chat-sugg button:hover, .chat-sugg button:focus-visible { border-color: var(--info); outline: none; }
+.chat-msg.you { grid-template-columns: minmax(0, 1fr) 28px; }
+.chat-msg.you .txt { justify-self: end; background: var(--accent-soft, var(--surface-2)); border-color: transparent; }
 .chat-msg { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 8px; align-items: start; font-size: var(--fs-sm); }
 .chat-msg .who { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font: 700 10px/1 var(--font-mono); background: var(--accent); color: var(--accent-ink); }
 .chat-msg.ai .who { background: var(--info); color: var(--surface); }
@@ -616,7 +629,7 @@ input.cover { width: 20px; height: 20px; accent-color: var(--ok); cursor: pointe
 .ct-explain .ai { background: var(--warn-soft, var(--surface-2)); border-left: 3px solid var(--warn); }
 .ct-explain .vs { align-self: center; font: 700 var(--fs-xs)/1 var(--font-mono); color: var(--muted); padding: 0; }
 @media (max-width: 700px) { .ct-explain { grid-template-columns: minmax(0, 1fr); } .ct-explain .vs { justify-self: center; } }
-.chat-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.chat-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); background: var(--surface-2); }
 .tc-group { padding: 10px 14px 6px; background: var(--surface-2); border-bottom: 1px solid var(--line); display: grid; gap: 2px; position: sticky; top: 0; z-index: 1; }
 .tc-group b { font: 600 var(--fs-sm)/1.3 var(--font-display); }
 .tc-group span { font-size: var(--fs-xs); color: var(--muted); }
@@ -2772,9 +2785,11 @@ const APP = (() => {
   const QUESTION = "Why is this a condition change and not just editorial?";
   const DEV_QUESTION = "Our screen lists 4 periods for this case. Why does the file contain 5?";
   const ST = S.story = {};
+  const CASE_ORIG = {}; // id → { obj, orig }: the AI's wording, restored on reset
   function resetStory() {
+    Object.keys(CASE_ORIG).forEach(id => { const { obj, orig } = CASE_ORIG[id]; Object.assign(obj, orig); delete obj.edited; delete CASE_ORIG[id]; });
     Object.assign(ST, { ingest: 0, pct: 0, selChange: "3.12", decided: {}, edits: {}, chEdit: null, reasonOpen: false, chat: [], generated: false, genBusy: false, genLines: [],
-      selCase: FOLLOWED, focus: null, status: {}, caseFilter: "all", sent: false, notify: false, covered: {}, clOpen: null, uploads: [], asked: false, fixed: false, certAt: null });
+      selCase: FOLLOWED, focus: null, status: {}, caseEdit: null, caseFilter: "all", sent: false, notify: false, covered: {}, clOpen: null, uploads: [], asked: false, fixed: false, certAt: null });
     S.mail = null; S.published = false; S.publishedTo = []; S.vwork = {}; S.audit = {}; S.compose = null; S.attachMenu = false; S.selThread = null; S.mailFolder = "inbox";
   }
   resetStory();
@@ -2871,7 +2886,7 @@ const APP = (() => {
   const CHAT_SCRIPT = [
     { k: /editorial|redaktion|condition|bedingung|why|warum/i, a: () => "Because **the result changes**, not just the wording.\n\nv13.3 said a prior illness counts only if „nicht mindestens 6 Monate“ lie between two sick periods, so a gap of **exactly 6 months** broke the chain. v13.4 says „nicht mehr als 6 Monate“, so exactly 6 months **still chains**.\n\nI ran it with a boundary date: 12.07.2025 → 12.01.2026 gives `False` under v13.3 and `True` under v13.4. For an employee with that gap, request 41 goes from **not allowed** (12 days) to **allowed** (32 days).\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“." },
     { k: /test|affect|betroffen|case/i, a: () => `Every test that has a gap of exactly 6 months between two sick periods. In the catalogue that is ${C.CATALOGUE.filter(r => r.sec === "3.12").length} rows citing §3.12; one old test (\`ALT-3.12-031\`, “exactly 6 months stops the chain”) is **now wrong** and should be retired. I will write one new test that sits **right on the boundary**.\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“.` },
-    { k: /insurer|krankenkasse|kasse|inconsist|widerspr|contradict/i, a: () => "On p. 136, the insurer's paragraph still reads „…nicht mindestens 6 Monate vergangen sind“. The employer's paragraph on p. 135 says „nicht mehr als 6 Monate“. I can't decide which one the authors meant, so I **flagged it as a question for ITSG** instead of guessing.\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“." }
+    { k: /insurer|krankenkasse|kasse|consist|widerspr|contradict/i, a: () => "On p. 136, the insurer's paragraph still reads „…nicht mindestens 6 Monate vergangen sind“. The employer's paragraph on p. 135 says „nicht mehr als 6 Monate“. I can't decide which one the authors meant, so I **flagged it as a question for ITSG** instead of guessing.\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“." }
   ];
   async function chatAnswer(question, ctx) {
     // Hook for a live model: with “Live” in the AI settings, the question goes to the hessian.AI chat
@@ -2902,7 +2917,11 @@ const APP = (() => {
     msg.busy = false; paintChat();
     log("AI", L("Question answered", "Frage beantwortet"), `§${ST.selChange}: ${q}`);
   }
-  const chatLogHtml = () => ST.chat.length ? ST.chat.map(m => `<div class="chat-msg ${m.who}"><span class="who">${m.who === "ai" ? "AI" : L("YOU", "SIE")}</span><div class="txt md ${m.busy ? "typing" : ""}">${richText(m.text)}</div></div>`).join("") : `<p class="muted" style="font-size:var(--fs-sm)">${L("Ask the AI about this change. It answers only from the specification and quotes it.", "Fragen Sie die KI zu dieser Änderung. Sie antwortet nur aus der Spezifikation und zitiert sie.")}</p>`;
+  const CHAT_SUGGEST = () => [L("Why is this not just editorial?", "Warum ist das nicht nur redaktionell?"), L("Which tests are affected?", "Welche Tests sind betroffen?"), L("Is the spec consistent here?", "Ist die Spezifikation hier widerspruchsfrei?")];
+  const chatLogHtml = () => ST.chat.length ? ST.chat.map(m => m.who === "ai"
+    ? `<div class="chat-msg ai"><span class="who">AI</span><div class="txt md ${m.busy ? "typing" : ""}">${richText(m.text)}</div></div>`
+    : `<div class="chat-msg you"><div class="txt">${esc(m.text)}</div><span class="who">${L("YOU", "SIE")}</span></div>`).join("")
+    : `<div class="chat-empty"><span>${L("Ask the AI about this change. It answers only from the specification and quotes it.", "Fragen Sie die KI zu dieser Änderung. Sie antwortet nur aus der Spezifikation und zitiert sie.")}</span><div class="chat-sugg">${CHAT_SUGGEST().map(q => `<button type="button" data-act="chatSuggest" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div></div>`;
   function paintChat() { const el = document.getElementById("chatLog"); if (el) { el.innerHTML = chatLogHtml(); el.scrollTop = el.scrollHeight; } }
 
   /* ---------- screen: Changes (log + diff, review, reasoning, chat) ---------- */
@@ -2944,7 +2963,7 @@ const APP = (() => {
       </div>
       <details class="panel why-panel" id="whyPanel" data-tour="why" ${ST.reasonOpen ? "open" : ""}><summary data-act="reasonToggle">${L("AI reasoning and chat", "Denkweg der KI und Chat")} · §${esc(sec)} <span class="muted" style="font-weight:400;font-size:var(--fs-xs)">${ev.length} ${L("steps", "Schritte")}</span></summary>
         <div class="why-body"><div class="reason-grid"><div class="cot">${ev.map(evHtml).join("")}</div>
-          <div class="chat" data-tour="chat"><span class="field-label">${L("Ask about this change", "Zu dieser Änderung fragen")}</span><div class="chat-log" id="chatLog">${chatLogHtml()}</div>
+          <div class="chat" data-tour="chat"><div class="chat-head"><span class="who">AI</span><div class="stack" style="gap:1px"><b>${L("Ask about this change", "Zu dieser Änderung fragen")} · §${esc(sec)}</b><span>${L("Answers only from the specification, with the source", "Antwortet nur aus der Spezifikation, mit Quelle")}</span></div></div><div class="chat-log" id="chatLog">${chatLogHtml()}</div>
             <form class="chat-form" onsubmit="return false"><input class="input" id="chatInput" autocomplete="off" placeholder="${esc(L("e.g. Why is this not editorial?", "z. B. Warum ist das nicht redaktionell?"))}"><button class="btn primary" data-act="chatSend" type="button">${L("Ask", "Fragen")}</button></form></div></div></div></details>`;
   }
 
@@ -3031,12 +3050,22 @@ const APP = (() => {
   function groupedCases(list, itemHtml) {
     return RULE_ORDER.map(rid => { const r = C.RULES.find(x => x.id === rid), cs = list.filter(c => c.rule === rid); return cs.length ? `<div class="tc-group"><b>${rid} · ${esc(T(r.label))}</b><span>§${esc(r.sec)} · ${cs.length} ${cs.length === 1 ? L("test case", "Testfall") : L("test cases", "Testfälle")}</span></div>${cs.map(itemHtml).join("")}` : ""; }).join("");
   }
+  // The examiner rewrites the words of a test case. The expected value stays with tested code: it changes only through the rule.
+  function caseEditForm(c) {
+    const lines = a => esc((a || []).join("\n"));
+    return `<div class="tc-edit"><label class="stack"><span class="field-label">${L("Title", "Titel")}</span><input class="input" id="tcTitle" value="${esc(c.title)}"></label>
+      <div class="grid-2"><label class="stack"><span class="field-label">${L("Preconditions · one per line", "Vorbedingungen · eine pro Zeile")}</span><textarea class="textarea" id="tcPre" rows="5">${lines(c.preconditions)}</textarea></label>
+        <label class="stack"><span class="field-label">${L("Steps · one per line", "Schritte · einer pro Zeile")}</span><textarea class="textarea" id="tcSteps" rows="5">${lines(c.steps)}</textarea></label></div>
+      <label class="stack"><span class="field-label">${L("What should happen", "Was passieren soll")}</span><textarea class="textarea" id="tcOutcome" rows="3">${esc(c.expected_outcome || "")}</textarea></label>
+      <p class="muted" style="font-size:var(--fs-xs);margin:0">${L("The expected value below is computed by tested code from the approved rule and does not change here. To change it, edit the rule.", "Der Erwartungswert unten wird von getestetem Code aus der freigegebenen Regel berechnet und ändert sich hier nicht. Dafür die Regel bearbeiten.")}</p>
+      <div class="row"><button class="btn" data-act="caseCancel">${L("Cancel", "Abbrechen")}</button><button class="btn" data-act="caseSave" data-id="${esc(c.id)}">${L("Save", "Speichern")}</button><button class="btn ok primary" data-act="caseSave" data-id="${esc(c.id)}" data-verify="1">✓ ${L("Save and verify", "Speichern und verifizieren")}</button></div></div>`;
+  }
   function caseDetail(c) {
     const fm = c.formula, gs = guardsOf(c), locked = ST.sent;
-    return `<section class="panel" data-tour="casedetail"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${esc(c.id)} · ${esc(c.rule)} · §${esc(c.section)} ${esc(c.section_title)}</span><h3>${esc(c.title)}</h3></div><div class="row">${cStatusPill(c)}</div></div>
+    return `<section class="panel" data-tour="casedetail"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">${esc(c.id)} · ${esc(c.rule)} · §${esc(c.section)} ${esc(c.section_title)}${c.edited ? " · " + L("edited by you", "von Ihnen bearbeitet") : ""}</span><h3>${esc(c.title)}</h3></div><div class="row">${cStatusPill(c)}</div></div>
       <div class="panel-body">
         ${c.formula_changed ? `<div class="callout warn"><b>ƒ ${L("Result changed with the law: please check", "Ergebnis hat sich mit dem Gesetz geändert: bitte prüfen")}</b><span>${L("Before (v13.3)", "Vorher (v13.3)")}: <span class="formula-old">${esc(c.previous_expression)}</span></span><span>${L("Now (v13.4)", "Jetzt (v13.4)")}: <code>${esc(fm.expression)}</code></span></div>` : ""}
-        ${tcSheet(c)}
+        ${ST.caseEdit === c.id ? caseEditForm(c) : tcSheet(c)}
         <div class="formula-box ${c.formula_changed ? "changed" : ""}">
           <div class="row between"><span class="field-label">${L("How the expected result is computed", "So wird das erwartete Ergebnis berechnet")} → <b class="mono">${esc(fm.result_name)}</b></span>${gmini(gs)}</div>
           <div class="formula-view">${formulaView(fm.expression, fm.variables)}</div>
@@ -3044,7 +3073,7 @@ const APP = (() => {
           <div class="row between" style="align-items:end"><div class="stack" style="gap:2px"><span class="field-label">${L("Expected result (computed by tested code, not by the AI)", "Erwartetes Ergebnis (von getestetem Code berechnet, nicht von der KI)")}</span><span class="result-big">${esc(c.expected_value)}</span></div>
             <details class="cot-more"><summary class="muted" style="font-size:var(--fs-xs)">${L("step by step", "Schritt für Schritt")}</summary><div class="trace">${c.trace.map(([s, x]) => `${esc(s)} = <b>${esc(x)}</b>`).join("<br>")}</div></details></div>
         </div>
-        <div class="row between"><div class="row">${locked ? `<span class="muted" style="font-size:var(--fs-sm)">${L("Sent to the developers", "An die Entwickler gesendet")}</span>` : `<button class="btn ok primary" data-act="caseSet" data-id="${esc(c.id)}" data-s="verified" ${caseStatus(c) === "verified" ? "disabled" : ""}>✓ ${caseStatus(c) === "verified" ? L("Verified", "Verifiziert") : L("Verify", "Verifizieren")}</button><button class="btn bad" data-act="caseSet" data-id="${esc(c.id)}" data-s="rejected" ${caseStatus(c) === "rejected" ? "disabled" : ""}>✕ ${L("Reject", "Ablehnen")}</button>`}</div>
+        <div class="row between"><div class="row">${locked ? `<span class="muted" style="font-size:var(--fs-sm)">${L("Sent to the developers", "An die Entwickler gesendet")}</span>` : `<button class="btn ok primary" data-act="caseSet" data-id="${esc(c.id)}" data-s="verified" ${caseStatus(c) === "verified" ? "disabled" : ""}>✓ ${caseStatus(c) === "verified" ? L("Verified", "Verifiziert") : L("Verify", "Verifizieren")}</button>${ST.caseEdit === c.id ? "" : `<button class="btn" data-act="caseEdit" data-id="${esc(c.id)}">✎ ${L("Edit", "Bearbeiten")}</button>`}<button class="btn bad" data-act="caseSet" data-id="${esc(c.id)}" data-s="rejected" ${caseStatus(c) === "rejected" ? "disabled" : ""}>✕ ${L("Reject", "Ablehnen")}</button>`}</div>
           <button class="btn ghost sm" data-act="caseJsonStory" data-id="${esc(c.id)}">${ic(FRAMED ? "copy" : "download")} JSON</button></div>
         <details class="cot-more"><summary><b>${L("Checks and the AI's steps", "Prüfungen und Schritte der KI")}</b></summary><div class="stack" style="margin-top:8px">
           ${gs.map(g => `<div class="guard ${g.status === "ok" ? "ok" : "bad"}"><span class="gi">${g.status === "ok" ? "✓" : "✕"}</span><div><b>${esc(g.id)} ${esc(g.name)}</b><div class="muted">${esc(g.detail)}</div></div></div>`).join("")}
@@ -3229,7 +3258,9 @@ const APP = (() => {
     appendType: (el, extra, ms = 34) => new Promise(done => { if (!el) return done(); el.focus(); const base = el.value; let i = 0; const tick = () => { el.value = base + extra.slice(0, ++i); if (i < extra.length) setTimeout(tick, ms); else done(); }; tick(); }),
     ensureEdited: () => { story.ensureDrop(); if (!ST.edits["3.12"]) ST.edits["3.12"] = { new_rule: SC["3.12"]().new_rule + story.EDIT_SUFFIX }; ST.decided["3.12"] = "approved"; ST.chEdit = null; },
     scrollThread: () => { const m = document.querySelector(".mail-msgs"); if (m) m.scrollTop = m.scrollHeight; },
-    certIssued: () => !!mailbox().certs.sap
+    certIssued: () => !!mailbox().certs.sap,
+    CASE_SUFFIX: " ANZAHL-AU must be 04.",
+    caseEdited: id => !!(storyCases().find(c => c.id === id) || {}).edited
   };
 
   const RENDER = { changes: vChangeReview, impact: vChanges, review: vReview, vcheck: vChecklist, cert: vCert, overview: vOverview, ingest: vIngest, baseline: vBaseline, specs: vSpecs, mail: vMail, vhome: vVendorHome, vwork: vVendorWork, extract: vExtract, functions: vFunctions, tests: vTests, inbox: vInbox, validate: vValidate, audit: vAudit, report: vReport, coverage: vCoverage, log: vLog };
@@ -3549,10 +3580,22 @@ const APP = (() => {
     chEdit: el => { ST.chEdit = el.dataset.sec; render(); },
     chCancel: () => { ST.chEdit = null; render(); },
     chSave: el => { const sec = el.dataset.sec; ST.edits[sec] = { summary: $("#chSummary").value.trim(), old_rule: $("#chOld").value.trim() || undefined, new_rule: $("#chNew").value.trim(), change_type: $("#chType").value }; ST.chEdit = null; if (el.dataset.approve) ST.decided[sec] = "approved"; else delete ST.decided[sec]; log("examiner", L("Spec change edited", "Änderung bearbeitet"), "§" + sec + (el.dataset.approve ? " · " + L("approved", "freigegeben") : "")); render(); },
+    chatSuggest: el => story.chatAsk(el.dataset.q),
     chatSend: () => { const inp = $("#chatInput"); if (!inp) return; const q = inp.value; inp.value = ""; story.chatAsk(q); },
     genCases: () => story.generateCases(),
     caseFilter: el => { ST.caseFilter = el.dataset.f; render(); },
     caseSel: el => { ST.selCase = el.dataset.id; render(); },
+    caseEdit: el => { ST.caseEdit = el.dataset.id; render(); const t = $("#tcTitle"); if (t) t.focus(); },
+    caseCancel: () => { ST.caseEdit = null; render(); },
+    caseSave: el => {
+      const c = storyCases().find(x => x.id === el.dataset.id); if (!c) return;
+      const list = id => $(id).value.split("\n").map(x => x.trim()).filter(Boolean);
+      if (!CASE_ORIG[c.id]) CASE_ORIG[c.id] = { obj: c, orig: { title: c.title, preconditions: (c.preconditions || []).slice(), steps: (c.steps || []).slice(), expected_outcome: c.expected_outcome, history: (c.history || []).slice() } };
+      Object.assign(c, { title: $("#tcTitle").value.trim() || c.title, preconditions: list("#tcPre"), steps: list("#tcSteps"), expected_outcome: $("#tcOutcome").value.trim(), edited: true,
+        history: [...(c.history || []), { t: C.iso(C.D("2026-12-01")) + "T09:40", who: L("examiner", "Prüfer"), action: L("edited", "bearbeitet"), detail: L("wording of the test case", "Wortlaut des Testfalls") }] });
+      ST.caseEdit = null; if (el.dataset.verify) ST.status[c.id] = "verified";
+      log("examiner", L("Test case edited", "Testfall bearbeitet"), c.id + (el.dataset.verify ? " · " + L("verified", "verifiziert") : "")); render();
+    },
     caseSet: el => { ST.status[el.dataset.id] = el.dataset.s; log("examiner", el.dataset.s === "verified" ? L("Test case verified", "Testfall verifiziert") : L("Test case rejected", "Testfall abgelehnt"), el.dataset.id); render(); },
     caseJsonStory: el => { const c = (CASES || []).find(x => x.id === el.dataset.id); if (c) downloadOrCopy(`${c.id}.json`, JSON.stringify(Object.assign({}, c, { cot: undefined, history: undefined }), null, 2), "application/json"); },
     sendOpen: () => story.openSend(),
@@ -3649,7 +3692,7 @@ const TOUR = (() => {
      `via` are the clicks that lead from the previous step's screen here; they only play when you go forward. */
   const STEPS = [
     { title: "The pipeline", screen: "overview", sel: '[data-tour="pipeline"]', before: () => { S.role = "itsg"; },
-      after: async alive => { await wait(600); for (let i = 1; i <= 8; i++) { if (!alive()) return; await cur.move(`.pipe-step:nth-child(${i})`, { ms: 420 }); } },
+      after: async alive => { await wait(600); for (let i = 1; i <= 8; i++) { if (!alive()) return; await cur.move(`.pipe-step:nth-child(${i})`, { rest: 120 }); } },
       say: "One pipeline in eight stages: from the new government PDF to a certified payroll release.",
       notes: ["Eight stages, from the government PDF to the certificate.", "The AI reads and drafts; tested code calculates; a person decides."] },
     { title: "Import", screen: "ingest", sel: '[data-tour="drop"]', via: [{ sel: '.pipe-step[data-screen="ingest"]' }], before: () => { S.role = "itsg"; },
@@ -3686,11 +3729,16 @@ const TOUR = (() => {
       say: "From the approved changes, the AI writes one test case per rule, grouped by rule. Tested code computes every expected result.",
       notes: ["One case per rule, grouped by the rule it tests.", "The expected value comes from tested code. Checks G1–G5: quotes verbatim, formula safe, oracle equals AI, parameters quoted, formula run."] },
     { title: "The case we follow", screen: "review", sel: '[data-tour="casedetail"]', noZoom: true,
-      before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.caseIds().find(id => id !== X.FOLLOWED) || X.FOLLOWED; S.story.focus = null; S.story.caseFilter = "all"; },
-      after: async alive => { await wait(700); if (!alive()) return; await cur.click('[data-tour="focuscase"]'); if (!alive()) return; S.story.focus = X.FOLLOWED; A.render(); spotOn('[data-tour="casedetail"]', true); },
-      say: "This is the case we follow: ITSG's reference employee, whose oldest sick period must stay out of request 41.",
-      notes: ["ITSG's own reference employee, Peter Mustermann, plus an older sick period from November 2024.", "Expected: request 41 with exactly 4 periods; the 2024 one stays out."] },
-    { title: "Send to developers", screen: "review", sel: '[data-tour="sendbtn"]', before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.FOLLOWED; S.story.focus = X.FOLLOWED; },
+      before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.caseIds().find(id => id !== X.FOLLOWED) || X.FOLLOWED; S.story.focus = null; S.story.caseFilter = "all"; S.story.caseEdit = null; },
+      after: async alive => { await wait(700); if (!alive()) return; await cur.click('[data-tour="focuscase"]'); if (!alive()) return; S.story.focus = X.FOLLOWED; A.render(); spotOn('[data-tour="casedetail"]', true);
+        if (X.caseEdited(X.FOLLOWED)) return; await wait(1400); if (!alive()) return;
+        await cur.click('[data-tour="casedetail"] [data-act="caseEdit"]'); if (!alive()) return; spotOn('[data-tour="casedetail"]', true);
+        await cur.click("#tcOutcome"); if (!alive()) return; const ta = document.getElementById("tcOutcome"); if (ta) { ta.selectionStart = ta.selectionEnd = ta.value.length; ta.scrollTop = ta.scrollHeight; }
+        await X.appendType(ta, X.CASE_SUFFIX); if (!alive()) return; await wait(500); if (!alive()) return;
+        await cur.click('[data-act="caseSave"][data-verify]'); if (alive()) spotOn('[data-tour="casedetail"]', true); },
+      say: "This is the case we follow: ITSG's reference employee. The examiner can reword any test case, then verify it.",
+      notes: ["ITSG's own reference employee, Peter Mustermann, plus an older sick period from November 2024.", "Expected: request 41 with exactly 4 periods; the 2024 one stays out.", "Edit: the examiner adds “ANZAHL-AU must be 04.” The expected value itself stays with tested code."] },
+    { title: "Send to developers", screen: "review", sel: '[data-tour="sendbtn"]', before: () => { S.role = "itsg"; S.story.caseEdit = null; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.FOLLOWED; S.story.focus = X.FOLLOWED; },
       after: async alive => { if (S.story.sent) return; await wait(600); if (!alive()) return; await cur.click('[data-act="sendOpen"]'); if (!alive()) return; spotOn(".modal");
         await cur.hover('.modal .sendTo[value="sap"]', 900); if (!alive()) return; await cur.click('[data-act="sendNow"]'); if (alive()) spotOn('[data-tour="sendbtn"]'); },
       say: "One click sends the package to the vendor's developers. ITSG keeps the expected file and compares every upload.",
@@ -3707,11 +3755,11 @@ const TOUR = (() => {
       notes: ["The AI recap: what changed in v13.4 and what the developer has to do.", "Below it, the 5 test cases to run, grouped by rule."] },
     { title: "Run each test", screen: "vcheck", sel: '[data-tour="cltable"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.covered = {}; S.story.clOpen = null; },
       after: async alive => { await wait(800); for (const id of X.caseIds()) { if (!alive()) return; if (S.story.covered[id]) continue;
-          const main = id === X.FOLLOWED, fast = main ? {} : { ms: 420 };
-          await cur.click(`[data-act="clOpen"][data-id="${id}"]`, fast); if (!alive()) return; spotOn(`[data-row="${id}"]`, true);
+          const main = id === X.FOLLOWED;
+          await cur.click(`[data-act="clOpen"][data-id="${id}"]`); if (!alive()) return; spotOn(`[data-row="${id}"]`, true);
           if (main) { await cur.hover(`[data-row="${id}"] .tc-sheet`, 1100); if (!alive()) return; await cur.hover(`[data-row="${id}"] .cl-soll`, 1600); if (!alive()) return; }
-          else { await wait(350); if (!alive()) return; }
-          await cur.click(`[data-act="clPass"][data-id="${id}"]`, Object.assign({ after: 150 }, fast)); } if (alive()) spotOn('[data-tour="cltable"]', true); },
+          else { await wait(400); if (!alive()) return; }
+          await cur.click(`[data-act="clPass"][data-id="${id}"]`); } if (alive()) spotOn('[data-tour="cltable"]', true); },
       say: "The developer runs each test case in SAP, following its steps, and checks it against what should happen.",
       notes: ["How to run it: the setup and the steps, like ITSG's Testkonstellation.", "What should happen: in words, with the key values. They check it on screen and tick it off.", "The exact file stays with ITSG: it is compared after the upload."] },
     { title: "Upload", screen: "vcheck", sel: '[data-tour="upload"]', before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.clOpen = null; X.tickAll(); },
@@ -3772,7 +3820,8 @@ const TOUR = (() => {
     Object.assign(sp.style, { opacity: bottom > top + 8 ? "1" : "0", left: Math.max(4, r.left - 6) + "px", top: top + "px", width: Math.min(innerWidth - 8, r.width + 12) + "px", height: Math.max(0, bottom - top) + "px" });
   }
   function respot() {
-    const sp = document.getElementById("tourSpot");
+    const sp = document.getElementById("tourSpot"), dlg = document.querySelector("#modalHost .modal");
+    if (sp && dlg) { place(dlg, sp); return; }
     if (!sp || !spotSel) return;
     if (!spotEl || !document.contains(spotEl)) spotEl = document.querySelector(spotSel);
     if (spotEl) place(spotEl, sp); else sp.style.opacity = "0";
@@ -3812,6 +3861,13 @@ const TOUR = (() => {
       }
       el.classList.add("on"); return el;
     }
+    // smooth scrolling has no end event: wait until the position stops changing
+    async function settle(get) { let last = get(), same = 0; const t0 = performance.now(); while (performance.now() - t0 < 1500) { await wait(50); const v = get(); if (Math.abs(v - last) < .5) { if (++same >= 3) break; } else same = 0; last = v; } }
+    function glide(nx, ny) {
+      const ms = reduced() ? 0 : Math.round(Math.min(1300, Math.max(500, 420 + Math.hypot(nx - x, ny - y) * .85)));
+      x = nx; y = ny; const c = node(); c.style.transitionDuration = `${ms}ms, .25s`; c.style.transform = `translate(${x - 3}px, ${y - 3}px)`;
+      return ms;
+    }
     function scrollBox(n) { for (let p = n.parentElement; p && p !== document.body; p = p.parentElement) { const o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight + 2) return p; } return null; }
     // scroll the inner box first (thread, case list, chat), then the page, so the target sits between the top bar and the tour bar
     async function scrollTo(t) {
@@ -3820,14 +3876,14 @@ const TOUR = (() => {
       const box = scrollBox(n), barH = ($("#tourBar") || { offsetHeight: 0 }).offsetHeight;
       if (box) {
         const r = n.getBoundingClientRect(), b = box.getBoundingClientRect(), bBot = Math.min(b.bottom, innerHeight - barH);
-        if (r.top < b.top + 4 || r.bottom > bBot - 4) { c.classList.add("scrolling"); moved = true; box.scrollTo({ top: Math.max(0, box.scrollTop + r.top - b.top - Math.max(8, (bBot - b.top - r.height) / 2)), behavior: still ? "auto" : "smooth" }); await wait(still ? 40 : 450); }
+        if (r.top < b.top + 4 || r.bottom > bBot - 4) { c.classList.add("scrolling"); moved = true; box.scrollTo({ top: Math.max(0, box.scrollTop + r.top - b.top - Math.max(8, (bBot - b.top - r.height) / 2)), behavior: still ? "auto" : "smooth" }); await settle(() => box.scrollTop); }
       }
       if (n.closest(".rail")) { if (moved) c.classList.remove("scrolling"); return; } // the rail is sticky: only its own box scrolls
       const r = n.getBoundingClientRect(), topB = $("#bar").offsetHeight, room = innerHeight - topB - barH;
       if (r.top < topB + 8 || r.bottom > innerHeight - barH - 8) {
         c.classList.add("scrolling"); moved = true;
         window.scrollTo({ top: Math.max(0, scrollY + r.top - topB - (r.height > room - 24 ? 12 : (room - r.height) / 2)), behavior: still ? "auto" : "smooth" });
-        await wait(still ? 40 : 550);
+        await settle(() => scrollY);
       }
       if (moved) c.classList.remove("scrolling");
     }
@@ -3838,9 +3894,8 @@ const TOUR = (() => {
       if (o.spot && typeof t === "string") spotOn(t, true);
       document.querySelectorAll(".cur-hover").forEach(e => e.classList.remove("cur-hover")); n.classList.add("cur-hover");
       const r = n.getBoundingClientRect();
-      x = r.left + (r.width > 140 ? Math.min(r.width * .3, 70) : r.width / 2); y = r.top + Math.min(r.height / 2, 22);
-      node().style.transform = `translate(${x - 3}px, ${y - 3}px)`;
-      await wait(reduced() ? 30 : (o.ms || 680));
+      const ms = glide(r.left + (r.width > 140 ? Math.min(r.width * .3, 70) : r.width / 2), r.top + Math.min(r.height / 2, 22));
+      await wait(ms + (reduced() ? 30 : o.rest != null ? o.rest : 220));
       return n;
     }
     async function click(t, o = {}) {
@@ -3848,9 +3903,9 @@ const TOUR = (() => {
       if (typeof t === "string" && !document.contains(n)) n = find(t); if (!n) return false;
       const c = node(); c.classList.add("down");
       if (!reduced()) { const rp = document.createElement("span"); rp.className = "tour-ripple"; rp.style.left = x + "px"; rp.style.top = y + "px"; document.body.appendChild(rp); setTimeout(() => rp.remove(), 500); }
-      await wait(170); c.classList.remove("down");
+      await wait(200); c.classList.remove("down");
       if (o.run) o.run(); else if (n.matches("input, textarea")) n.focus(); else n.click();
-      await wait(o.after != null ? o.after : 260);
+      await wait(o.after != null ? o.after : 380);
       return true;
     }
     async function hover(t, ms = 900, o) { const n = await move(t, o); if (n) await wait(ms); return !!n; }
@@ -3952,6 +4007,8 @@ const TOUR = (() => {
     addEventListener("resize", () => { if (pos >= 0) respot(); });
     // re-renders replace the framed element: find it again and keep the frame on it
     new MutationObserver(() => { if (pos >= 0 && spotSel) requestAnimationFrame(respot); }).observe($("#view"), { childList: true, subtree: true });
+    // a dialog opening or closing moves the frame onto it and back, following its entrance animation
+    new MutationObserver(() => { if (pos >= 0) { followUntil = performance.now() + 700; follow(); } }).observe($("#modalHost"), { childList: true });
     $("#main").addEventListener("transitionend", () => { if (pos >= 0) respot(); });
     // #demo opens the demo, #demo=8 jumps to beat 8 (1–22: slides 1–4, steps 1–17, closing slide)
     const m = location.hash.match(/^#demo(?:=(\d+))?$/);

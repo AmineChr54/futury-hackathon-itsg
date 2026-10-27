@@ -418,6 +418,20 @@ body.touring .bar-tools > :not(#demoBtn) { display: none; }
 .skip-clock .hh { stroke-width: 7; animation-duration: 1.1s; }
 .skip-clock .mh { animation-duration: .28s; }
 @keyframes clockspin { to { transform: rotate(360deg); } }
+/* the demo cursor: glides to each target, presses, scrolls */
+.tour-cursor { position: fixed; left: 0; top: 0; z-index: 90; width: 30px; height: 30px; pointer-events: none; opacity: 0; transform: translate(50vw, 60vh); transition: transform .62s cubic-bezier(.3,.7,.2,1), opacity .25s; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .35)); }
+.tour-cursor.on { opacity: 1; }
+.tour-cursor svg { width: 30px; height: 30px; display: block; transform-origin: 3px 3px; transition: transform .12s ease; }
+.tour-cursor.down svg { transform: scale(.82); }
+.tour-cursor .wheel { position: absolute; left: 22px; top: 18px; width: 10px; height: 16px; border: 2px solid #fff; border-radius: 6px; background: #1d1d1f; opacity: 0; transition: opacity .2s; }
+.tour-cursor .wheel::after { content: ""; position: absolute; left: 50%; top: 2px; width: 2px; height: 4px; margin-left: -1px; border-radius: 1px; background: #fff; animation: wheel .6s ease-in-out infinite; }
+.tour-cursor.scrolling .wheel { opacity: 1; }
+@keyframes wheel { from { transform: translateY(0); opacity: 1; } to { transform: translateY(6px); opacity: 0; } }
+.tour-ripple { position: fixed; z-index: 89; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 3px solid var(--accent); pointer-events: none; animation: ripple .45s ease-out forwards; }
+@keyframes ripple { from { transform: scale(.2); opacity: 1; } to { transform: scale(1.3); opacity: 0; } }
+body.on-slide .tour-cursor { opacity: 0; }
+.btn.cur-hover, .nav-btn.cur-hover, .pipe-step.cur-hover, .list-item.cur-hover, .mail-item.cur-hover, .drop.cur-hover, .notify .cur-hover, summary.cur-hover { filter: brightness(1.1); box-shadow: 0 0 0 3px var(--accent-soft); }
+.src-chip.cur-hover { background: var(--accent); color: var(--accent-ink); }
 
 :root[data-theme="dark"] .tour-spot { box-shadow: 0 0 0 9999px rgba(0, 0, 0, .58); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tour-spot { box-shadow: 0 0 0 9999px rgba(0, 0, 0, .58); } }
@@ -580,6 +594,28 @@ input.cover { width: 20px; height: 20px; accent-color: var(--ok); cursor: pointe
 .chat-msg.ai .who { background: var(--info); color: var(--surface); }
 .chat-msg .txt { white-space: pre-wrap; line-height: 1.55; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 10px; }
 .chat-msg.ai .txt { background: var(--info-soft); border-color: transparent; }
+/* light Markdown in chat answers and e-mails: gray key words, clickable § sources */
+.md { white-space: normal !important; }
+.md.typing::after { content: none; }
+.md.typing > :last-child::after { content: "▍"; animation: pulse .8s infinite; color: var(--accent); }
+.md p { margin: 0 0 8px; max-width: none; }
+.md p:last-child, .md ul:last-child { margin-bottom: 0; }
+.md ul { margin: 0 0 8px; padding-left: 18px; }
+.md code { font: 500 .92em var(--font-mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.kw { font-weight: 700; background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.src-chip { display: inline-flex; align-items: center; gap: 4px; font: 600 var(--fs-xs)/1.3 var(--font-mono); color: var(--accent); background: var(--accent-soft, var(--surface-2)); border: 1px solid var(--accent); border-radius: 999px; padding: 1px 8px; cursor: pointer; vertical-align: baseline; }
+.src-chip:hover, .src-chip:focus-visible { background: var(--accent); color: var(--accent-ink); outline: none; box-shadow: 0 0 0 3px var(--accent-soft, var(--line)); }
+.src-card { display: grid; gap: 4px; margin-top: 8px; padding: 8px 10px; border-left: 3px solid var(--accent); border-radius: var(--r-sm); background: var(--surface); }
+.src-card .field-label { display: flex; align-items: center; gap: 8px; }
+.src-card .hint { font-size: var(--fs-xs); color: var(--muted); }
+/* what a change type means */
+.ct-help { font-size: var(--fs-xs); color: var(--muted); margin: 0; max-width: none; }
+.ct-explain { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: stretch; }
+.ct-explain > div { display: grid; gap: 4px; align-content: start; padding: 10px 12px; border-radius: var(--r-md); font-size: var(--fs-sm); line-height: 1.45; }
+.ct-explain .log { background: var(--surface-2); border-left: 3px solid var(--line-strong); }
+.ct-explain .ai { background: var(--warn-soft, var(--surface-2)); border-left: 3px solid var(--warn); }
+.ct-explain .vs { align-self: center; font: 700 var(--fs-xs)/1 var(--font-mono); color: var(--muted); padding: 0; }
+@media (max-width: 700px) { .ct-explain { grid-template-columns: minmax(0, 1fr); } .ct-explain .vs { justify-self: center; } }
 .chat-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .tc-group { padding: 10px 14px 6px; background: var(--surface-2); border-bottom: 1px solid var(--line); display: grid; gap: 2px; position: sticky; top: 0; z-index: 1; }
 .tc-group b { font: 600 var(--fs-sm)/1.3 var(--font-display); }
@@ -1650,6 +1686,33 @@ const APP = (() => {
   };
   const L = (en, de) => S.lang === "de" ? de : en;
   const T = o => o ? (o[S.lang] != null ? o[S.lang] : o.en) : "";
+  // Light Markdown for AI answers and e-mails. Escapes first, then **key words** (gray), `code`, „quotes“,
+  // "- " lists, and § references as chips that open the specification at the quoted sentence.
+  const SEC_REF = /\(§(\d+(?:\.\d+)*)(?:,\s*(?:p\.|S\.)\s*(\d+))?\)|§(\d+(?:\.\d+)*)(?:,\s*(?:p\.|S\.)\s*(\d+))?/g;
+  function mdInline(t, line) {
+    const qm = String(line).match(/„([^“]+)“/), q = qm ? qm[1].replace(/^[\s…]+|[\s…]+$/g, "").split(/\s+/).slice(-7).join(" ") : "";
+    return esc(t)
+      .replace(SEC_REF, (m, s1, p1, s2, p2) => { const sec = s1 || s2, page = p1 || p2; return `<button type="button" class="src-chip" data-act="goSec" data-sec="${sec}"${q ? ` data-q="${esc(q)}"` : ""} title="${esc(L("Open in the specification", "In der Spezifikation öffnen"))}">§${sec}${page ? ` · ${L("p.", "S.")} ${page}` : ""} ↗</button>`; })
+      .replace(/\*\*([^*]+?)\*\*/g, '<b class="kw">$1</b>')
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      .replace(/„([^“]*)“/g, '<span class="de-quote">„$1“</span>');
+  }
+  function richText(s) {
+    const out = [];
+    let kind = null, items = [];
+    const emit = () => { if (items.length) out.push(kind === "li" ? `<ul>${items.map(x => `<li>${x}</li>`).join("")}</ul>` : `<p>${items.join("<br>")}</p>`); items = []; kind = null; };
+    const push = (k, html) => { if (kind !== k) emit(); kind = k; items.push(html); };
+    String(s == null ? "" : s).split(/\n{2,}/).forEach(block => {
+      block.split("\n").forEach(line => {
+        const src = line.match(/^\s*(Source|Quelle)n?:\s*(.*)$/i), li = line.match(/^\s*[-•]\s+(.*)$/);
+        if (src) { emit(); out.push(`<div class="src-card"><span class="field-label">${esc(src[1])}<span class="hint">${L("click to open the sentence in the specification", "klicken öffnet den Satz in der Spezifikation")}</span></span><div>${mdInline(src[2], line).replace(/(<\/button>),\s*/, "$1 ")}</div></div>`); }
+        else if (li) push("li", mdInline(li[1], line));
+        else if (line.trim()) push("p", mdInline(line, line));
+      });
+      emit();
+    });
+    return out.join("");
+  }
   const fmtN = n => n.toLocaleString(S.lang === "de" ? "de-DE" : "en-GB");
 
   /* ---------- derived data ---------- */
@@ -1742,7 +1805,7 @@ const APP = (() => {
       const st = S.rules[rule.id], ev = C.evaluateRule(rule, rule.runA, rule.runB), g = ev.gA.params[n];
       return [
         { kind: "src", ic: "§", title: `${L("Specification", "Spezifikation")} §${rule.sec} · ${L("page", "Seite")} ${sec.page} · v${C.SPEC.version}`, html: `<div class="trail-box de-quote">„${esc(q)}“</div><div class="row"><span class="pill ${g.quoteOk ? "ok" : "bad"}">${g.quoteOk ? "✓" : "✕"} ${L("verbatim in spec", "wörtlich in Spezifikation")}</span><button class="btn sm ghost" data-act="goSec" data-sec="${rule.sec}" data-q="${esc(q)}">${L("Show in document", "Im Dokument zeigen")}</button></div>` },
-        { kind: "llm", ic: "AI", title: `${L("Parameter extracted", "Parameter extrahiert")}: <code>${n} = ${S.params[n]}</code> ${pill(L("LLM: extraction only", "LLM: nur Extraktion"), "info")}`, html: `<div class="trail-box">${L("Two independent runs (Kolibri-1, prompt A / prompt B)", "Zwei unabhängige Läufe (Kolibri-1, Prompt A / Prompt B)")}: <b>${rule.runA.params[n]}</b> / <b>${rule.runB.params[n]}</b> ${ev.ag.diff.includes(n) ? pill(L("conflict", "Konflikt"), "bad") : pill("A = B", "ok")}<br>${L("Number check", "Zahlenprüfung")}: ${esc(g.numOk.how)} · ${L("Range", "Bereich")}: ${esc(g.schemaOk.how)}</div><div class="row">${statusPill(st.status)}${S.params[n] !== rule.runA.params[n] ? pill(L("edited by examiner", "vom Prüfer geändert"), "warn") : ""}</div>` }
+        { kind: "llm", ic: "AI", title: `${L("Parameter extracted", "Parameter extrahiert")}: <code>${n} = ${S.params[n]}</code> ${pill(L("LLM: extraction only", "LLM: nur Extraktion"), "info")}`, html: `<div class="trail-box">${L("Two independent runs (prompt A / prompt B)", "Zwei unabhängige Läufe (Prompt A / Prompt B)")}: <b>${rule.runA.params[n]}</b> / <b>${rule.runB.params[n]}</b> ${ev.ag.diff.includes(n) ? pill(L("conflict", "Konflikt"), "bad") : pill("A = B", "ok")}<br>${L("Number check", "Zahlenprüfung")}: ${esc(g.numOk.how)} · ${L("Range", "Bereich")}: ${esc(g.schemaOk.how)}</div><div class="row">${statusPill(st.status)}${S.params[n] !== rule.runA.params[n] ? pill(L("edited by examiner", "vom Prüfer geändert"), "warn") : ""}</div>` }
       ];
     }).flat();
   }
@@ -1782,7 +1845,7 @@ const APP = (() => {
       const q = old ? "nicht mindestens 6 Monate vergangen sind" : "nicht mehr als 6 Monate vergangen sind";
       return { title: r.allowed ? `${L("Request 41 with", "Anfrage 41 mit")} ${r.chain.included.length} ${L("periods", "Zeiträumen")}` : L("No request 41", "Keine Anfrage 41"), sub: `${b.id} · §3.12 · v${old ? "13.3" : "13.4"}`, steps: [
         { kind: "src", ic: "§", title: `${L("Specification", "Spezifikation")} §3.12 · v${old ? "13.3" : "13.4"}`, html: `<div class="trail-box de-quote">„${esc(q)}“</div>${old ? `<div class="muted" style="font-size:var(--fs-xs)">${L("Old wording, reconstructed from the change log", "Alter Wortlaut, aus dem Änderungsprotokoll rekonstruiert")}</div>` : ""}` },
-        { kind: "llm", ic: "AI", title: `${L("Parameter extracted", "Parameter extrahiert")}: <code>six_months = ${P.six_months}</code> ${pill(L("LLM: extraction only", "LLM: nur Extraktion"), "info")}`, html: `<div class="trail-box">${L("Two independent runs (Kolibri-1, prompt A / prompt B)", "Zwei unabhängige Läufe (Kolibri-1, Prompt A / Prompt B)")}: <b>${rB.runA.params.six_months}</b> / <b>${rB.runB.params.six_months}</b> ${pill("A = B", "ok")}</div><div class="row">${statusPill(S.rules[rB.id].status)}</div>` },
+        { kind: "llm", ic: "AI", title: `${L("Parameter extracted", "Parameter extrahiert")}: <code>six_months = ${P.six_months}</code> ${pill(L("LLM: extraction only", "LLM: nur Extraktion"), "info")}`, html: `<div class="trail-box">${L("Two independent runs (prompt A / prompt B)", "Zwei unabhängige Läufe (Prompt A / Prompt B)")}: <b>${rB.runA.params.six_months}</b> / <b>${rB.runB.params.six_months}</b> ${pill("A = B", "ok")}</div><div class="row">${statusPill(S.rules[rB.id].status)}</div>` },
         fnStep("dbvo.gates"),
         inStep(`${esc(b.name)} · ${L("current AU", "aktuelle AU")} ${C.de(b.state.current.start)}–${C.de(b.state.current.end)}<br>${b.state.priors.map(a => `${C.de(a.start)}–${C.de(a.end)}`).join("<br>")}`),
         calcStep([...r.chain.trace, ...r.days.trace, ...r.gates.map(x => `${x.ok ? "✓" : "✕"} ${x.id}: ${x.detail}`)]),
@@ -1952,7 +2015,7 @@ const APP = (() => {
       <div class="grid-2">
         <section class="panel" data-tour="drop"><div class="panel-head"><h3>${L("New specification", "Neue Spezifikation")}</h3>${pill(L("original government PDF", "Original-PDF der Behörde"), "accent")}</div>
           <div class="panel-body">${ST.ingest === 2 ? `<div class="callout ok"><b>${ic("doc")} Verfahrensbeschreibung DTA EEL · v${esc(SF.version || C.SPEC.version)}</b><span>${SF.pages} ${L("pages", "Seiten")} · <b>${SF.sections.length} ${L("sections", "Abschnitte")}</b> · ${L("change log", "Änderungsprotokoll")} ${CHANGELOG.length} ${L("entries", "Einträge")} · ${fmtN(C.SPEC.links)} ${L("internal links", "interne Links")}</span><div class="row"><button class="btn sm primary" data-act="go" data-screen="specs">${L("Open the specification", "Spezifikation öffnen")} →</button></div></div>`
-            : ST.ingest === 1 ? `<div class="stack"><b>${ic("doc")} 2026_03_10_Endfassung_Verfahrensbeschreibung_DTA_EEL_Version_13.4.pdf</b><div class="progress"><i id="dropBar" style="width:${ST.pct}%"></i></div><span class="muted mono" id="dropLbl" style="font-size:var(--fs-xs)">${L("Reading", "Lese")}…</span></div>`
+            : ST.ingest === 1 ? `<div class="stack" style="min-width:0"><b style="overflow-wrap:anywhere">${ic("doc")} 2026_03_10_Endfassung_Verfahrensbeschreibung_DTA_EEL_Version_13.4.pdf</b><div class="progress"><i id="dropBar" style="width:${ST.pct}%"></i></div><span class="muted mono" id="dropLbl" style="font-size:var(--fs-xs)">${L("Reading", "Lese")}…</span></div>`
             : `<div class="row"><button class="btn primary" data-act="simDrop">${ic("upload")} ${L("Import v13.4 (original PDF)", "v13.4 importieren (Original-PDF)")}</button></div>`}
           <div class="drop tour-hide" id="pdfDrop" data-act="pickPdf" role="button" tabindex="0">${ic("upload")}<b>${L("Drop a spec PDF here or click to choose", "Spezifikations-PDF hier ablegen oder klicken")}</b><span>${L("Builds the § index from numbered headings and counts internal links. Uses pdf.js from a CDN; the rest of the demo works offline.", "Baut den §-Index aus nummerierten Überschriften und zählt interne Links. Nutzt pdf.js vom CDN; der Rest der Demo funktioniert offline.")}</span></div>
           <div id="pdfStatus"></div>
@@ -2217,7 +2280,7 @@ const APP = (() => {
               </div>
               ${ev.status === "partly" ? `<div class="callout warn"><b>${L("Run B paraphrased a quote", "Lauf B hat ein Zitat umformuliert")}</b>${L("The quote guard rejected it, because the text does not appear in the spec. Run A's verbatim quote carries the parameter; the examiner sees both.", "Die Zitatprüfung hat es abgelehnt, weil der Text so nicht in der Spezifikation steht. Das wörtliche Zitat aus Lauf A trägt den Parameter; der Prüfer sieht beide.")}</div>` : ""}
               ${ev.status === "conflict" ? `<div class="callout bad"><b>${L("Runs disagree", "Läufe widersprechen sich")}: ${ev.ag.diff.join(", ")}</b>${L("Run B read a number that is not in its own quote. The rule cannot be approved until the examiner resolves the conflict.", "Lauf B hat eine Zahl gelesen, die nicht in seinem eigenen Zitat steht. Die Regel kann erst freigegeben werden, wenn der Prüfer den Konflikt löst.")}</div>` : ""}
-              <div class="runs">${runPanel(rule, rule.runA, ev.gA, L("Run A", "Lauf A"), "Kolibri-1 · prompt A · " + L("recorded", "aufgezeichnet"))}${runPanel(rule, B, ev.gB, st.live ? L("Live run", "Live-Lauf") : L("Run B", "Lauf B"), st.live ? esc(st.live.model) + " · " + L("live", "live") : "Kolibri-1 · prompt B · " + L("recorded", "aufgezeichnet"))}</div>
+              <div class="runs">${runPanel(rule, rule.runA, ev.gA, L("Run A", "Lauf A"), L("prompt A", "Prompt A") + " · " + L("recorded", "aufgezeichnet"))}${runPanel(rule, B, ev.gB, st.live ? L("Live run", "Live-Lauf") : L("Run B", "Lauf B"), st.live ? esc(st.live.model) + " · " + L("live", "live") : L("prompt B", "Prompt B") + " · " + L("recorded", "aufgezeichnet"))}</div>
               <div class="stack"><div class="row between"><span class="field-label">§${rule.sec} · ${L("source text with quotes", "Quelltext mit Zitaten")}</span><button class="btn sm ghost" data-act="goSec" data-sec="${rule.sec}">${L("Open in viewer", "Im Viewer öffnen")}</button></div>
                 <div class="spec" style="font-size:var(--fs-sm)">${sec.text.map(p => `<p>${highlightText(p, rule.sec)}</p>`).join("")}</div></div>
             </div></details>
@@ -2628,7 +2691,7 @@ const APP = (() => {
       const v = vendorOf(th.vendor), ok = certifiable(v.id), hasCert = !!mailbox().certs[v.id];
       const quick = s === "itsg" ? `<div class="actions"><button class="btn sm" data-act="itsgSendReport" data-v="${v.id}">${ic("report")} ${L("Send report", "Bericht senden")}</button><button class="btn sm" data-act="itsgRequestFix" data-v="${v.id}" ${ok ? "disabled" : ""}>${L("Request fix & resend", "Korrektur anfordern")}</button><button class="btn sm primary" data-act="itsgCert" data-v="${v.id}" ${ok && !hasCert ? "" : "disabled"} title="${esc(ok ? "" : L("Only when nothing failed", "Nur wenn nichts fehlgeschlagen ist"))}">${ic("check")} ${hasCert ? L("Certificate issued", "Zertifikat erteilt") : L("Issue certificate", "Zertifikat erteilen")}</button></div>` : "";
       reading = `<div class="mail-read"><div class="mail-head"><div class="row between"><div class="stack" style="gap:2px"><h3>${esc(txt(th.subject))}</h3><span class="muted" style="font-size:var(--fs-xs)">ITSG ⇄ ${esc(v.name)} · ${esc(v.productName)} ${esc(v.release)}</span></div>${quick}</div></div>
-        <div class="mail-msgs" data-tour="thread">${th.msgs.map(m => { const w = who(m.from, th); return `<div class="mail-msg ${m.from === "system" ? "system" : ""}"><div class="avatar ${w.cls}">${w.a}</div><div class="stack" style="gap:6px"><div class="row between"><b>${esc(w.n)}</b><span class="muted" style="font-size:var(--fs-xs)">${fmtAt(m.at)}</span></div>${txt(m.body) ? `<div class="body">${esc(txt(m.body))}</div>` : ""}${m.attach.map(a => attCard(a, th)).join("")}</div></div>`; }).join("")}</div>${composer}</div>`;
+        <div class="mail-msgs" data-tour="thread">${th.msgs.map(m => { const w = who(m.from, th); return `<div class="mail-msg ${m.from === "system" ? "system" : ""}"><div class="avatar ${w.cls}">${w.a}</div><div class="stack" style="gap:6px"><div class="row between"><b>${esc(w.n)}</b><span class="muted" style="font-size:var(--fs-xs)">${fmtAt(m.at)}</span></div>${txt(m.body) ? `<div class="body md">${richText(txt(m.body))}</div>` : ""}${m.attach.map(a => attCard(a, th)).join("")}</div></div>`; }).join("")}</div>${composer}</div>`;
     }
     return `${head(L("Messages", "Nachrichten"), s === "itsg" ? L("One conversation per vendor and topic. Publish packages, receive result files — compared automatically on arrival — and send reports or the certificate back.", "Eine Unterhaltung je Hersteller und Thema. Pakete veröffentlichen, Ergebnisdateien empfangen — beim Eingang automatisch verglichen — und Berichte oder das Zertifikat zurückschicken.") : L("Your conversations with ITSG. Packages arrive here; send your result files back and they are compared automatically.", "Ihre Unterhaltungen mit ITSG. Pakete kommen hier an; senden Sie Ihre Ergebnisdateien zurück, sie werden automatisch verglichen."))}
       <div class="mail" data-tour="mail">${folders}${items}${reading}</div>${demoNote()}`;
@@ -2753,7 +2816,18 @@ const APP = (() => {
     formula: [L("A calculation changed", "Eine Berechnung hat sich geändert"), "bad"], new_rule: [L("New rule", "Neue Regel"), "accent"], removed_rule: [L("Rule removed", "Regel entfallen"), "bad"],
     format: [L("Data format changed", "Datenformat geändert"), "info"], clarification: [L("Clarification", "Klarstellung"), "info"], editorial: [L("Wording only — nothing to test", "Nur redaktionell — nichts zu testen"), ""]
   });
-  const ctPill = t => { const [label, cls] = CT()[t] || [t || "?", ""]; return pill(esc(label), cls); };
+  // What each type means, for the tooltip, the card and the "change log vs AI" box.
+  const CT_HELP = () => ({
+    editorial: L("Only the wording changed. Every test gives the same result as before, so there is nothing new to test.", "Nur der Wortlaut hat sich geändert. Jeder Test liefert dasselbe Ergebnis wie vorher, es gibt nichts Neues zu testen."),
+    condition: L("The rule now decides differently: the same employee can get a different result. Tests on this rule must be updated.", "Die Regel entscheidet jetzt anders: Derselbe Beschäftigte kann ein anderes Ergebnis bekommen. Tests zu dieser Regel müssen angepasst werden."),
+    parameter: L("A number or limit in the rule changed. Tests at the old and the new limit must be checked.", "Eine Zahl oder Grenze der Regel hat sich geändert. Tests an alter und neuer Grenze prüfen."),
+    formula: L("The way a value is calculated changed. Every expected value from it must be recalculated.", "Die Berechnung eines Werts hat sich geändert. Alle Erwartungswerte daraus neu berechnen."),
+    new_rule: L("A new obligation. It needs at least one new test case.", "Eine neue Pflicht. Sie braucht mindestens einen neuen Testfall."),
+    removed_rule: L("A rule no longer applies. Its old test cases are retired.", "Eine Regel entfällt. Ihre alten Testfälle werden ausgemustert."),
+    format: L("The data format changed: a field, its position or its content. The file comparison must follow.", "Das Datenformat hat sich geändert: Feld, Position oder Inhalt. Der Dateivergleich muss folgen."),
+    clarification: L("The meaning is made clearer. Existing tests are checked, results usually stay.", "Die Bedeutung wird klarer gefasst. Bestehende Tests prüfen, Ergebnisse bleiben meist gleich.")
+  });
+  const ctPill = t => { const [label, cls] = CT()[t] || [t || "?", ""]; return `<span class="pill ${cls}" title="${esc(CT_HELP()[t] || "")}">${esc(label)}</span>`; };
   const srcPill = s => s === "diff-only" ? pill(L("not in change log", "nicht im Protokoll"), "bad") : s === "confirmed" ? pill(L("log + diff", "Protokoll + Diff"), "ok") : pill(T(SOURCE[s]), SOURCE[s] ? SOURCE[s].cls : "");
   const chStatePill = sec => ({ approved: pill("✓ " + L("approved", "freigegeben"), "ok"), declined: pill("✕ " + L("declined", "abgelehnt"), "bad") })[ST.decided[sec]] || pill(L("waiting for you", "wartet auf Sie"), "warn");
 
@@ -2795,9 +2869,9 @@ const APP = (() => {
 
   /* ---------- chat with the AI about the selected change ---------- */
   const CHAT_SCRIPT = [
-    { k: /editorial|redaktion|condition|bedingung|why|warum/i, a: () => "Because the result changes, not just the wording.\n\nv13.3 said a prior illness counts only if “nicht mindestens 6 Monate” lie between two sick periods, so a gap of exactly 6 months broke the chain. v13.4 says “nicht mehr als 6 Monate”, so exactly 6 months still chains.\n\nI ran it with a boundary date: 12.07.2025 → 12.01.2026 gives False under v13.3 and True under v13.4. For an employee with that gap, request 41 goes from “not allowed” (12 days) to “allowed” (32 days).\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“." },
-    { k: /test|affect|betroffen|case/i, a: () => `Every test that has a gap of exactly 6 months between two sick periods. In the catalogue that is ${C.CATALOGUE.filter(r => r.sec === "3.12").length} rows citing §3.12; one old test (ALT-3.12-031, “exactly 6 months stops the chain”) is now wrong and should be retired. I will write one new test that sits right on the boundary.` },
-    { k: /insurer|krankenkasse|kasse|inconsist|widerspr|contradict/i, a: () => "On p. 136, the insurer's paragraph still reads: „…nicht mindestens 6 Monate vergangen sind“. The employer's paragraph on p. 135 says „nicht mehr als 6 Monate“. I can't decide which one the authors meant, so I flagged it as a question for ITSG instead of guessing." }
+    { k: /editorial|redaktion|condition|bedingung|why|warum/i, a: () => "Because **the result changes**, not just the wording.\n\nv13.3 said a prior illness counts only if „nicht mindestens 6 Monate“ lie between two sick periods, so a gap of **exactly 6 months** broke the chain. v13.4 says „nicht mehr als 6 Monate“, so exactly 6 months **still chains**.\n\nI ran it with a boundary date: 12.07.2025 → 12.01.2026 gives `False` under v13.3 and `True` under v13.4. For an employee with that gap, request 41 goes from **not allowed** (12 days) to **allowed** (32 days).\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“." },
+    { k: /test|affect|betroffen|case/i, a: () => `Every test that has a gap of exactly 6 months between two sick periods. In the catalogue that is ${C.CATALOGUE.filter(r => r.sec === "3.12").length} rows citing §3.12; one old test (\`ALT-3.12-031\`, “exactly 6 months stops the chain”) is **now wrong** and should be retired. I will write one new test that sits **right on the boundary**.\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“.` },
+    { k: /insurer|krankenkasse|kasse|inconsist|widerspr|contradict/i, a: () => "On p. 136, the insurer's paragraph still reads „…nicht mindestens 6 Monate vergangen sind“. The employer's paragraph on p. 135 says „nicht mehr als 6 Monate“. I can't decide which one the authors meant, so I **flagged it as a question for ITSG** instead of guessing.\n\nSource: §3.12, p. 135, „…nicht mehr als 6 Monate vergangen sind“." }
   ];
   async function chatAnswer(question, ctx) {
     // Hook for a live model: with “Live” in the AI settings, the question goes to the hessian.AI chat
@@ -2815,7 +2889,7 @@ const APP = (() => {
     }
     const hit = CHAT_SCRIPT.find(x => x.k.test(question));
     const sc = specChange(ST.selChange);
-    return hit && ST.selChange === "3.12" ? hit.a() : `${sc.summary}\n\nSource: §${ST.selChange}${(sc.quotes_new || [])[0] ? `, „${sc.quotes_new[0]}“` : ""}.`;
+    return hit && ST.selChange === "3.12" ? hit.a() : `${sc.summary}\n\nSource: §${ST.selChange}${SEC[ST.selChange] && SEC[ST.selChange].page ? `, p. ${SEC[ST.selChange].page}` : ""}${(sc.quotes_new || [])[0] ? `, „${sc.quotes_new[0]}“` : ""}.`;
   }
   async function chatAsk(q) {
     q = String(q || "").trim(); if (!q) return;
@@ -2828,7 +2902,7 @@ const APP = (() => {
     msg.busy = false; paintChat();
     log("AI", L("Question answered", "Frage beantwortet"), `§${ST.selChange}: ${q}`);
   }
-  const chatLogHtml = () => ST.chat.length ? ST.chat.map(m => `<div class="chat-msg ${m.who}"><span class="who">${m.who === "ai" ? "AI" : L("YOU", "SIE")}</span><div class="txt ${m.busy ? "typing" : ""}">${esc(m.text)}</div></div>`).join("") : `<p class="muted" style="font-size:var(--fs-sm)">${L("Ask the AI about this change. It answers only from the specification and quotes it.", "Fragen Sie die KI zu dieser Änderung. Sie antwortet nur aus der Spezifikation und zitiert sie.")}</p>`;
+  const chatLogHtml = () => ST.chat.length ? ST.chat.map(m => `<div class="chat-msg ${m.who}"><span class="who">${m.who === "ai" ? "AI" : L("YOU", "SIE")}</span><div class="txt md ${m.busy ? "typing" : ""}">${richText(m.text)}</div></div>`).join("") : `<p class="muted" style="font-size:var(--fs-sm)">${L("Ask the AI about this change. It answers only from the specification and quotes it.", "Fragen Sie die KI zu dieser Änderung. Sie antwortet nur aus der Spezifikation und zitiert sie.")}</p>`;
   function paintChat() { const el = document.getElementById("chatLog"); if (el) { el.innerHTML = chatLogHtml(); el.scrollTop = el.scrollHeight; } }
 
   /* ---------- screen: Changes (log + diff, review, reasoning, chat) ---------- */
@@ -2844,6 +2918,8 @@ const APP = (() => {
       <div class="chg-head"><div style="min-width:0"><span class="eyebrow">§${esc(ch.sec)} · ${L("page", "Seite")} ${esc(page)}${ST.edits[ch.sec] ? " · " + L("edited by you", "von Ihnen bearbeitet") : ""}</span><h3>${esc(ch.title)}</h3></div><div>${chStatePill(ch.sec)}</div></div>
       <div class="row" style="gap:6px">${ctPill(sc.change_type)}${sc.formula_changed ? `<span class="flag-formula">ƒ ${L("the result changes", "das Ergebnis ändert sich")}</span>` : ""}${srcPill(ch.source)}</div>
       ${ch.entry ? `<div class="callout"><b>${L("Change log entry", "Eintrag im Änderungsprotokoll")} (${esc(ch.entry.version)} · ${esc(ch.entry.date)})</b><span class="de-quote">${esc(ch.entry.description)}</span></div>` : `<div class="callout bad"><b>${L("Not in the change log", "Nicht im Änderungsprotokoll")}</b>${L("Found only by comparing the old and new text.", "Nur durch Vergleich von altem und neuem Text gefunden.")}</div>`}
+      ${ch.entry && /redaktion/i.test(ch.entry.description) && sc.change_type !== "editorial" ? `<div class="ct-explain" data-tour="ctexplain"><div class="log"><span class="field-label">${L("The change log says: editorial", "Das Protokoll sagt: redaktionell")}</span><span>${esc(CT_HELP().editorial)}</span></div><span class="vs">vs</span><div class="ai"><span class="field-label">${L("The AI says", "Die KI sagt")}: ${esc(CT()[sc.change_type] ? CT()[sc.change_type][0] : sc.change_type)}</span><span>${esc(CT_HELP()[sc.change_type] || "")}</span>${ch.sec === "3.12" ? `<span><b>${L("Here", "Hier")}:</b> ${L("at a gap of exactly 6 months, v13.3 stops the chain and v13.4 keeps it going. Same employee, different request 41.", "bei einer Lücke von genau 6 Monaten beendet v13.3 die Kette, v13.4 führt sie fort. Derselbe Beschäftigte, eine andere Anfrage 41.")}</span>` : ""}</div></div>`
+        : CT_HELP()[sc.change_type] ? `<p class="ct-help">${esc(CT_HELP()[sc.change_type])}</p>` : ""}
       ${sc.summary ? `<p class="chg-summary">${esc(sc.summary)}</p>` : ""}
       ${sc.old_rule ? `<div class="chg-rules"><div class="chg-rule before"><span class="field-label">${L("Before (v13.3)", "Vorher (v13.3)")}</span><div>${esc(sc.old_rule)}</div></div><div class="chg-arrow" aria-hidden="true">→</div><div class="chg-rule after"><span class="field-label">${L("Now (v13.4)", "Jetzt (v13.4)")}</span><div>${esc(sc.new_rule || "")}</div></div></div>`
         : sc.new_rule ? `<div class="chg-rules"><div class="chg-rule only"><span class="field-label">${L("The rule", "Die Regel")}</span><div>${esc(sc.new_rule)}</div></div></div>` : ""}
@@ -2866,7 +2942,7 @@ const APP = (() => {
             <div class="row">${ctPill(sc.change_type)}${srcPill(c.source)}</div></button>`; }).join("")}</div></section>
         <div class="stack">${chCard(sec)}</div>
       </div>
-      <details class="panel why-panel" id="whyPanel" data-tour="why" ${ST.reasonOpen ? "open" : ""}><summary>${L("AI reasoning and chat", "Denkweg der KI und Chat")} · §${esc(sec)} <span class="muted" style="font-weight:400;font-size:var(--fs-xs)">${ev.length} ${L("steps", "Schritte")} · Kolibri-1</span></summary>
+      <details class="panel why-panel" id="whyPanel" data-tour="why" ${ST.reasonOpen ? "open" : ""}><summary data-act="reasonToggle">${L("AI reasoning and chat", "Denkweg der KI und Chat")} · §${esc(sec)} <span class="muted" style="font-weight:400;font-size:var(--fs-xs)">${ev.length} ${L("steps", "Schritte")}</span></summary>
         <div class="why-body"><div class="reason-grid"><div class="cot">${ev.map(evHtml).join("")}</div>
           <div class="chat" data-tour="chat"><span class="field-label">${L("Ask about this change", "Zu dieser Änderung fragen")}</span><div class="chat-log" id="chatLog">${chatLogHtml()}</div>
             <form class="chat-form" onsubmit="return false"><input class="input" id="chatInput" autocomplete="off" placeholder="${esc(L("e.g. Why is this not editorial?", "z. B. Warum ist das nicht redaktionell?"))}"><button class="btn primary" data-act="chatSend" type="button">${L("Ask", "Fragen")}</button></form></div></div></div></details>`;
@@ -2885,7 +2961,7 @@ const APP = (() => {
     const b = C.BOUNDARY_6M, bn = C.gates(b.state, b.today, P), bo = C.gates(b.state, b.today, Object.assign({}, P, { gapExclusive: true }));
     const n = C.NEG_6M, last = n.state.priors[0];
     const efz = C.efzEnd(g.state.current.start, 25, P), eel = C.eelEnd(g.finalAuEnd, g.employmentEnd);
-    const mk = o => Object.assign({ status: "draft", model: "vllm/Kolibri-1", document: doc, formula_changed: false, previous_expression: "", history: [{ t: "2026-12-01T09:31", who: "AI vllm/Kolibri-1", action: L("created", "erstellt"), detail: L("from the approved change", "aus der freigegebenen Änderung") + " §" + o.section }] }, o);
+    const mk = o => Object.assign({ status: "draft", model: "vllm/Kolibri-1", document: doc, formula_changed: false, previous_expression: "", history: [{ t: "2026-12-01T09:31", who: "AI", action: L("created", "erstellt"), detail: L("from the approved change", "aus der freigegebenen Änderung") + " §" + o.section }] }, o);
     const chainCase = (id, title, prev, next, extra) => { const val = String(C.D(next) <= C.addMonths(C.D(prev), P.six_months)); return mk(Object.assign({ id, rule: "R-3.12-B", section: "3.12", section_title: "DBVO – Vorerkrankungszeiten", title, kind: "positive",
       criterion: L("Request 41 lists the prior periods newest first and stops at the first gap of more than 6 months (§3.12).", "Anfrage 41 listet die Vorerkrankungen neueste zuerst und endet an der ersten Lücke von mehr als 6 Monaten (§3.12)."),
       formula: { expression: "next_start <= add_months(prev_end, gap_months)", result_name: "chained", result_unit: "", variables: [v("prev_end", prev, "date", "scenario", null, L("end of the older sick period", "Ende der älteren Erkrankung")), v("next_start", next, "date", "scenario", null, L("start of the next sick period", "Beginn der nächsten Erkrankung")), v("gap_months", String(P.six_months), "number", "spec", "nicht mehr als 6 Monate vergangen sind", L("largest gap that still chains", "größte Lücke, die noch verkettet"))] },
@@ -3004,7 +3080,7 @@ const APP = (() => {
     }
     await new Promise(r => setTimeout(r, 450));
     ST.genBusy = false; ST.generated = true; storyCases();
-    log("AI", L("Test cases written", "Testfälle geschrieben"), `${CASES.length} · Kolibri-1 · ${L("checks G1–G5 passed", "Prüfungen G1–G5 bestanden")}`);
+    log("AI", L("Test cases written", "Testfälle geschrieben"), `${CASES.length} · ${L("checks G1–G5 passed", "Prüfungen G1–G5 bestanden")}`);
     render();
   }
   function openSend() {
@@ -3054,7 +3130,7 @@ const APP = (() => {
         ${t ? `<div class="cl-pass">✓ ${L("Works as expected", "Funktioniert wie erwartet")} · ${esc(t)}</div>` : ""}</td>
       <td><span class="mono">${esc(c.formula.result_name)}</span></td><td class="muted" style="font-size:var(--fs-xs);white-space:nowrap">${t || "—"}</td></tr>`; };
     return `${head(L("Checklist", "Checkliste"), `${esc(v.name)} · ${esc(v.productName)} ${esc(v.release)} · ${L("package", "Paket")} EEL 2027-01 ${L("from ITSG", "von ITSG")}`)}
-      <section class="panel recap" data-tour="recap"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">✦ ${L("AI recap", "KI-Zusammenfassung")} · Kolibri-1</span><h4>${L("What changed and what you need to do", "Was sich geändert hat und was zu tun ist")}</h4></div></div>
+      <section class="panel recap" data-tour="recap"><div class="panel-head"><div class="stack" style="gap:2px"><span class="eyebrow">✦ ${L("AI recap", "KI-Zusammenfassung")}</span><h4>${L("What changed and what you need to do", "Was sich geändert hat und was zu tun ist")}</h4></div></div>
         <div class="panel-body stack"><div class="callout accent"><b>${L("What changed", "Was sich geändert hat")}</b>${esc(r.changed)}</div>
           <div class="grid-2"><div><b class="recap-h">${L("What to do", "Was zu tun ist")}</b><ol class="recap-list">${r.todo.map(t => `<li>${esc(t)}</li>`).join("")}</ol></div><div><b class="recap-h">${L("What these tests verify", "Was diese Tests prüfen")}</b><ul class="recap-list check">${r.verify.map(t => `<li>${esc(t)}</li>`).join("")}</ul></div></div>
           <span class="muted" style="font-size:var(--fs-xs)">${L("Each test case says what should happen. ITSG compares the exact file you upload.", "Jeder Testfall sagt, was passieren soll. ITSG vergleicht die genaue Datei, die Sie hochladen.")}</span></div></section>
@@ -3082,7 +3158,7 @@ const APP = (() => {
   }
   function itsgAnswer() {
     const th = certThread("sap");
-    post(th, "itsg", { en: "Your export writes every sick period on file, not the chain your screen shows. The rule is „…zwischen dem Ende der vorhergehenden Erkrankung und dem Beginn der nachgehenden Erkrankung nicht mehr als 6 Monate vergangen sind“ (§3.12, p. 135).\n\nMore than 8 months lie between 05.11.2024 and 14.07.2025, so the chain stops before 01.11.–05.11.2024: leave it out of the file and send ANZAHL-AU = 04.", de: "Ihr Export schreibt jede erfasste AU in die Datei, nicht die Kette, die Ihr Bildschirm zeigt. Die Regel lautet „…zwischen dem Ende der vorhergehenden Erkrankung und dem Beginn der nachgehenden Erkrankung nicht mehr als 6 Monate vergangen sind“ (§3.12, S. 135).\n\nZwischen dem 05.11.2024 und dem 14.07.2025 liegen mehr als 8 Monate, die Kette endet also vor 01.11.–05.11.2024: diesen Zeitraum aus der Datei weglassen und ANZAHL-AU = 04 senden." });
+    post(th, "itsg", { en: "Your export writes **every sick period on file**, not the chain your screen shows. The rule is „…zwischen dem Ende der vorhergehenden Erkrankung und dem Beginn der nachgehenden Erkrankung nicht mehr als 6 Monate vergangen sind“ (§3.12, p. 135).\n\nMore than 8 months lie between 05.11.2024 and 14.07.2025, so the chain stops before 01.11.–05.11.2024: leave it out of the file and send **ANZAHL-AU = 04**.", de: "Ihr Export schreibt **jede erfasste AU** in die Datei, nicht die Kette, die Ihr Bildschirm zeigt. Die Regel lautet „…zwischen dem Ende der vorhergehenden Erkrankung und dem Beginn der nachgehenden Erkrankung nicht mehr als 6 Monate vergangen sind“ (§3.12, S. 135).\n\nZwischen dem 05.11.2024 und dem 14.07.2025 liegen mehr als 8 Monate, die Kette endet also vor 01.11.–05.11.2024: diesen Zeitraum aus der Datei weglassen und **ANZAHL-AU = 04** senden." });
     render();
   }
 
@@ -3152,7 +3228,8 @@ const APP = (() => {
     EDIT_SUFFIX: " More than 6 months stops it.",
     appendType: (el, extra, ms = 34) => new Promise(done => { if (!el) return done(); el.focus(); const base = el.value; let i = 0; const tick = () => { el.value = base + extra.slice(0, ++i); if (i < extra.length) setTimeout(tick, ms); else done(); }; tick(); }),
     ensureEdited: () => { story.ensureDrop(); if (!ST.edits["3.12"]) ST.edits["3.12"] = { new_rule: SC["3.12"]().new_rule + story.EDIT_SUFFIX }; ST.decided["3.12"] = "approved"; ST.chEdit = null; },
-    scrollThread: () => { const m = document.querySelector(".mail-msgs"); if (m) m.scrollTop = m.scrollHeight; }
+    scrollThread: () => { const m = document.querySelector(".mail-msgs"); if (m) m.scrollTop = m.scrollHeight; },
+    certIssued: () => !!mailbox().certs.sap
   };
 
   const RENDER = { changes: vChangeReview, impact: vChanges, review: vReview, vcheck: vChecklist, cert: vCert, overview: vOverview, ingest: vIngest, baseline: vBaseline, specs: vSpecs, mail: vMail, vhome: vVendorHome, vwork: vVendorWork, extract: vExtract, functions: vFunctions, tests: vTests, inbox: vInbox, validate: vValidate, audit: vAudit, report: vReport, coverage: vCoverage, log: vLog };
@@ -3211,7 +3288,7 @@ const APP = (() => {
   function aiSettings() {
     modal(L("AI settings", "KI-Einstellungen"), `
       <div class="seg" role="group"><button aria-pressed="${S.ai.mode === "recorded"}" data-act="aiMode" data-v="recorded">${L("Recorded runs", "Aufgezeichnete Läufe")}</button><button aria-pressed="${S.ai.mode === "live"}" data-act="aiMode" data-v="live">Live</button></div>
-      <p class="muted" style="font-size:var(--fs-sm)">${L("Recorded mode replays two Kolibri-1 runs, so the pitch never depends on Wi-Fi. Live mode calls the hessian.AI gateway; answers go through the same guards.", "Der Aufzeichnungsmodus spielt zwei Kolibri-1-Läufe ab, die Präsentation hängt also nie am WLAN. Der Live-Modus ruft das hessian.AI-Gateway auf; Antworten durchlaufen dieselben Prüfungen.")}</p>
+      <p class="muted" style="font-size:var(--fs-sm)">${L("Recorded mode replays two recorded runs, so the pitch never depends on Wi-Fi. Live mode calls the hessian.AI gateway; answers go through the same guards.", "Der Aufzeichnungsmodus spielt zwei aufgezeichnete Läufe ab, die Präsentation hängt also nie am WLAN. Der Live-Modus ruft das hessian.AI-Gateway auf; Antworten durchlaufen dieselben Prüfungen.")}</p>
       <label class="stack"><span class="field-label">${L("Base URL", "Basis-URL")}</span><input class="input mono" id="aiBase" value="${esc(S.ai.base)}"></label>
       <label class="stack"><span class="field-label">${L("Model", "Modell")}</span><select class="select" id="aiModel"><option ${S.ai.model === "vllm/Kolibri-1" ? "selected" : ""}>vllm/Kolibri-1</option><option ${S.ai.model === "vllm/GLM-Flash:Latest" ? "selected" : ""}>vllm/GLM-Flash:Latest</option></select></label>
       <label class="stack"><span class="field-label">${L("Team API key (optional when the local proxy holds it)", "Team-API-Schlüssel (optional, wenn der lokale Proxy ihn hält)")}</span><input class="input mono" id="aiKey" type="password" autocomplete="off" value="${esc(store.get("aikey", ""))}"></label>
@@ -3321,7 +3398,7 @@ const APP = (() => {
     confirmType: el => { const sel = document.getElementById("type-" + el.dataset.sec.replace(/\./g, "-")); S.changeType[el.dataset.sec] = sel.value; log("examiner", L("Change type confirmed", "Änderungstyp bestätigt"), `§${el.dataset.sec} → ${sel.value}`); toast(L("Type confirmed", "Typ bestätigt")); render(); },
     openRule: el => { S.selRule = el.dataset.rule; go("extract"); },
     selRule: el => { S.selRule = el.dataset.rule; render(); },
-    runExtract: () => { log("AI", L("Extraction run", "Extraktionslauf"), `${S.selRule} · Kolibri-1 · A/B (recorded)`); animateExtraction(); },
+    runExtract: () => { log("AI", L("Extraction run", "Extraktionslauf"), `${S.selRule} · A/B (recorded)`); animateExtraction(); },
     runLive: async () => {
       if (S.ai.mode !== "live") { aiSettings(); toast(L("Switch to Live in the AI settings first", "Zuerst in den KI-Einstellungen auf Live stellen")); return; }
       const rule = C.RULES.find(r => r.id === S.selRule);
@@ -3482,8 +3559,9 @@ const APP = (() => {
     sendNow: () => story.sendPackage([...document.querySelectorAll(".sendTo:checked")].map(x => x.value)),
     notifyOpen: () => { ST.notify = false; S.selThread = certThread("sap").id; S.mailFolder = "inbox"; go("mail"); },
     notifyDismiss: () => { ST.notify = false; story.paintNotify(); },
+    reasonToggle: () => { ST.reasonOpen = !ST.reasonOpen; render(); },
     clOpen: el => { ST.clOpen = ST.clOpen === el.dataset.id ? null : el.dataset.id; render(); },
-    clPass: el => { const id = el.dataset.id; ST.covered[id] = fmtAt(S.clock || CLOCK0); ST.clOpen = story.caseIds().find(x => !ST.covered[x]) || null; log("vendor", L("Test case checked: works as expected", "Testfall geprüft: funktioniert wie erwartet"), id); render(); },
+    clPass: el => { const id = el.dataset.id; ST.covered[id] = fmtAt(S.clock || CLOCK0); ST.clOpen = null; log("vendor", L("Test case checked: works as expected", "Testfall geprüft: funktioniert wie erwartet"), id); render(); },
     uploadPick: () => modal(L("Upload a result file", "Ergebnisdatei hochladen"), `<p style="font-size:var(--fs-sm)">${L("In a real run this is the DTA file your software produced. For the demo, pick one:", "Im echten Ablauf ist das die DTA-Datei Ihrer Software. Für die Demo eine wählen:")}</p>
       <div class="stack"><button class="btn" data-act="uploadNow" data-f="gap">${L("Version 1: still includes the old period from Nov 2024", "Fassung 1: enthält noch den alten Zeitraum aus Nov. 2024")}</button><button class="btn" data-act="uploadNow" data-f="teel0">${L("Version 2: fixed (the real ITSG sample file)", "Fassung 2: korrigiert (die echte ITSG-Beispieldatei)")}</button><button class="btn" data-act="uploadNow" data-f="disk">${ic("upload")} ${L("Choose a file from disk…", "Datei von der Festplatte wählen…")}</button></div>`),
     uploadNow: el => { $("#modalHost").innerHTML = ""; if (el.dataset.f === "disk") { const fi = $("#fileInput"); fi.accept = ""; fi.onchange = () => { const x = fi.files[0]; fi.value = ""; if (x) readLatin1(x, f => story.uploadResult(null, f)); }; fi.click(); return; } story.uploadResult(el.dataset.f); },
@@ -3567,75 +3645,103 @@ const TOUR = (() => {
   ];
 
   /* One step = one screen + one sentence. `before` sets the state the screen needs (it also runs when
-     you step back or jump in with #demo=N), `after` plays the step's action once. */
+     you step back or jump in with #demo=N), `after` plays the step's clicks once, with the cursor.
+     `via` are the clicks that lead from the previous step's screen here; they only play when you go forward. */
   const STEPS = [
     { title: "The pipeline", screen: "overview", sel: '[data-tour="pipeline"]', before: () => { S.role = "itsg"; },
+      after: async alive => { await wait(600); for (let i = 1; i <= 8; i++) { if (!alive()) return; await cur.move(`.pipe-step:nth-child(${i})`, { ms: 420 }); } },
       say: "One pipeline in eight stages: from the new government PDF to a certified payroll release.",
       notes: ["Eight stages, from the government PDF to the certificate.", "The AI reads and drafts; tested code calculates; a person decides."] },
-    { title: "Import", screen: "ingest", sel: '[data-tour="drop"]', before: () => { S.role = "itsg"; },
-      after: async alive => { await wait(700); if (!alive()) return; await X.simDrop(); if (alive()) spotOn('[data-tour="drop"]', true); },
+    { title: "Import", screen: "ingest", sel: '[data-tour="drop"]', via: [{ sel: '.pipe-step[data-screen="ingest"]' }], before: () => { S.role = "itsg"; },
+      after: async alive => { if (S.story.ingest) return; await wait(500); if (!alive()) return; await cur.click('[data-act="simDrop"]'); await until(() => S.story.ingest === 2, 8000); if (alive()) spotOn('[data-tour="drop"]', true); },
       say: "December: version 13.4 arrives. We import the original PDF; the archive already holds last year's version and tests.",
       notes: ["We start from the original PDF, not a prepared copy.", "168 pages, 220 sections, a change log with 10 entries; the archive holds last year's spec, the catalogue and the audit reports."] },
-    { title: "Specification", screen: "specs", sel: '[data-tour="spectext"]', noZoom: true, before: () => { S.role = "itsg"; X.ensureDrop(); S.selSec = "3.12"; S.selHl = null; S.specVersion = "13.4"; S.flashQuote = "nicht mehr als 6 Monate vergangen sind"; },
+    { title: "Specification", screen: "specs", sel: '[data-tour="spectext"]', noZoom: true, via: [{ sel: '[data-tour="drop"] [data-act="go"][data-screen="specs"]' }],
+      before: () => { S.role = "itsg"; X.ensureDrop(); S.selSec = "3.12"; S.selHl = null; S.specVersion = "13.4"; S.flashQuote = "nicht mehr als 6 Monate vergangen sind"; },
+      after: async alive => { await wait(900); if (alive()) await cur.hover("#flashQuote", 600); },
       say: "Every section of the spec, indexed. The AI highlights each test-relevant sentence, the way ITSG experts do by hand.",
       notes: ["All 220 sections, full text, indexed from the PDF's own structure.", "Highlights are verbatim spans: conditions, numbers, required fields, exceptions.", "The flashing sentence is the one that changed: „nicht mehr als 6 Monate“."] },
-    { title: "The change", screen: "changes", sel: '[data-tour="chcard"]', before: () => { S.role = "itsg"; X.ensureDrop(); S.story.selChange = "3.12"; S.story.reasonOpen = false; S.story.chEdit = null; },
-      say: "The change log calls §3.12 “editorial”, but the AI finds that the 6-month rule flipped.",
-      notes: ["Change log and text diff, reconciled. The log calls §3.12 „redaktionell“.", "The AI reads a condition change: exactly 6 months used to stop the chain, now it continues.", "§3.12.6 is not in the change log at all; only the diff found it."] },
+    { title: "The change", screen: "changes", sel: '[data-tour="chcard"]', via: [{ sel: '#rail [data-screen="changes"]' }],
+      before: () => { S.role = "itsg"; X.ensureDrop(); S.story.selChange = "3.12"; S.story.reasonOpen = false; S.story.chEdit = null; },
+      after: async alive => { await wait(700); if (!alive()) return; await cur.hover('[data-tour="chcard"] .callout', 1400); if (!alive()) return;
+        await cur.hover('[data-tour="chcard"] > .row .pill', 900); if (!alive()) return; await cur.hover('[data-tour="ctexplain"] .ai', 600); },
+      say: "The change log calls §3.12 “editorial”: only the wording changed. The AI finds a condition change: the same employee now gets a different result.",
+      notes: ["Editorial means only the wording changed: every test gives the same result, nothing to test.", "A condition change means the rule decides differently: same employee, different result, so tests change.", "Here: exactly 6 months used to stop the chain, now it continues. §3.12.6 is not in the change log at all; only the diff found it."] },
     { title: "Edit & approve", screen: "changes", sel: '[data-tour="chcard"]', before: () => { S.role = "itsg"; X.ensureDrop(); S.story.selChange = "3.12"; S.story.reasonOpen = false; },
-      after: async alive => { if (S.story.edits["3.12"]) return; await wait(1200); if (!alive()) return; A.ACT.chEdit({ dataset: { sec: "3.12" } }); spotOn('[data-tour="chcard"]', true);
-        await wait(500); if (!alive()) return; await X.appendType(document.getElementById("chNew"), X.EDIT_SUFFIX); if (!alive()) return;
-        await wait(700); if (alive()) { A.ACT.chSave({ dataset: { sec: "3.12", approve: "1" } }); spotOn('[data-tour="chcard"]', true); } },
+      after: async alive => { if (S.story.edits["3.12"]) return; await wait(900); if (!alive()) return; await cur.click('[data-tour="chcard"] [data-act="chEdit"]'); if (!alive()) return; spotOn('[data-tour="chcard"]', true);
+        await cur.click("#chNew"); if (!alive()) return; await X.appendType(document.getElementById("chNew"), X.EDIT_SUFFIX); if (!alive()) return;
+        await wait(500); if (!alive()) return; await cur.click('[data-act="chSave"][data-approve]'); if (alive()) spotOn('[data-tour="chcard"]', true); },
       say: "The examiner can correct the AI's reading in plain words, then approve it once for the rule.",
       notes: ["The examiner stays in control: the AI's wording can be corrected in plain language.", "Approve once per rule, not once per test case."] },
-    { title: "Reasoning & chat", screen: "changes", sel: '[data-tour="why"]', noZoom: true, before: () => { S.role = "itsg"; X.ensureEdited(); S.story.selChange = "3.12"; S.story.reasonOpen = true; S.story.chEdit = null; },
-      after: async alive => { await wait(900); if (!alive() || S.story.chat.length) return; await X.typeInto($("#chatInput"), X.QUESTION); if (alive()) A.ACT.chatSend(); if (document.activeElement) document.activeElement.blur(); },
-      say: "Every conclusion is traceable: the AI's reasoning, its check in a terminal, and you can simply ask it why.",
-      notes: ["What went to the model: one section and its links, about 5,000 tokens, nothing else.", "It checked its claim in a terminal: same dates, v13.3 False, v13.4 True.", "It also found that v13.4 contradicts itself on p. 136. And we can ask it anything."] },
-    { title: "Generate test cases", screen: "review", sel: '[data-tour="review"]', before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); S.story.focus = null; },
-      after: async alive => { await wait(900); if (alive()) await X.generateCases(); if (alive()) spotOn('[data-tour="review"]'); },
+    { title: "Reasoning & chat", screen: "changes", sel: '[data-tour="why"]', noZoom: true, before: () => { S.role = "itsg"; X.ensureEdited(); S.story.selChange = "3.12"; S.story.reasonOpen = false; S.story.chEdit = null; },
+      after: async alive => { await wait(700); if (!alive()) return; await cur.click("#whyPanel > summary"); if (!alive()) return; spotOn('[data-tour="why"]');
+        await wait(500); if (!alive()) return; await cur.hover("#whyPanel .cot-step.term", 1300); if (!alive() || S.story.chat.length) return;
+        await cur.click("#chatInput"); if (!alive()) return; await X.typeInto($("#chatInput"), X.QUESTION); if (!alive()) return;
+        await cur.click('[data-act="chatSend"]'); if (document.activeElement) document.activeElement.blur();
+        await until(() => S.story.chat.length && !S.story.chat[S.story.chat.length - 1].busy, 15000); if (alive()) await cur.hover("#chatLog .src-chip", 600); },
+      say: "Every conclusion is traceable: the AI's reasoning, its check in a terminal, and you can ask it why. Its source is one click away.",
+      notes: ["What went to the model: one section and its links, about 5,000 tokens, nothing else.", "It checked its claim in a terminal: same dates, v13.3 False, v13.4 True.", "The source chip opens §3.12 at the exact sentence. It also found that v13.4 contradicts itself on p. 136."] },
+    { title: "Generate test cases", screen: "review", sel: '[data-tour="review"]', via: [{ sel: '.page-head .btn.primary[data-screen="review"]' }], before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); S.story.focus = null; },
+      after: async alive => { if (S.story.generated) return; await wait(700); if (!alive()) return; await cur.click('[data-act="genCases"]'); await until(() => S.story.generated && !S.story.genBusy, 15000); if (alive()) spotOn('[data-tour="review"]'); },
       say: "From the approved changes, the AI writes one test case per rule, grouped by rule. Tested code computes every expected result.",
       notes: ["One case per rule, grouped by the rule it tests.", "The expected value comes from tested code. Checks G1–G5: quotes verbatim, formula safe, oracle equals AI, parameters quoted, formula run."] },
-    { title: "The case we follow", screen: "review", sel: '[data-tour="casedetail"]', noZoom: true, before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.FOLLOWED; S.story.focus = X.FOLLOWED; S.story.caseFilter = "all"; },
+    { title: "The case we follow", screen: "review", sel: '[data-tour="casedetail"]', noZoom: true,
+      before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.caseIds().find(id => id !== X.FOLLOWED) || X.FOLLOWED; S.story.focus = null; S.story.caseFilter = "all"; },
+      after: async alive => { await wait(700); if (!alive()) return; await cur.click('[data-tour="focuscase"]'); if (!alive()) return; S.story.focus = X.FOLLOWED; A.render(); spotOn('[data-tour="casedetail"]', true); },
       say: "This is the case we follow: ITSG's reference employee, whose oldest sick period must stay out of request 41.",
       notes: ["ITSG's own reference employee, Peter Mustermann, plus an older sick period from November 2024.", "Expected: request 41 with exactly 4 periods; the 2024 one stays out."] },
-    { title: "Send to developers", screen: "review", sel: null, before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.FOLLOWED; S.story.focus = X.FOLLOWED; },
-      after: async alive => { if (S.story.sent) return; await wait(500); if (!alive()) return; X.openSend(); spotOn(".modal"); await wait(2000); if (alive()) { X.sendPackage(["sap"]); spotOn('[data-tour="sendbtn"]'); } },
+    { title: "Send to developers", screen: "review", sel: '[data-tour="sendbtn"]', before: () => { S.role = "itsg"; X.ensureEdited(); X.autoDecide(); X.generateCases(true); S.story.selCase = X.FOLLOWED; S.story.focus = X.FOLLOWED; },
+      after: async alive => { if (S.story.sent) return; await wait(600); if (!alive()) return; await cur.click('[data-act="sendOpen"]'); if (!alive()) return; spotOn(".modal");
+        await cur.hover('.modal .sendTo[value="sap"]', 900); if (!alive()) return; await cur.click('[data-act="sendNow"]'); if (alive()) spotOn('[data-tour="sendbtn"]'); },
       say: "One click sends the package to the vendor's developers. ITSG keeps the expected file and compares every upload.",
       notes: ["One click to SAP's developers.", "They get each case in words and as JSON, with what should happen; ITSG keeps the expected file."] },
-    { title: "SAP: notification", screen: "vhome", sel: ".notify", noZoom: true, before: () => { X.ensureSent(); X.toVendor(); S.story.notify = true; },
-      after: async alive => { await wait(2600); if (alive()) { A.ACT.notifyOpen(); setTimeout(() => { X.scrollThread(); spotOn('[data-tour="mail"]'); }, 120); } },
+    { title: "SAP: notification", screen: "vhome", sel: ".notify", noZoom: true, via: [{ sel: '#roleSeg [data-v="vendor"]', run: () => { X.toVendor(); A.go("vhome"); } }],
+      before: () => { X.ensureSent(); X.toVendor(); S.story.notify = true; },
+      after: async alive => { await wait(1800); if (!alive() || !S.story.notify) return; await cur.click(".notify .stack"); if (!alive()) return; setTimeout(() => { X.scrollThread(); spotOn('[data-tour="mail"]'); }, 120); },
       say: "On SAP's side, the developer gets a notification, and the package lands in their e-mail inbox.",
       notes: ["Now we are SAP's developer.", "A notification, then the package arrives as an e-mail in Messages."] },
-    { title: "Checklist", screen: "vcheck", sel: '[data-tour="recap"]', before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.clOpen = null; },
-      say: "An AI recap tells the developer what changed and what to do.",
+    { title: "Checklist", screen: "vcheck", sel: '[data-tour="recap"]', via: [{ sel: '.mail-msgs [data-act="mailOpen"][data-type="package"]' }],
+      before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.clOpen = null; },
+      after: async alive => { await wait(700); if (alive()) await cur.hover('[data-tour="recap"] h4', 600); },
+      say: "The package opens as a checklist. An AI recap tells the developer what changed and what to do.",
       notes: ["The AI recap: what changed in v13.4 and what the developer has to do.", "Below it, the 5 test cases to run, grouped by rule."] },
     { title: "Run each test", screen: "vcheck", sel: '[data-tour="cltable"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.covered = {}; S.story.clOpen = null; },
-      after: async alive => { await wait(900); for (const id of X.caseIds()) { if (!alive()) return; if (S.story.covered[id]) continue;
-          S.story.clOpen = id; A.render(); spotOn(`[data-row="${id}"]`); await wait(id === X.FOLLOWED ? 3200 : 1300); if (!alive()) return;
-          A.ACT.clPass({ dataset: { id } }); } if (alive()) spotOn('[data-tour="cltable"]', true); },
+      after: async alive => { await wait(800); for (const id of X.caseIds()) { if (!alive()) return; if (S.story.covered[id]) continue;
+          const main = id === X.FOLLOWED, fast = main ? {} : { ms: 420 };
+          await cur.click(`[data-act="clOpen"][data-id="${id}"]`, fast); if (!alive()) return; spotOn(`[data-row="${id}"]`, true);
+          if (main) { await cur.hover(`[data-row="${id}"] .tc-sheet`, 1100); if (!alive()) return; await cur.hover(`[data-row="${id}"] .cl-soll`, 1600); if (!alive()) return; }
+          else { await wait(350); if (!alive()) return; }
+          await cur.click(`[data-act="clPass"][data-id="${id}"]`, Object.assign({ after: 150 }, fast)); } if (alive()) spotOn('[data-tour="cltable"]', true); },
       say: "The developer runs each test case in SAP, following its steps, and checks it against what should happen.",
       notes: ["How to run it: the setup and the steps, like ITSG's Testkonstellation.", "What should happen: in words, with the key values. They check it on screen and tick it off.", "The exact file stays with ITSG: it is compared after the upload."] },
     { title: "Upload", screen: "vcheck", sel: '[data-tour="upload"]', before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; S.story.clOpen = null; X.tickAll(); },
-      after: async alive => { await wait(1400); if (alive() && !S.story.uploads.length) { X.uploadResult("gap"); spotOn('[data-tour="upload"]'); } },
+      after: async alive => { if (S.story.uploads.length) return; await wait(900); if (!alive()) return; await cur.click('[data-act="uploadPick"]'); if (!alive()) return; spotOn(".modal");
+        await cur.click('[data-act="uploadNow"][data-f="gap"]'); if (alive()) spotOn('[data-tour="upload"]'); },
       say: "They upload the DTA file their software produced. It is e-mailed to ITSG and compared automatically.",
       notes: ["They upload the DTA file their payroll software produced.", "It goes to ITSG as an automatic e-mail and is compared at once."] },
-    { title: "It fails", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; X.tickAll(); X.ensureUpload(); S.selThread = A.certThread("sap").id; },
-      after: async () => { setTimeout(X.scrollThread, 60); },
+    { title: "It fails", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, via: [{ sel: '#rail [data-screen="mail"]' }, { sel: () => `.mail-list [data-act="openThread"][data-id="${A.certThread("sap").id}"]` }],
+      before: () => { X.ensureSent(); X.toVendor(); S.story.notify = false; X.tickAll(); X.ensureUpload(); S.selThread = A.certThread("sap").id; },
+      after: async alive => { await wait(80); X.scrollThread(); await wait(500); if (alive()) await cur.hover(".mail-msgs .att.bad", 600); },
       say: "One test fails: SAP's screen looked right, but the exported file still lists the 2024 period.",
       notes: ["1 of 5 failed: the reference case. On screen it showed 4 periods.", "The file has 5: the period from November 2024, and ANZAHL-AU 05 instead of 04.", "That is why ITSG compares the file, not the screen."] },
     { title: "Follow-up question", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); X.tickAll(); X.ensureUpload(); S.selThread = A.certThread("sap").id; },
-      after: async alive => { setTimeout(X.scrollThread, 60); if (S.story.asked) return; await wait(1600); if (!alive()) return;
-        await X.typeInto(document.querySelector(".mail-compose textarea"), X.DEV_QUESTION, 26); if (!alive()) return; A.ACT.mailSend(); S.story.asked = true; if (document.activeElement) document.activeElement.blur(); X.scrollThread();
-        await wait(1800); if (alive()) { X.itsgAnswer(); X.scrollThread(); } },
-      say: "The developer asks why right in the thread, and ITSG answers with the exact quote.",
-      notes: ["The developer asks: our screen shows 4 periods, why does the file have 5?", "ITSG answers with the exact quote and page: the export ignores the chain. Everything on record."] },
+      after: async alive => { setTimeout(X.scrollThread, 60); if (S.story.asked) return; await wait(1200); if (!alive()) return;
+        await cur.click(".mail-compose textarea"); if (!alive()) return; await X.typeInto(document.querySelector(".mail-compose textarea"), X.DEV_QUESTION, 26); if (!alive()) return;
+        await cur.click('.mail-compose [data-act="mailSend"]'); S.story.asked = true; if (document.activeElement) document.activeElement.blur(); X.scrollThread();
+        await wait(1800); if (!alive()) return; X.itsgAnswer(); X.scrollThread(); await wait(300); if (alive()) await cur.hover(".mail-msgs .mail-msg:last-child .src-chip", 600); },
+      say: "The developer asks why right in the thread, and ITSG answers with the exact quote and a link to the spec.",
+      notes: ["The developer asks: our screen shows 4 periods, why does the file have 5?", "ITSG answers with the exact quote and page: the export ignores the chain. The § chip opens the spec. Everything on record."] },
     { title: "Retest", screen: "mail", sel: '[data-tour="mail"]', noZoom: true, before: () => { X.ensureSent(); X.toVendor(); X.tickAll(); X.ensureUpload(); X.ensureAsked(); S.selThread = A.certThread("sap").id; },
-      after: async alive => { setTimeout(X.scrollThread, 60); if (S.story.fixed) return; await wait(900); if (!alive()) return; timeSkip("Two days later"); await wait(1900); if (alive()) { X.uploadResult("teel0"); X.scrollThread(); } },
+      after: async alive => { setTimeout(X.scrollThread, 60); if (S.story.fixed) return; await wait(900); if (!alive()) return; timeSkip("Two days later"); await wait(2500); if (!alive()) return;
+        await cur.click('#rail [data-screen="vcheck"]', { spot: true }); if (!alive()) return; await cur.click('[data-act="uploadPick"]'); if (!alive()) return; spotOn(".modal");
+        await cur.click('[data-act="uploadNow"][data-f="teel0"]'); if (!alive()) return; await cur.click('#rail [data-screen="mail"]', { spot: true }); if (!alive()) return;
+        spotOn('[data-tour="mail"]'); await wait(80); X.scrollThread(); await wait(400); if (alive()) await cur.hover(".mail-msgs .att.ok", 600); },
       say: "The team fixes the program and uploads again: all 5 test cases pass.",
-      notes: ["Two days later: the team fixed it.", "New upload: 5 of 5 pass."] },
-    { title: "Report & certificate", screen: "cert", sel: '[data-tour="cert"]', noZoom: true, before: () => { X.ensureSent(); X.tickAll(); X.ensureUpload(); X.ensureAsked(); X.ensureFixed(); S.role = "itsg"; },
-      after: async alive => { await wait(1600); if (alive()) { X.issueCert(); A.go("cert"); spotOn('[data-tour="cert"]', true); } },
+      notes: ["Two days later: the team fixed it.", "New upload from the checklist: 5 of 5 pass."] },
+    { title: "Report & certificate", screen: "cert", sel: '[data-tour="cert"]', noZoom: true, via: [{ sel: '#roleSeg [data-v="itsg"]', run: () => { S.role = "itsg"; A.go("overview"); } }, { sel: '#rail [data-screen="cert"]' }],
+      before: () => { X.ensureSent(); X.tickAll(); X.ensureUpload(); X.ensureAsked(); X.ensureFixed(); S.role = "itsg"; },
+      after: async alive => { await wait(1200); if (!alive()) return; if (!X.certIssued()) { await cur.click('[data-act="certIssue"]'); if (!alive()) return; spotOn('[data-tour="cert"]', true); }
+        await wait(500); if (alive()) await cur.hover('[data-act="certPdf"]', 600); },
       say: "The final report passes. The certificate goes out by e-mail, and the PDF is one click away.",
       notes: ["The final report passes: the test cases and the on-site criteria.", "The certificate goes out by e-mail, sealed with SHA-256, and as a PDF."] }
   ];
@@ -3660,7 +3766,7 @@ const TOUR = (() => {
   let spotSel = null, spotEl = null, followUntil = 0, raf = 0;
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
   function place(el, sp) {
-    const r = el.getBoundingClientRect(), fixed = !!el.closest(".modal, .notify-host");
+    const r = el.getBoundingClientRect(), fixed = !!el.closest(".modal, .notify-host, #bar");
     const topB = fixed ? 4 : $("#bar").getBoundingClientRect().bottom + 4, botB = innerHeight - (($("#tourBar") || { offsetHeight: 0 }).offsetHeight) - 4;
     const top = Math.max(topB, r.top - 6), bottom = Math.min(botB, r.bottom + 6);
     Object.assign(sp.style, { opacity: bottom > top + 8 ? "1" : "0", left: Math.max(4, r.left - 6) + "px", top: top + "px", width: Math.min(innerWidth - 8, r.width + 12) + "px", height: Math.max(0, bottom - top) + "px" });
@@ -3678,7 +3784,7 @@ const TOUR = (() => {
     main.style.transition = "none"; main.style.transform = ""; void main.offsetWidth; // measure unzoomed
     if (!sp) return;
     if (!spotEl) { sp.style.opacity = "0"; main.style.transition = ""; return; }
-    const still = reduced(), fixed = !!spotEl.closest(".modal, .notify-host");
+    const still = reduced(), fixed = !!spotEl.closest(".modal, .notify-host, #bar");
     if (!keepScroll && !fixed) {
       const r = spotEl.getBoundingClientRect(), top = $("#bar").offsetHeight, barH = ($("#tourBar") || { offsetHeight: 0 }).offsetHeight, room = innerHeight - top - barH;
       window.scrollTo({ top: Math.max(0, scrollY + r.top - top - Math.max(12, (room - r.height) / 2)), behavior: still ? "auto" : "smooth" });
@@ -3691,6 +3797,67 @@ const TOUR = (() => {
     } else main.style.transition = still ? "none" : "";
     followUntil = performance.now() + 1400; follow();
   }
+
+  /* ---------- the cursor: glides to each target, presses the real button, scrolls it into view ---------- */
+  const CURSOR_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 2.5v17.2l4.6-4.3 2.9 6.6 3-1.3-2.9-6.5 6.3-.4z" fill="#1d1d1f" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  const until = (test, ms = 10000) => new Promise(done => { const t0 = performance.now(), tick = () => { if (test() || performance.now() - t0 > ms) done(); else setTimeout(tick, 60); }; tick(); });
+  const cur = (() => {
+    let el = null, x = innerWidth / 2, y = innerHeight * .6;
+    const find = t => typeof t === "string" ? document.querySelector(t) : t;
+    const isFixed = n => !!n.closest(".modal, .notify-host, #bar");
+    function node() {
+      if (!el || !document.body.contains(el)) {
+        el = document.createElement("div"); el.className = "tour-cursor"; el.id = "tourCursor"; el.innerHTML = CURSOR_SVG + '<span class="wheel"></span>';
+        document.body.appendChild(el); el.style.transform = `translate(${x - 3}px, ${y - 3}px)`; void el.offsetWidth;
+      }
+      el.classList.add("on"); return el;
+    }
+    function scrollBox(n) { for (let p = n.parentElement; p && p !== document.body; p = p.parentElement) { const o = getComputedStyle(p).overflowY; if ((o === "auto" || o === "scroll") && p.scrollHeight > p.clientHeight + 2) return p; } return null; }
+    // scroll the inner box first (thread, case list, chat), then the page, so the target sits between the top bar and the tour bar
+    async function scrollTo(t) {
+      const n = find(t); if (!n || isFixed(n)) return;
+      const still = reduced(), c = node(); let moved = false;
+      const box = scrollBox(n), barH = ($("#tourBar") || { offsetHeight: 0 }).offsetHeight;
+      if (box) {
+        const r = n.getBoundingClientRect(), b = box.getBoundingClientRect(), bBot = Math.min(b.bottom, innerHeight - barH);
+        if (r.top < b.top + 4 || r.bottom > bBot - 4) { c.classList.add("scrolling"); moved = true; box.scrollTo({ top: Math.max(0, box.scrollTop + r.top - b.top - Math.max(8, (bBot - b.top - r.height) / 2)), behavior: still ? "auto" : "smooth" }); await wait(still ? 40 : 450); }
+      }
+      if (n.closest(".rail")) { if (moved) c.classList.remove("scrolling"); return; } // the rail is sticky: only its own box scrolls
+      const r = n.getBoundingClientRect(), topB = $("#bar").offsetHeight, room = innerHeight - topB - barH;
+      if (r.top < topB + 8 || r.bottom > innerHeight - barH - 8) {
+        c.classList.add("scrolling"); moved = true;
+        window.scrollTo({ top: Math.max(0, scrollY + r.top - topB - (r.height > room - 24 ? 12 : (room - r.height) / 2)), behavior: still ? "auto" : "smooth" });
+        await wait(still ? 40 : 550);
+      }
+      if (moved) c.classList.remove("scrolling");
+    }
+    async function move(t, o = {}) {
+      let n = find(t); if (!n) return null;
+      await scrollTo(n);
+      if (typeof t === "string" && !document.contains(n)) n = find(t); if (!n) return null;
+      if (o.spot && typeof t === "string") spotOn(t, true);
+      document.querySelectorAll(".cur-hover").forEach(e => e.classList.remove("cur-hover")); n.classList.add("cur-hover");
+      const r = n.getBoundingClientRect();
+      x = r.left + (r.width > 140 ? Math.min(r.width * .3, 70) : r.width / 2); y = r.top + Math.min(r.height / 2, 22);
+      node().style.transform = `translate(${x - 3}px, ${y - 3}px)`;
+      await wait(reduced() ? 30 : (o.ms || 680));
+      return n;
+    }
+    async function click(t, o = {}) {
+      let n = await move(t, o); if (!n) return false;
+      if (typeof t === "string" && !document.contains(n)) n = find(t); if (!n) return false;
+      const c = node(); c.classList.add("down");
+      if (!reduced()) { const rp = document.createElement("span"); rp.className = "tour-ripple"; rp.style.left = x + "px"; rp.style.top = y + "px"; document.body.appendChild(rp); setTimeout(() => rp.remove(), 500); }
+      await wait(170); c.classList.remove("down");
+      if (o.run) o.run(); else if (n.matches("input, textarea")) n.focus(); else n.click();
+      await wait(o.after != null ? o.after : 260);
+      return true;
+    }
+    async function hover(t, ms = 900, o) { const n = await move(t, o); if (n) await wait(ms); return !!n; }
+    const hide = () => { if (el) el.classList.remove("on"); };
+    const remove = () => { if (el) el.remove(); el = null; document.querySelectorAll(".cur-hover").forEach(e => e.classList.remove("cur-hover")); };
+    return { move, click, hover, scrollTo, hide, remove };
+  })();
 
   /* ---------- the narrator window ---------- */
   let presenter = null, manualText = false, chan = null, lastCmd = null;
@@ -3739,22 +3906,25 @@ const TOUR = (() => {
   function show(p) {
     if (p < 0) return;
     if (p >= SEQ.length) return end();
+    const from = pos;
     pos = p; const my = ++token, alive = () => my === token && pos === p;
     const item = SEQ[p];
     const main = $("#main"); main.style.transition = "none"; main.style.transform = ""; spotSel = null; spotEl = null;
     A.closeDrawer(); $("#modalHost").innerHTML = "";
     document.querySelectorAll(".timeskip").forEach(d => d.remove());
     syncText(); send(state());
-    if (item.slide != null) { document.body.classList.add("on-slide"); slide(item.slide); return; }
+    if (item.slide != null) { document.body.classList.add("on-slide"); cur.hide(); slide(item.slide); return; }
     document.body.classList.remove("on-slide");
     const s = STEPS[item.step];
-    if (s.before) s.before();
-    A.go(s.screen);
     bar(item.step);
-    setTimeout(() => { if (!alive()) return; spotOn(s.sel, false, !s.noZoom); if (s.after) s.after(alive); }, 160);
+    const enter = () => { if (s.before) s.before(); A.go(s.screen); setTimeout(() => { if (!alive()) return; spotOn(s.sel, false, !s.noZoom); if (s.after) s.after(alive); }, 160); };
+    // going forward from the previous step, the cursor first clicks the way here; Back and #demo=N jump straight in
+    const forward = from === p - 1 && SEQ[from] && SEQ[from].step != null;
+    if (!forward || !s.via) return enter();
+    (async () => { await wait(200); for (const v of s.via) { if (!alive()) return; await cur.click(typeof v.sel === "function" ? v.sel() : v.sel, { spot: true, run: v.run, after: 380 }); } if (alive()) enter(); })();
   }
   function start(at) { X.reset(); A.log("system", L("Guided demo started", "Geführte Demo gestartet"), ""); document.body.classList.add("touring"); show(at || 0); }
-  function end() { token++; pos = -1; spotSel = null; host().innerHTML = ""; const main = $("#main"); main.style.transform = ""; main.style.transition = ""; document.body.classList.remove("touring", "on-slide"); syncText(); A.render(); send(state()); }
+  function end() { token++; pos = -1; spotSel = null; host().innerHTML = ""; cur.remove(); const main = $("#main"); main.style.transform = ""; main.style.transition = ""; document.body.classList.remove("touring", "on-slide"); syncText(); A.render(); send(state()); }
   function refresh() { if (pos >= 0) show(pos); }
   function init() {
     if (IS_PRESENTER) return presenterMode();

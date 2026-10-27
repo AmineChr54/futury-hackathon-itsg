@@ -332,6 +332,9 @@ def load_server():
         tmp = tempfile.mkdtemp()
         os.environ["PIPELINE_DATA"] = tmp
         os.environ["LAW_DIR"] = os.path.join(tmp, "law")
+        for k in ("PIPELINE_PASSWORD", "PIPELINE_PASSWORD_ISTG", "PIPELINE_PASSWORD_DEV", "PIPELINE_PASSWORD_SAP",
+                  "PIPELINE_PASSWORD_LEXWARE", "PIPELINE_PASSWORD_VENDOR"):
+            os.environ[k] = ""  # a password in the developer's pipeline/.env must not switch sign-in on here
     import server
     return server
 

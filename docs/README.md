@@ -33,6 +33,7 @@ A working prototype is optional but strongly encouraged.
 | [09-demo-design.md](09-demo-design.md) | The demo: decisions, inputs/workflow/outputs, trust architecture, change detection, traceability |
 | [10-hessian-ai-api.md](10-hessian-ai-api.md) | The hessian.AI inference API (endpoint, models, auth), without the key |
 | [11-demo-feedback-itsg.md](11-demo-feedback-itsg.md) | ITSG's feedback on the demo (evening 26.10.): how vendors really test, and the list of UI changes |
+| [12-tests-f41c7278-certified-au.md](12-tests-f41c7278-certified-au.md) | Minimal tests (3 cases plus JSON input) for criterion `f41c7278`: the current AU and a prior AU must both be certified |
 
 **The demo:** [`demo/index.html`](../demo/index.html) is a single file that opens offline.
 [`demo/README.md`](../demo/README.md) explains how to present it and how to use the live AI mode.

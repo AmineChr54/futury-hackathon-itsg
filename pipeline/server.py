@@ -4,7 +4,7 @@
     python pipeline/server.py --host 0.0.0.0  → reachable by the developers on your network
 
 What it does
-- serves demo/index.html and a JSON API for the "AI test pipeline" and "Developer inbox" screens;
+- serves demo/index.html (the guided demo), demo/pipeline.html at /pipeline (the live pipeline UI) and a JSON API for the "AI test pipeline" and "Developer inbox" screens;
 - reads the previous spec versions in docs/law_file/ and the PDFs dropped into the page;
 - diffs them section by section (or, with nothing to compare, uses the document's own change log);
 - lets the AI turn each change into a spec-change JSON and test cases, with a sandboxed Python
@@ -762,6 +762,9 @@ def edit_case(tc, body, user):
 
 # ------------------------------------------------------------------ HTTP
 
+PIPELINE_PAGES = ("/pipeline", "/pipeline.html", "/demo/pipeline.html")
+
+
 class ApiError(Exception):
     def __init__(self, status, message):
         super().__init__(message)
@@ -850,13 +853,15 @@ class Handler(BaseHTTPRequestHandler):
         path, q = url.path, urllib.parse.parse_qs(url.query)
         self.body()
         try:
-            public = path in ("/", "/index.html", "/demo/", "/demo/index.html", "/api/status", "/api/login")
+            public = path in ("/", "/index.html", "/demo/", "/demo/index.html", *PIPELINE_PAGES, "/api/status", "/api/login")
             if AUTH and not public and not self.session:
                 raise ApiError(401, "sign in first")
             if path.startswith("/v1/"):
                 return self.proxy(method)
             if method == "GET" and path in ("/", "/index.html", "/demo/", "/demo/index.html"):
                 return self.static(os.path.join(ROOT, "demo", "index.html"), "text/html; charset=utf-8")
+            if method == "GET" and path in PIPELINE_PAGES:  # the full live pipeline UI (Achraf's app)
+                return self.static(os.path.join(ROOT, "demo", "pipeline.html"), "text/html; charset=utf-8")
             if not path.startswith("/api/"):
                 raise ApiError(404, "not found")
             parts = [urllib.parse.unquote(p) for p in path[5:].strip("/").split("/")]

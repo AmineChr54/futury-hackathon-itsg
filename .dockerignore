@@ -1,0 +1,5 @@
+.git
+hackathon-files
+**/.env
+pipeline/data
+**/__pycache__

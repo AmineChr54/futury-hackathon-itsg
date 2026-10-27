@@ -30,10 +30,14 @@ to `/pipeline`.
 |---|---|
 | **D**, the **Demo** button or **Start guided demo** | Start from slide 1: slides 1–4, then 17 steps in the app, then the closing slide |
 | **→** / **Space** · **←** | Next / previous beat, across slides and steps. Arrows also work while the demo is typing |
-| **P** (or **Narrator** in the bar) | Open the **narrator window**: current beat, what is on screen, 2–3 speaker notes, the next beat, a timer, and ‹ › buttons that drive the main window. While it is open, the projector shows only the sentence |
+| **P** (or **Narrator** in the bar) | Open the **narrator window**: current beat, what is on screen, **the exact words to say**, how long the beat takes and when it should be done, the next beat, a timer that turns red when you run late, and ‹ › buttons that drive the main window. While it is open, the projector shows only the sentence |
 | **T** | Text only by hand: hides the step counter and the buttons |
 | **Esc** | End the demo |
 | `index.html#demo=9` | Open the demo at beat 9 (1–22). Useful to rehearse or to resume |
+
+**The script is timed to 5 minutes**: 661 words at 138 words a minute is about 4:50 of speaking, plus the clicks and transitions. Each beat's text is written so its animation finishes while you speak.
+
+**Copy context for an AI.** On the developer's checklist, every test case has **Copy context for your AI** (its steps, what should happen and the verbatim spec sections), and **Copy all test cases** copies the whole package. A failing case adds **Copy debug context**: the case, the failing values, the uploaded DTA file and the spec text, plus a task for the AI. Today this is a copy button; next, the developer's AI connects through MCP and runs the tests itself.
 
 Put the narrator window on your laptop screen and the main window on the projector. If nothing
 opens, the browser blocked the pop-up: allow pop-ups for this file (Firefox shows a yellow bar at

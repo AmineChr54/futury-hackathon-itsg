@@ -2135,7 +2135,7 @@ const APP = (() => {
             : ST.ingest === 1 ? `<div class="stack" style="min-width:0"><b style="overflow-wrap:anywhere">${ic("doc")} 2026_03_10_Endfassung_Verfahrensbeschreibung_DTA_EEL_Version_13.4.pdf</b><div class="progress"><i id="dropBar" style="width:${ST.pct}%"></i></div><span class="muted mono" id="dropLbl" style="font-size:var(--fs-xs)">${L("Reading", "Lese")}…</span></div>`
             : `<div class="row"><button class="btn primary" data-act="simDrop">${ic("upload")} ${L("Import v13.4 (original PDF)", "v13.4 importieren (Original-PDF)")}</button></div>`}
           <div class="drop tour-hide" id="pdfDrop" data-act="pickPdf" role="button" tabindex="0">${ic("upload")}<b>${L("Drop a spec PDF here or click to choose", "Spezifikations-PDF hier ablegen oder klicken")}</b><span>${L("Builds the § index from numbered headings and counts internal links. Uses pdf.js from a CDN; the rest of the demo works offline.", "Baut den §-Index aus nummerierten Überschriften und zählt interne Links. Nutzt pdf.js vom CDN; der Rest der Demo funktioniert offline.")}</span></div>
-          <div id="pdfStatus"></div>
+          <div id="pdfStatus">${S.pdfStatus || ""}</div>
           <div class="callout tour-hide"><b>${L("Why retrieval is error-free here", "Warum die Suche hier fehlerfrei ist")}</b>${L("The spec is a well-structured PDF: numbered sections (3.12.7 …), a table of contents with page numbers and 3,528 internal hyperlinks. The index is built from that structure — no fuzzy similarity search. A retrieved span must start with its expected heading, otherwise it is flagged.", "Die Spezifikation ist ein gut strukturiertes PDF: nummerierte Abschnitte (3.12.7 …), Inhaltsverzeichnis mit Seiten und 3.528 interne Links. Der Index entsteht aus dieser Struktur — keine unscharfe Ähnlichkeitssuche. Ein gefundener Abschnitt muss mit der erwarteten Überschrift beginnen, sonst wird er markiert.")}</div></div></section>
         <section class="panel tour-hide" data-tour="context"><div class="panel-head"><h3>${L("Context discipline", "Kontextdisziplin")}</h3>${pill(L("anti-hallucination", "gegen Halluzination"), "ok")}</div>
           <div class="panel-body"><p class="muted" style="font-size:var(--fs-sm)">${L("The archive is never sent to the model in bulk. One call gets one § section, its directly linked sections, and the old version of that section — nothing else.", "Das Archiv geht nie komplett an das Modell. Ein Aufruf erhält einen §-Abschnitt, die direkt verlinkten Abschnitte und die alte Fassung dieses Abschnitts — sonst nichts.")}</p>
@@ -3457,7 +3457,7 @@ const APP = (() => {
   }
   function modal(title, html, node, foot) {
     const host = $("#modalHost");
-    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}" onclick="event.stopPropagation()"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
+    host.innerHTML = `<div class="modal-scrim" data-act="closeModal"><div class="modal" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-head"><h3>${esc(title)}</h3><button class="btn ghost sm" data-act="closeModal" aria-label="Close">✕</button></div><div class="modal-body">${html}</div>${foot ? `<div class="modal-foot">${foot}</div>` : ""}</div></div>`;
     if (node) host.querySelector(".modal-body").appendChild(node);
   }
   function aiSettings() {
@@ -3501,8 +3501,8 @@ const APP = (() => {
     });
   }
   async function ingestPdf(file) {
-    const status = $("#pdfStatus");
-    const say = h => { if (status) status.innerHTML = h; };
+    // kept in state: render() rebuilds the screen, and a box looked up once would be gone by the end
+    const say = h => { S.pdfStatus = h; const el = $("#pdfStatus"); if (el) el.innerHTML = h; };
     say(`<div class="callout">${L("Loading pdf.js…", "Lade pdf.js…")}</div>`);
     try {
       const lib = await loadPdfJs();
@@ -3772,7 +3772,8 @@ const APP = (() => {
   /* ---------- wiring ---------- */
   function init() {
     if (location.hash === "#presenter") return; // the narrator window: TOUR draws its own page
-    document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (!el || el.tagName === "SELECT") return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
+    document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); // a click inside a dialog that hits no control of its own must not count as a click on the backdrop
+      if (!el || el.tagName === "SELECT" || (el.classList.contains("modal-scrim") && e.target !== el)) return; const fn = ACT[el.dataset.act]; if (fn) { e.preventDefault(); fn(el, e); } });
     document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-act][role=button], .prov")) { e.preventDefault(); e.target.click(); } if (e.key === "Escape") { closeDrawer(); $("#modalHost").innerHTML = ""; } });
     document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.id === "chatInput") { e.preventDefault(); ACT.chatSend(); } if (e.key === "Enter" && e.target.id === "ovChatInput") { e.preventDefault(); ACT.ovSend(); } });
     document.addEventListener("change", e => { if (e.target.dataset && e.target.dataset.notify) { const n = store.get("mailNotify", {}); n[e.target.dataset.notify] = e.target.checked; store.set("mailNotify", n); toast(L("Notification setting saved", "Benachrichtigung gespeichert")); return; } if (e.target.dataset && e.target.dataset.cover) { const id = e.target.dataset.cover; if (e.target.checked) ST.covered[id] = fmtAt(S.clock || CLOCK0); else delete ST.covered[id]; render(); return; } if (e.target.id === "sampleSel") { S.sample = e.target.value; S.selField = null; render(); } if (e.target.id === "mailTo" && S.compose) S.compose.to = e.target.value; });
@@ -3984,10 +3985,10 @@ const TOUR = (() => {
   function bar(i) {
     const s = STEPS[i];
     host().innerHTML = `<div class="tour-spot" id="tourSpot" style="opacity:0"></div><div class="tour-cap" id="tourCap" role="status" aria-live="polite"><p class="tour-say">${capHtml(s.say)}</p></div><div class="tour-bar" id="tourBar">
-      <div class="tour-ctrl"><span class="n">${i + 1}/${STEPS.length}</span><button class="btn" data-tour-act="prev" aria-label="Back">‹</button><button class="btn primary" data-tour-act="next" aria-label="Next">›</button><button class="btn ghost" data-tour-act="narrator" title="P">${L("Narrator", "Sprecher")}</button><button class="btn ghost" data-tour-act="end" aria-label="End the demo" title="Esc">✕</button></div></div>`;
+      <div class="tour-ctrl"><span class="n" title="${L("Step", "Schritt")} ${i + 1}/${STEPS.length}">${pos + 1}/${SEQ.length}</span><button class="btn" data-tour-act="prev" aria-label="Back">‹</button><button class="btn primary" data-tour-act="next" aria-label="Next">›</button><button class="btn ghost" data-tour-act="narrator" title="P">${L("Narrator", "Sprecher")}</button><button class="btn ghost" data-tour-act="end" aria-label="End the demo" title="Esc">✕</button></div></div>`;
   }
   function slide(i) {
-    host().innerHTML = `<div class="slides" data-tour-act="next">${SLIDES[i].html()}<div class="slide-foot"><span class="slide-dots">${SLIDES.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</span><span><span class="kbd">←</span> <span class="kbd">→</span> · <span class="kbd">P</span> ${L("narrator", "Sprecher")} · <span class="kbd">T</span> ${L("text only", "nur Text")} · <span class="kbd">Esc</span></span></div></div>`;
+    host().innerHTML = `<div class="slides" data-tour-act="next">${SLIDES[i].html()}<div class="slide-foot"><span class="row" style="gap:12px"><span class="slide-dots">${SLIDES.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</span><span>${pos + 1} / ${SEQ.length}</span></span><span><span class="kbd">←</span> <span class="kbd">→</span> · <span class="kbd">P</span> ${L("narrator", "Sprecher")} · <span class="kbd">T</span> ${L("text only", "nur Text")} · <span class="kbd">Esc</span></span></div></div>`;
   }
 
   /* ---------- spotlight: frames the target and keeps following it (scroll, zoom, re-render) ---------- */

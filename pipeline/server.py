@@ -1099,7 +1099,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(data)
+        self.write_body(data)
+
+    def write_body(self, data):
+        # in pieces: on Windows one ~1 MB write to a local socket can stall and end in a connection reset,
+        # so the browser got a cut-off page whose script never ran (no button worked)
+        for i in range(0, len(data), 64 * 1024):
+            self.wfile.write(data[i:i + 64 * 1024])
 
     def body(self):
         # read once and keep it: route() drains it before any early error reply, otherwise Windows
@@ -1216,7 +1222,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(data)
+        self.write_body(data)
 
     def proxy(self, method):
         """OpenAI-compatible pass-through for the demo's older 'Live' extraction mode."""
@@ -1235,7 +1241,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        self.write_body(data)
 
     # ---- status, users
     def api_get_status(self, parts, q):
@@ -1649,7 +1655,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Disposition", "attachment; filename*=UTF-8''" + urllib.parse.quote(f["name"]))
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
-            self.wfile.write(data)
+            self.write_body(data)
             return
         if parts:
             raise ApiError(404, "unknown exchange resource")
@@ -1852,7 +1858,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
-            self.wfile.write(data)
+            self.write_body(data)
             return
         self.send_json(STORE["certificates"])
 

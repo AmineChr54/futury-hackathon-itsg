@@ -84,7 +84,13 @@ Employment ends **31.03.2026**.
   **35 ≥ 30** ✔. Without the current AU it would be only 25 days, so the current AU is what tips it
   over.
 
-## Expected message sequence
+## Message sequence and IDs
+
+ITSG's table is titled *„Tabelle zu den jeweils zu verwendenden IDs bzw. AZVU“*: the IDs the
+vendor must use, so ITSG can match the messages. It is not an expected-output file. The expected
+results are in the Hinweise text: the paper AU d goes into the DBVO (all 4 periods), sick pay first
+ends 30.03.2026 and then 27.03.2026, and the employer sends 41 → 01 → 88 → 01. The KK rows (61,
+62) are input.
 
 | Step | From | Abgabegrund | Cancel? | DSID | DSID-UR | REF-ID | AZVU | 12-month period from | End EEL | Reason |
 |---|---|---|---|---|---|---|---|---|---|---|

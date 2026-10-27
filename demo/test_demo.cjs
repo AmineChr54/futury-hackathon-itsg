@@ -3,7 +3,7 @@ const { readFileSync } = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const html = readFileSync(__dirname + '/index.html', 'utf8');
+const html = readFileSync(__dirname + '/pipeline.html', 'utf8');
 
 function pipeline() {
   const nodes = new Map();

@@ -8,7 +8,7 @@ For how to run it, see [`demo/README.md`](../demo/README.md).
 
 | Area | Decision |
 |---|---|
-| Users | Role switch: **ITSG examiner ⇄ vendor**. The vendor signs in as SAP or Lexware and sees only its own home, test cases, results and messages; expected results are never shown to vendors |
+| Users | Role switch: **ITSG examiner ⇄ vendor**. The vendor signs in as SAP or Lexware and sees only its own home, test cases, results and messages. Vendors see what each test case should produce, in words with the key values (as in ITSG's Testkonstellation); the expected DTA file stays with ITSG |
 | Communication | E-mail-like **Messages** inbox, one window (role switch shows the other side): threads per vendor and topic, attachments for test packages, result files (compared on arrival, verdict posted in words), reports, the certificate, rules and test cases |
 | Story | Follows one sentence of §3.12 ("nicht mindestens" → "nicht mehr als 6 Monate") from the new PDF to a vendor's verdict, in four chapters: specification → requirements → testing → results. The payoff is the test whose expected result flips, computed under both versions. 15 steps, about 5 minutes |
 | Presenting | Guided demo with spotlight, zoom and captions, plus a **separate presenter window** (script, speaker notes, timer, next step) synced to the projector window. While it is open, the projector shows only the chapter, the title, the ITSG objective and a short "today → with the assistant" caption; free deep-dive at any time |
@@ -20,7 +20,7 @@ For how to run it, see [`demo/README.md`](../demo/README.md).
 | Data | ITSG's reference case + generated employees; vendors are **SAP and Lexware as illustrative examples** (team decision, 26.10.); every result shown for them is imagined and labelled as such on each results screen |
 | Style | Clean, professional tool, crimson accent, light and dark; built from tokens so it can move into Claude Design |
 | Tech | One HTML file, vanilla JS, works offline; CDN only for optional extras |
-| Name | Open: working title "EEL Review Assistant", tracked as a GitHub issue |
+| Name | **ITSG Spec Pipeline**, tagline *“From specification to certified test, in one session.”* (decided 27.10.; was the working title “EEL Review Assistant”) |
 
 ## Changes after the ITSG review (evening, 26.10.)
 
@@ -39,6 +39,47 @@ decisions above:
 | Inputs | Prepared spec sections | Visibly the **original government PDF** |
 | New | — | **Automatic input proposal** (JSON import, SAP pilot) and **baseline check** of the catalogue (obsolete / missing / OK) |
 | Inbox | Simulated insurer replies | Show the AG ⇄ KK exchange like ITSG's table; KK replies are input the vendor must handle |
+
+## Final demo (27.10.)
+
+The pitch version: four business slides, 17 steps in the app, one closing slide, about 5 minutes.
+It merges Achraf's pipeline work (branch `Achraf`: change review, chain of thought, test-case
+review, developer checklist with AI recap) into this app. How to run it:
+[`demo/README.md`](../demo/README.md).
+
+| Area | Decision |
+|---|---|
+| Name | **ITSG Spec Pipeline** |
+| Language | English on the slides and in the bar; German spec quotes verbatim |
+| Slides | Same file. Demo button → slides 1–4 → steps → closing slide. 1: ITSG logo, name, tagline. 2: Patrick meme, “400 pages. Every year. By hand.” 3: the four manual steps with their cost, “Every year. By hand. Zero error tolerance.” 4: name, tagline, three promises (AI reads · you approve · every value traces to a §). 5: tired guy → happy squirrel, “Thank you!” |
+| Bottom bar | One sentence per step plus `n/17 ‹ › Narrator ✕`. No timeline, chapters or objectives. **T** hides the controls (text only) |
+| Narrator | **P** opens a narrator pop-up (same file, `#presenter`): beat, on-screen sentence, 2–3 speaker notes, next beat, timer, ‹ › synced to the main window. While it is open the projector shows only the sentence. Synced by `opener.postMessage` (works on `file://` in Firefox) plus BroadcastChannel |
+| Overview | Only the pipeline: eight cards with a one-line explanation each (Import · Index & highlight · Detect changes · Understand & approve · Generate test cases · Hand over · Compare · Report & certify). No emojis, no deterministic / AI / human labels |
+| Import | A simulated drop of the original v13.4 PDF (no file dialog on stage); a real file still works |
+| Specification | All 220 sections of the real PDF, full text (`demo/embed.py`), §3.12 preselected |
+| Changes | Change list left, Achraf's change card right (approve / edit / decline). Step 5 shows an edit of the AI's reading before approving. The AI's reasoning sits underneath, collapsed in step 4 and opened in step 6 with a chat. The demo types the question; the answer is scripted, and `chatAnswer()` calls the live model in Live mode |
+| Test cases | Achraf's review list, grouped by the rule they test. Step 7 highlights the case we follow (TC-3.12-B-01) |
+| Developer | SAP's developer: Achraf's notification → our Messages inbox → Achraf's checklist with AI recap → **runs each test case**: opens it, “How to run it” (preconditions, steps), “What should happen” (in words, with the key values), then “Works as expected” → upload (automatic e-mail). No positive/negative labels |
+| What the developer knows | ITSG's `Hinweise_DTA-EEL-Bespiel_Vorerkrankung_Testkonstellation.docx` gives the vendor the key results in prose (which periods go into the DBVO, EFZ end 30.03 → 27.03.2026, the message order 41 → 01 → 88 → 01, the DSIDs to use), but not the file field by field. So the checklist shows the expected behaviour; ITSG compares the exact file |
+| Failure | SAP's screen showed 4 periods, but the exported file still has 5. Verdict mail “1 of 5 failed” in words → the developer asks why the file differs from the screen → ITSG answers with the quote. Then “two days later” (a clock overlay), the fixed file passes 5/5. The comparison view (byte view) is no longer a demo step; it is still on the Compare output screen |
+| Certificate | Report & certificate screen; issued by e-mail; real PDF via html2pdf.js, print fallback |
+| Live vs. recorded | Recorded by default, in the JSON shapes of Achraf's API. His full live UI stays as `demo/pipeline.html`, served at `/pipeline` |
+
+**The story case.** ITSG's reference employee (Peter Mustermann) plus one older sick period,
+01.11.–05.11.2024. More than 6 months lie between it and 14.07.2025, so request 41 must list
+exactly 4 periods. SAP's screen gets it right, but its export writes every period on file: the first file still includes it (the existing “gap” variant), so it fails
+with “Period 01.11.2024–05.11.2024 should not be in the request …” and “ANZAHL-AU expected 04,
+got 05”. The fixed file is ITSG's real `TEEL0-Test1-DBVO`.
+
+**Found while extracting the full text:**
+- The real v13.4 is inconsistent. The employer paragraph of §3.12 (p. 135) says “nicht mehr als 6
+  Monate”, the insurer paragraph (p. 136) still says “nicht mindestens 6 Monate”. The AI's
+  reasoning in step 6 flags this for ITSG.
+- The three maternity quotes (“beginnt 6 Wochen vor …”, “Sie endet 8 Wochen …”, “12 Wochen nach
+  der Entbindung”) are in §3.11.5 “Ende Beschäftigungsverhältnis zum”, not in §3.11.1. The
+  highlights now point there.
+- Field-level headings carry no number in the PDF text; their numbers come from their order under
+  the parent (3.12 → 3.12.1 … 3.12.14), which matches the spec's own cross references.
 
 ## Inputs → workflow → outputs
 

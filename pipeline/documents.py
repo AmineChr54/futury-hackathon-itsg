@@ -222,6 +222,37 @@ def load(path, cache_dir):
         return doc
 
 
+FIELD_ROW = re.compile(r"^\d{3}\s?[–-]")  # a record-layout row: "014 – 021 …"
+
+
+def _para_norm(s):
+    return re.sub(r"\s+", " ", s.replace("­", "").replace(" ", " ")).strip()
+
+
+def paragraphs(raw_lines):
+    """Reflow PDF lines into paragraphs. A blank line ends a paragraph only after a full sentence
+    (otherwise it is a page break mid-sentence); bullets and key lists („1“ = …) start new ones."""
+    paras, cur = [], ""
+    for raw in raw_lines:
+        line = _para_norm(raw)
+        sentence_done = bool(re.search(r"[.:;!?][“\")]?$", cur))
+        if not line:
+            if cur and (sentence_done or FIELD_ROW.match(cur)):
+                paras.append(cur); cur = ""
+            continue
+        starts_new = (line.startswith(("•", "- ")) or FIELD_ROW.match(line) or re.match(r"^„[^“]{1,6}“\s*=", line)
+                      or (sentence_done and line.startswith(("„", "Hinweis", "Beispiel"))))
+        if cur and starts_new and not FIELD_ROW.match(cur):
+            paras.append(cur); cur = ""
+        if cur.endswith("-") and line[:1].islower():
+            cur = cur[:-1] + line  # hyphenation across the line break
+        else:
+            cur = (cur + " " + line).strip()
+    if cur:
+        paras.append(cur)
+    return paras
+
+
 def summary(doc):
     return {k: doc[k] for k in ("name", "sha256", "pages", "version", "title", "chars")} | {
         "sections": len(doc["sections"]), "changelog_rows": len(doc["changelog"])}

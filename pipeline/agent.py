@@ -288,6 +288,25 @@ def chat(cfg, messages, on_delta=None, should_stop=lambda: False):
     return out
 
 
+def ask(cfg, messages, max_tokens=1500):
+    """One plain answer (no tools, not streamed): the chat about a spec change or the release."""
+    body = {"model": cfg["model"], "messages": messages, "temperature": 0, "max_tokens": max_tokens}
+    req = urllib.request.Request(cfg["base"].rstrip("/") + "/chat/completions", data=json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json", "Authorization": "Bearer " + cfg["key"]})
+    try:
+        with _open(req, lambda: False) as resp:
+            data = json.loads(resp.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        raise LLMError(f"HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:300]}")
+    except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, json.JSONDecodeError) as e:
+        raise LLMError(f"network: {e}")
+    msg = ((data.get("choices") or [{}])[0].get("message") or {})
+    answer = (msg.get("content") or "").strip()
+    if not answer:
+        raise LLMError("empty answer")
+    return answer
+
+
 def _parse_args(raw):
     if isinstance(raw, dict):
         return raw

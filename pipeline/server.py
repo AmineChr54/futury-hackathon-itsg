@@ -198,6 +198,14 @@ def tc_by_id(tc_id):
 
 # ------------------------------------------------------------------ documents
 
+def law_dir_label():
+    """The law folder as shown on the page: relative to the repo, or absolute on another drive (Windows)."""
+    try:
+        return os.path.relpath(LAW_DIR, ROOT).replace("\\", "/")
+    except ValueError:
+        return LAW_DIR
+
+
 def list_docs():
     def entries(folder, kind):
         out = []
@@ -211,7 +219,7 @@ def list_docs():
     # also accept files next to the folder named law_file*, e.g. docs/law_file.pdf
     law += [d for d in entries(os.path.dirname(LAW_DIR), "law_file") if d["name"].lower().startswith("law_file") and d["name"] not in {x["name"] for x in law}]
     return {"law_files": law, "uploads": sorted(entries(UPLOADS, "upload"), key=lambda d: -d["mtime"]),
-            "law_dir": os.path.relpath(LAW_DIR, ROOT).replace("\\", "/")}
+            "law_dir": law_dir_label()}
 
 
 def doc_path(kind, name):
@@ -491,7 +499,7 @@ def checklist_row(tc):
     fm = tc.get("formula") or {}
     return {"id": tc["id"], "title": tc.get("title"), "kind": tc.get("kind"), "section": tc.get("section"),
             "section_title": tc.get("section_title"), "criterion": tc.get("criterion"), "preconditions": tc.get("preconditions", []),
-            "steps": tc.get("steps", []), "expected_outcome_hint": fm.get("result_name"), "result_name": fm.get("result_name"),
+            "steps": tc.get("steps", []), "expected_outcome": tc.get("expected_outcome"), "expected_outcome_hint": fm.get("result_name"), "result_name": fm.get("result_name"),
             "result_unit": fm.get("result_unit"), "result_type": result_type(tc.get("expected_value")),
             "version": (tc.get("document") or {}).get("version"), "demo": tc.get("demo", False)}
 
@@ -756,6 +764,8 @@ def describe_change(method, parts, b):
     act = rest[-1] if rest else ""
     if r in ("users", "plan", "evaluate", "status"):
         return None
+    if r == "chat":
+        return "asked the AI", (f"§{b.get('sec')} · " if b.get("sec") else "") + str(b.get("question") or "")[:120]
     if r == "login":
         return "signed in", ""
     if r == "logout":
@@ -783,7 +793,7 @@ def describe_change(method, parts, b):
     if r == "checklists":
         if act == "coverage":
             return ("ticked" if b.get("done") else "unticked") + " a test case as tested", b.get("id", "")
-        return {"recap": "rewrote the AI recap", "submit": "submitted values"}.get(act, act), rest[0] if rest else ""
+        return {"recap": "rewrote the AI recap", "submit": "submitted values", "results": "sent a results file"}.get(act, act), rest[0] if rest else ""
     if r == "submissions":
         return "validated developer results", rest[0] if rest else ""
     if r == "demo":
@@ -846,7 +856,7 @@ EXCHANGE_DIR = os.path.join(DATA, "exchange")
 RESULT_EXT = (".dat", ".dta", ".txt", ".edi", ".xml", ".csv", ".json", ".zip", ".pdf")
 DTA_EXT = (".dat", ".dta", ".txt", ".edi")
 MAX_FILE = 10 * 1024 * 1024
-ATTACH_TYPES = {"package", "report", "rule", "case", "crit", "dta", "file", "verdict", "certificate"}
+ATTACH_TYPES = {"package", "report", "rule", "case", "crit", "dta", "file", "verdict", "pkgverdict", "certificate"}
 
 
 def exchange():
@@ -876,6 +886,123 @@ def exchange_for(role, vendor):
             "publishedTo": [vendor] if vendor in x["publishedTo"] else [],
             "published": vendor in x["publishedTo"],
             "vwork": {vendor: x["vwork"][vendor]} if vendor in x["vwork"] else {}}
+
+
+def store_file(name, data, vendor, user, rule=None, key=None):
+    """Keep a vendor's file in the exchange (pipeline/data/exchange/<key>.bin)."""
+    key = key or "F" + uuid.uuid4().hex[:10]
+    os.makedirs(EXCHANGE_DIR, exist_ok=True)
+    with open(os.path.join(EXCHANGE_DIR, key + ".bin"), "wb") as fh:
+        fh.write(data)
+    f = {"key": key, "name": name, "vendor": vendor, "by": user, "t": now(), "size": len(data),
+         "sha256": hashlib.sha256(data).hexdigest(), "rule": rule,
+         "format": "dta" if name.lower().endswith(DTA_EXT) else os.path.splitext(name)[1].lstrip(".").lower()}
+    exchange()["files"][key] = f
+    return f
+
+
+def cert_thread(vendor):
+    """The vendor's certification conversation: packages, results and the certificate all go here."""
+    x = exchange()
+    th = next((t for t in x["threads"] if t["vendor"] == vendor and t.get("kind") == "cert"), None)
+    if not th:
+        th = {"id": f"T-cert-{vendor}", "vendor": vendor, "subject": {"en": "Certification 2027", "de": "Zertifizierung 2027"},
+              "kind": "cert", "msgs": [], "read": {"itsg": 0, "vendor": 0}}
+        x["threads"].append(th)
+    return th
+
+
+def publish_to_vendors(pkg, n):
+    """A package sent to a company account (sap, lexware) is published to that vendor and announced in its thread."""
+    x = exchange()
+    pkg["vendors"] = [VENDOR_OF[u] for u in pkg["to"] if u in VENDOR_OF]
+    for v in pkg["vendors"]:
+        if v not in x["publishedTo"]:
+            x["publishedTo"].append(v)
+        new_message(cert_thread(v), "itsg", {
+            "en": f"New test package {pkg['id']}: {n} test cases.\n{pkg['note']}\n\nOpen the checklist to see what changed, how to run each test case and what should happen. Then enter your results or upload your results file; ITSG compares them at once.",
+            "de": f"Neues Testpaket {pkg['id']}: {n} Testfälle.\n{pkg['note']}\n\nIn der Checkliste steht, was sich geändert hat, wie jeder Testfall durchgeführt wird und was passieren soll. Danach Ergebnisse eintragen oder die Ergebnisdatei hochladen; ITSG vergleicht sie sofort."},
+            [{"type": "package", "ref": pkg["id"]}])
+
+
+def parse_results(name, data):
+    """Values from a results file: JSON ({id: value}, [{id, value}] or {rows: [...]}) or CSV/TXT lines "id;value"."""
+    text = data.decode("utf-8-sig", "replace")
+    rows = []
+    if name.lower().endswith(".json"):
+        try:
+            j = json.loads(text)
+        except json.JSONDecodeError:
+            return []
+        if isinstance(j, dict) and isinstance(j.get("rows"), list):
+            j = j["rows"]
+        if isinstance(j, dict):
+            rows = [{"id": k, "value": v} for k, v in j.items()]
+        elif isinstance(j, list):
+            rows = [{"id": r.get("id"), "value": r.get("value"), "note": r.get("note", "")} for r in j if isinstance(r, dict)]
+    elif name.lower().endswith((".csv", ".txt")):
+        for line in text.splitlines():
+            cells = [c.strip().strip('"') for c in re.split(r"[;,\t]", line)]
+            if len(cells) >= 2 and cells[0] and cells[0].lower() != "id":
+                rows.append({"id": cells[0], "value": cells[-1]})
+    return [{"id": str(r["id"]), "value": "" if r["value"] is None else str(r["value"]).strip(), "note": str(r.get("note") or "")[:500]}
+            for r in rows if r.get("id")]
+
+
+def submit_results(pkg, user, rows, file=None):
+    """One round of a developer's results, compared at once with ITSG's verified values. A vendor company also gets a
+    sealed report and the verdict in its certification thread (pass/fail and its own value, never the expected one).
+    An earlier round stays as "superseded", so a retest is simply the next round."""
+    rows = [r for r in rows if r["id"] in pkg["ids"]]
+    if not rows or not any(r["value"] for r in rows):
+        raise ApiError(400, "enter at least one value")
+    mine = [s for s in STORE["submissions"] if s["package"] == pkg["id"] and s["by"] == user]
+    for s in mine:
+        if s["status"] == "submitted":
+            s["status"] = "superseded"
+    sub = {"id": "SUB-" + time.strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:4], "package": pkg["id"], "by": user, "t": now(),
+           "status": "submitted", "round": len(mine) + 1, "file": file,
+           "rows": [{"id": r["id"], "value": r["value"], "note": r.get("note", ""),
+                     "ok": bool(r["value"]) and F.same_value(r["value"], (tc_by_id(r["id"]) or {}).get("expected_value"))} for r in rows]}
+    STORE["submissions"].insert(0, sub)
+    for r in sub["rows"]:
+        tc_by_id(r["id"])["history"].append({"t": now(), "who": user, "action": "developer result submitted",
+                                             "detail": f"round {sub['round']}: value {r['value'] or '—'} → {'pass' if r['ok'] else 'fail'}"})
+    vendor = VENDOR_OF.get(user)
+    if vendor:
+        rep = report_from_submission(sub, pkg, vendor)
+        sub["report"] = rep["id"]
+        th = cert_thread(vendor)
+        n = len(sub["rows"])
+        new_message(th, vendor, {"en": f"Results for {pkg['id']}, round {sub['round']}: {n} test cases" + (f" ({file['name']})." if file else ", entered in the checklist."),
+                                 "de": f"Ergebnisse zu {pkg['id']}, Runde {sub['round']}: {n} Testfälle" + (f" ({file['name']})." if file else ", in der Checkliste eingetragen.")},
+                    [{"type": "file", "ref": file["key"]}] if file else [])
+        verdict = {"package": pkg["id"], "round": sub["round"], "report": rep["id"], "file": file["name"] if file else "checklist",
+                   "passed": rep["passed"], "total": rep["total"], "ok": rep["verdict"] == "pass",
+                   "rows": [{"id": r["id"], "title": (tc_by_id(r["id"]) or {}).get("title"), "ok": r["ok"], "value": r["value"],
+                             "words": [] if r["ok"] else [{"en": f"Your value {r['value'] or '(empty)'} does not match the expected result.",
+                                                           "de": f"Ihr Wert {r['value'] or '(leer)'} stimmt nicht mit dem erwarteten Ergebnis überein."}]}
+                            for r in sub["rows"]]}
+        new_message(th, "system", {"en": "Automatic comparison against ITSG's verified results:", "de": "Automatischer Vergleich mit den verifizierten Ergebnissen von ITSG:"},
+                    [{"type": "pkgverdict", "ref": verdict}])
+    return sub
+
+
+def report_from_submission(sub, pkg, vendor):
+    """A sealed test report for one round: the basis for the certificate."""
+    checks = [{"id": r["id"], "ok": r["ok"], "sec": (tc_by_id(r["id"]) or {}).get("section"),
+               "msg": f"{(tc_by_id(r['id']) or {}).get('title') or r['id']}: value {r['value'] or '—'}"} for r in sub["rows"]]
+    all_ok = all(c["ok"] for c in checks) and len(checks) == len(pkg["ids"])
+    f = sub.get("file") or {}
+    r = {"id": f"REP-{time.strftime('%Y%m%d-%H%M%S')}-{uuid.uuid4().hex[:4]}", "created": now(), "by": "system", "vendor": vendor,
+         "vendor_name": VENDORS[vendor], "expected_id": "verified-values", "expected_name": pkg["id"], "expected_sha256": "",
+         "scenario_id": pkg["id"], "package": pkg["id"], "round": sub["round"], "submission": sub["id"],
+         "file": {"name": f.get("name") or "checklist", "sha256": f.get("sha256") or "", "size": int(f.get("size") or 0)},
+         "product": "", "modification": "", "abgabegrund": "", "spec": "", "checks": checks, "findings": [],
+         "passed": sum(1 for c in checks if c["ok"]), "total": len(pkg["ids"]), "verdict": "pass" if all_ok else "fail"}
+    r["seal"] = seal_of(r)
+    STORE["reports"].insert(0, r)
+    return r
 
 
 def check_attach(attach, role, vendor):
@@ -1069,7 +1196,10 @@ def edit_case(tc, body, user):
 
 # ------------------------------------------------------------------ HTTP
 
-PIPELINE_PAGES = ("/pipeline", "/pipeline.html", "/demo/pipeline.html")
+# One page, two modes: demo/index.html runs on the server's data at / (live) and on its recorded data at /demo.
+LIVE_PAGES = ("/", "/index.html", "/app", "/app/")
+DEMO_PAGES = ("/demo", "/demo/", "/demo/index.html")
+PIPELINE_PAGES = ("/pipeline", "/pipeline.html", "/demo/pipeline.html")  # the old live UI: links to it now open the app
 
 
 class ApiError(Exception):
@@ -1088,7 +1218,7 @@ class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User, X-Role")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-User, X-Role, X-Token, X-Vendor")
 
     def send_json(self, obj, status=200):
         self._status = status
@@ -1172,15 +1302,17 @@ class Handler(BaseHTTPRequestHandler):
         path, q = url.path, urllib.parse.parse_qs(url.query)
         self.body()
         try:
-            public = path in ("/", "/index.html", "/demo/", "/demo/index.html", *PIPELINE_PAGES, "/api/status", "/api/login")
+            public = path in (*LIVE_PAGES, *DEMO_PAGES, *PIPELINE_PAGES, "/api/status", "/api/login")
             if AUTH and not public and not self.session:
                 raise ApiError(401, "sign in first")
             if path.startswith("/v1/"):
                 return self.proxy(method)
-            if method == "GET" and path in ("/", "/index.html", "/demo/", "/demo/index.html"):
-                return self.static(os.path.join(ROOT, "demo", "index.html"), "text/html; charset=utf-8")
-            if method == "GET" and path in PIPELINE_PAGES:  # the full live pipeline UI (Achraf's app)
-                return self.static(os.path.join(ROOT, "demo", "pipeline.html"), "text/html; charset=utf-8")
+            if method == "GET" and path in LIVE_PAGES:
+                return self.page("live")
+            if method == "GET" and path in DEMO_PAGES:
+                return self.page("demo")
+            if method == "GET" and path in PIPELINE_PAGES:
+                return self.redirect("/")
             if not path.startswith("/api/"):
                 raise ApiError(404, "not found")
             parts = [urllib.parse.unquote(p) for p in path[5:].strip("/").split("/")]
@@ -1214,9 +1346,24 @@ class Handler(BaseHTTPRequestHandler):
             role = ACCOUNTS.get(who, "")
         audit(who, role, *d)
 
-    def static(self, path, mime):
-        with open(path, "rb") as f:
+    def page(self, mode):
+        """demo/index.html with its mode: "live" talks to this server's API, "demo" keeps the recorded data
+        (opened as a file or on GitHub Pages there is no flag, so it is recorded too)."""
+        with open(os.path.join(ROOT, "demo", "index.html"), "rb") as f:
             data = f.read()
+        self.static(None, "text/html; charset=utf-8", b'<script>window.SPECS_MODE="' + mode.encode() + b'"</script>\n' + data)
+
+    def redirect(self, location):
+        self._status = 302
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def static(self, path, mime, data=None):
+        if data is None:
+            with open(path, "rb") as f:
+                data = f.read()
         self.send_response(200)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(data)))
@@ -1246,8 +1393,9 @@ class Handler(BaseHTTPRequestHandler):
     # ---- status, users
     def api_get_status(self, parts, q):
         self.send_json({"ok": True, "model": CFG["model"], "models": MODELS, "key_configured": bool(CFG["key"]),
-                        "base": CFG["base"], "law_dir": os.path.relpath(LAW_DIR, ROOT).replace("\\", "/"),
-                        "functions": F.FUNC_DOCS, "auth": AUTH, "problems": setup_problems(), "queue": SCHED.stats()})
+                        "base": CFG["base"], "law_dir": law_dir_label(),
+                        "functions": F.FUNC_DOCS, "auth": AUTH, "problems": setup_problems(), "queue": SCHED.stats(),
+                        "vendors": VENDORS, "accounts": {u: {"role": ACCOUNTS[u], "vendor": VENDOR_OF.get(u)} for u in ("istg", "sap", "lexware")}})
 
     def api_post_login(self, parts, q):
         b = self.json_body()
@@ -1293,7 +1441,20 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- documents
     def api_get_documents(self, parts, q):
-        self.send_json(list_docs())
+        if not parts:
+            return self.send_json(list_docs())
+        doc = None
+        for kind in (q.get("kind") or ["upload", "law_file"]):
+            try:
+                doc = load_doc({"kind": kind, "name": parts[0]})
+                break
+            except ApiError:
+                continue
+        if not doc:
+            raise ApiError(404, f"document not found: {parts[0]}")
+        self.send_json({**documents.summary(doc), "kind": doc["kind"], "changelog": doc["changelog"],
+                        "sections": [{"sec": x["sec"], "title": x["title"], "page": x["page"],
+                                      "text": documents.paragraphs(x["text"].split("\n"))} for x in doc["sections"]]})
 
     def api_post_upload(self, parts, q):
         name = os.path.basename((q.get("name") or [""])[0])
@@ -1464,12 +1625,15 @@ class Handler(BaseHTTPRequestHandler):
             tc = tc_by_id(parts[0])
             if not tc:
                 raise ApiError(404, "test case not found")
-            dev = self.role == "dev"
+            dev = self.role not in ("itsg", "examiner")  # developers and vendors get no expected values
             if len(parts) > 1 and parts[1] == "export":
                 return self.send_json(export_case(redact_for_dev(tc) if dev else tc))
             return self.send_json(redact_for_dev(tc) if dev else tc)
         run = (q.get("run") or [None])[0]
         lst = [t for t in STORE["testcases"] if (not run or t["run"] == run) and not t.get("mock")]
+        if (q.get("full") or ["0"])[0] == "1":
+            fix = redact_for_dev if self.role not in ("itsg", "examiner") else (lambda t: t)
+            return self.send_json([fix(t) for t in lst])
         self.send_json([{k: t.get(k) for k in ("id", "run", "status", "title", "kind", "section", "section_title", "expected_value",
                                                  "formula_changed", "formula_edited", "created", "sent_to", "guards", "change_kind")} for t in lst])
 
@@ -1534,6 +1698,44 @@ class Handler(BaseHTTPRequestHandler):
             save_store()
         self.send_json(tc)
 
+    def api_post_chat(self, parts, q):
+        """A question to the AI about one spec change (run + section) or about the data the page sends.
+        The server adds the section's old and new text, the extracted change and the AI's reasoning."""
+        b = self.json_body()
+        question = str(b.get("question") or "").strip()[:2000]
+        if not question:
+            raise ApiError(400, "ask a question")
+        if not CFG["key"]:
+            raise ApiError(503, "the AI is not configured on this server (HAI_API_KEY)")
+        ctx = []
+        run = load_run(str(b.get("run") or "")) if b.get("run") else None
+        it = item_of(run, str(b.get("sec") or "")) if run else None
+        if it:
+            ctx.append(f"§{it['sec']} {it.get('title') or ''} (page {it.get('page')})\nNEW TEXT:\n{(it.get('new_text') or '')[:12000]}")
+            if it.get("old_text"):
+                ctx.append("OLD TEXT (previous version):\n" + it["old_text"][:8000])
+            if it.get("log"):
+                ctx.append("CHANGE LOG ENTRY:\n" + "\n".join(it["log"]))
+            if it.get("spec_change"):
+                ctx.append("EXTRACTED CHANGE (JSON):\n" + json.dumps(it["spec_change"], ensure_ascii=False)[:6000])
+            thoughts = [e["data"].get("text", "") for e in run["events"] if e.get("item") == it["sec"] and e["type"] == "thought"]
+            if thoughts:
+                ctx.append("THE AI'S REASONING WHEN IT READ THE SECTION:\n" + "\n---\n".join(t[:2000] for t in thoughts[-5:]))
+        if b.get("context"):
+            ctx.append("DATA:\n" + str(b["context"])[:20000])
+        history = [{"role": m["role"], "content": str(m.get("content") or "")[:4000]} for m in (b.get("history") or [])[-6:]
+                   if isinstance(m, dict) and m.get("role") in ("user", "assistant")]
+        system = ("You help an ITSG examiner review a German social-insurance specification (DTA EEL). Answer only from the text "
+                  "and data given. Quote the German source verbatim in „…“ with its § number and page, e.g. (§3.12, p. 135). "
+                  "If the text does not say it, say so. Short answers in Markdown, in the language of the question.")
+        messages = [{"role": "system", "content": system}, {"role": "user", "content": "\n\n".join(ctx) or "(no context)"},
+                    {"role": "assistant", "content": "I have read it. What is your question?"}, *history, {"role": "user", "content": question}]
+        try:
+            answer = agent.ask(CFG, messages)
+        except agent.LLMError as e:
+            raise ApiError(502, f"the AI did not answer: {e}")
+        self.send_json({"answer": answer, "model": CFG["model"]})
+
     def api_post_evaluate(self, parts, q):
         b = self.json_body()
         vars_ = b.get("variables") or []
@@ -1555,7 +1757,8 @@ class Handler(BaseHTTPRequestHandler):
     def api_post_send(self, parts, q):
         self.need_examiner()
         b = self.json_body()
-        ids, to = b.get("ids") or [], [t for t in (b.get("to") or []) if isinstance(t, str) and t.strip()]
+        ids = b.get("ids") or []
+        to = list(dict.fromkeys(ALIASES.get(t.strip().lower(), t.strip()) for t in (b.get("to") or []) if isinstance(t, str) and t.strip()))
         if not ids or not to:
             raise ApiError(400, "choose test cases and at least one developer")
         with LOCK:
@@ -1577,6 +1780,7 @@ class Handler(BaseHTTPRequestHandler):
                 c["sent_to"] = sorted(set(c["sent_to"]) | set(to))
                 c["sent_at"], c["package"] = now(), pkg["id"]
                 c["history"].append({"t": now(), "who": self.user, "action": "sent", "detail": "to " + ", ".join(to) + (f" · {pkg['note']}" if pkg["note"] else "")})
+            publish_to_vendors(pkg, len(cases))
             save_store()
         self.send_json(pkg)
 
@@ -1676,17 +1880,11 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(400, "empty file")
             if len(data) > MAX_FILE:
                 raise ApiError(413, f"files up to {MAX_FILE // (1024 * 1024)} MB")
-            key = re.sub(r"[^\w-]", "", (q.get("key") or [""])[0])[:40] or "F" + uuid.uuid4().hex[:10]
+            key = re.sub(r"[^\w-]", "", (q.get("key") or [""])[0])[:40] or None
             with LOCK:
-                if key in x["files"]:
+                if key and key in x["files"]:
                     raise ApiError(409, "file key already used")
-                os.makedirs(EXCHANGE_DIR, exist_ok=True)
-                with open(os.path.join(EXCHANGE_DIR, key + ".bin"), "wb") as fh:
-                    fh.write(data)
-                f = {"key": key, "name": name, "vendor": me, "by": self.user, "t": now(), "size": len(data),
-                     "sha256": hashlib.sha256(data).hexdigest(), "rule": (q.get("rule") or [None])[0],
-                     "format": "dta" if name.lower().endswith(DTA_EXT) else os.path.splitext(name)[1].lstrip(".").lower()}
-                x["files"][key] = f
+                f = store_file(name, data, me, self.user, (q.get("rule") or [None])[0], key)
                 save_store()
             return self.send_json(f)
         if what == "seed":  # the opening conversations, written once by the first page that finds the exchange empty
@@ -1847,11 +2045,12 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(r)
 
     def api_get_certificates(self, parts, q):
-        self.need_examiner()
         if len(parts) == 2 and parts[1] == "html":
             c = next((x for x in STORE["certificates"] if x["id"] == parts[0]), None)
             if not c:
                 raise ApiError(404, "certificate not found")
+            if self.role not in ("itsg", "examiner") and not (self.role == "vendor" and self.vendor == c["vendor"]):
+                raise ApiError(403, "this certificate belongs to another vendor")
             data = certificate_html(c).encode("utf-8")
             self._status = 200
             self.send_response(200)
@@ -1860,6 +2059,7 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.write_body(data)
             return
+        self.need_examiner()
         self.send_json(STORE["certificates"])
 
     def api_post_certificates(self, parts, q):
@@ -1886,6 +2086,9 @@ class Handler(BaseHTTPRequestHandler):
         if vendor not in VENDORS:
             raise ApiError(400, "unknown vendor")
         ids = [i for i in (b.get("reports") or []) if isinstance(i, str)]
+        if not ids and b.get("package"):  # the newest round of that package
+            newest = next((r for r in STORE["reports"] if r["vendor"] == vendor and r.get("package") == b["package"]), None)
+            ids = [newest["id"]] if newest else []
         reps = [next((r for r in STORE["reports"] if r["id"] == i), None) for i in ids]
         if not reps or any(r is None for r in reps):
             raise ApiError(400, "certify on the basis of saved test reports")
@@ -1904,6 +2107,10 @@ class Handler(BaseHTTPRequestHandler):
         c["seal"] = seal_of(c)
         with LOCK:
             STORE["certificates"].insert(0, c)
+            exchange()["certs"][vendor] = {"id": c["id"], "seal": c["seal"], "t": now(), "by": self.user}
+            new_message(cert_thread(vendor), "itsg", {"en": f"{VENDORS[vendor]} passed the system review. Your certificate {c['id']} is attached.",
+                                                      "de": f"{VENDORS[vendor]} hat die Systemuntersuchung bestanden. Ihr Zertifikat {c['id']} liegt bei."},
+                        [{"type": "certificate", "ref": vendor}, *[{"type": "report", "ref": {"id": r["id"], "passed": r["passed"], "total": r["total"], "verdict": r["verdict"]}} for r in reps]])
             save_store()
         self.send_json(c)
 
@@ -1925,12 +2132,16 @@ class Handler(BaseHTTPRequestHandler):
             pkg = next((p for p in STORE["packages"] if p["id"] == parts[0]), None)
             if not pkg:
                 raise ApiError(404, "package not found")
-            fix = redact_for_dev if self.role == "dev" else (lambda t: t)
+            fix = redact_for_dev if self.role not in ("itsg", "examiner") else (lambda t: t)
             return self.send_json({**pkg, "testcases": [export_case(fix(tc_by_id(i))) for i in pkg["ids"] if tc_by_id(i)]})
         self.send_json([p for p in STORE["packages"] if not p.get("mock")][:50])
 
+    def asked_user(self, q):
+        """?user= names whose data to show; only ITSG may look at someone else's."""
+        return (q.get("user") or [self.user])[0] if self.role in ("itsg", "examiner") else self.user
+
     def api_get_inbox(self, parts, q):
-        user = (q.get("user") or [self.user])[0]
+        user = self.asked_user(q)
         if self.role == "dev":
             with LOCK:
                 seed_history(user)
@@ -1942,7 +2153,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- developer checklist → submission → ITSG validation → results back to the developer
     def api_get_checklists(self, parts, q):
-        user = (q.get("user") or [self.user])[0]
+        user = self.asked_user(q)
         with LOCK:
             seed_history(user)
         out = []
@@ -1960,7 +2171,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(out)
 
     def api_post_checklists(self, parts, q):
-        if len(parts) != 2 or parts[1] not in ("submit", "recap", "coverage"):
+        if len(parts) != 2 or parts[1] not in ("submit", "recap", "coverage", "results"):
             raise ApiError(404, "unknown action")
         pkg = next((p for p in STORE["packages"] if p["id"] == parts[0]), None)
         if not pkg:
@@ -1984,21 +2195,33 @@ class Handler(BaseHTTPRequestHandler):
                 if (pkg.get("recap") or {}).get("status") != "pending":
                     start_recap(pkg)
             return self.send_json(pkg["recap"])
-        rows = [r for r in (self.json_body().get("rows") or []) if isinstance(r, dict) and r.get("id") in pkg["ids"]]
-        if not rows or not any(str(r.get("value", "")).strip() for r in rows):
-            raise ApiError(400, "enter at least one value")
+        if parts[1] == "results":  # a results file: stored, attached to the vendor's thread, its values compared
+            name = os.path.basename((q.get("name") or [""])[0]).strip()[:120]
+            if not name.lower().endswith(RESULT_EXT):
+                raise ApiError(400, "send a results file: " + ", ".join(RESULT_EXT))
+            data = self.body()
+            if not data:
+                raise ApiError(400, "empty file")
+            if len(data) > MAX_FILE:
+                raise ApiError(413, f"files up to {MAX_FILE // (1024 * 1024)} MB")
+            rows = parse_results(name, data)
+            with LOCK:
+                f = store_file(name, data, VENDOR_OF.get(self.user), self.user, pkg["id"])
+                if not any(r["value"] for r in rows if r["id"] in pkg["ids"]):
+                    v = VENDOR_OF.get(self.user)
+                    if v:
+                        new_message(cert_thread(v), v, {"en": f"Results file for {pkg['id']}.", "de": f"Ergebnisdatei zu {pkg['id']}."}, [{"type": "file", "ref": f["key"]}])
+                    save_store()
+                    return self.send_json({"stored": f, "rows": [], "note": "stored for ITSG; no values found: use a CSV (id;value) or JSON file, or enter the values in the checklist"})
+                sub = submit_results(pkg, self.user, rows, f)
+                save_store()
+            return self.send_json({**public_submission(sub, with_expected=False), "round": sub["round"]})
+        rows = [{"id": r["id"], "value": str(r.get("value", "")).strip(), "note": str(r.get("note", "")).strip()[:500]}
+                for r in (self.json_body().get("rows") or []) if isinstance(r, dict) and r.get("id") in pkg["ids"]]
         with LOCK:
-            if any(s["package"] == pkg["id"] and s["by"] == self.user and s["status"] == "validated" for s in STORE["submissions"]):
-                raise ApiError(409, "ITSG has already validated this checklist")
-            STORE["submissions"] = [s for s in STORE["submissions"] if not (s["package"] == pkg["id"] and s["by"] == self.user)]
-            sub = {"id": "SUB-" + time.strftime("%Y%m%d-%H%M%S"), "package": pkg["id"], "by": self.user, "t": now(), "status": "submitted",
-                   "rows": [{"id": r["id"], "value": str(r.get("value", "")).strip(), "note": str(r.get("note", "")).strip()[:500]} for r in rows]}
-            STORE["submissions"].insert(0, sub)
-            for r in sub["rows"]:
-                tc = tc_by_id(r["id"])
-                tc["history"].append({"t": now(), "who": self.user, "action": "developer result submitted", "detail": f"value {r['value'] or '—'}"})
+            sub = submit_results(pkg, self.user, rows)
             save_store()
-        self.send_json(public_submission(sub, with_expected=False))
+        self.send_json({**public_submission(sub, with_expected=False), "round": sub["round"]})
 
     def api_get_submissions(self, parts, q):
         self.need_examiner()
@@ -2039,7 +2262,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_get_results(self, parts, q):
         """What a developer sees after ITSG validated: last passed and failed tests."""
-        user = (q.get("user") or [self.user])[0]
+        user = self.asked_user(q)
         out = []
         for s in STORE["submissions"]:
             if s["by"] != user or s["status"] != "validated":

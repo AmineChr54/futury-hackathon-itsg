@@ -936,6 +936,128 @@ class HttpTests(unittest.TestCase):
             self.assertIn(a, actions)
         S.STORE["audit"].clear()
 
+    def page(self, path):
+        import http.client
+        c = http.client.HTTPConnection(self.base.split("//")[1], timeout=10)
+        c.request("GET", path)
+        r = c.getresponse()
+        return r.status, r.getheader("Location"), r.read()
+
+    def test_live_and_demo_pages(self):
+        for path in ("/", "/app"):
+            status, _, body = self.page(path)
+            self.assertEqual(status, 200)
+            self.assertTrue(body.startswith(b'<script>window.SPECS_MODE="live"</script>'))  # the app on this server's data
+        for path in ("/demo", "/demo/", "/demo/index.html"):
+            self.assertIn(b'window.SPECS_MODE="demo"', self.page(path)[2])  # the guided demo on recorded data
+        self.assertEqual(self.page("/pipeline")[:2], (302, "/"))  # old links open the app
+        self.assertEqual(self.call("GET", "/api/documents/x.md")[0], 401)
+        self.assertEqual(self.call("GET", "/api/status")[1]["accounts"]["sap"], {"role": "vendor", "vendor": "sap"})
+
+    def test_document_sections(self):
+        import json
+        itsg = self.login("istg", "pw-itsg")
+        spec = "Verfahrensbeschreibung Version 13.4\n1.1 Allgemeines\nDie Meldung ist zu\nerstatten.\n\nHinweis: nur einmal.\n1.2 Fristen\n014 – 021 Datum\n"
+        code, up = self.raw("POST", "/api/upload?name=sections-test.md", spec.encode(), itsg)
+        self.assertEqual(code, 200, up)
+        code, doc = self.call("GET", "/api/documents/sections-test.md", token=itsg)
+        self.assertEqual(code, 200, doc)
+        secs = {s["sec"]: s for s in doc["sections"]}
+        self.assertEqual(secs["1.1"]["text"], ["Die Meldung ist zu erstatten.", "Hinweis: nur einmal."])  # reflowed into paragraphs
+        self.assertEqual(secs["1.2"]["title"], "Fristen")
+        self.assertEqual(self.call("GET", "/api/documents/none.md", token=itsg)[0], 404)
+
+    def sent_package(self, to):
+        S = self.S
+        pkg = S.ref_package(S.DEMO_CASES[:2], "nobody", S.now(), "13.4", "13.3", "", "PKG-" + S.uuid.uuid4().hex[:6], "L" + S.uuid.uuid4().hex[:5])
+        for i in pkg["ids"]:
+            S.tc_by_id(i).update(status="verified", sent_to=[], demo=False, run="r-live", package=None)
+        itsg = self.login("istg", "pw-itsg")
+        code, sent = self.call("POST", "/api/send", {"ids": pkg["ids"], "to": to}, token=itsg)
+        self.assertEqual(code, 200, sent)
+        return itsg, sent
+
+    def test_send_publishes_to_vendor_threads(self):
+        S = self.S
+        S.STORE["exchange"] = {}
+        itsg, sent = self.sent_package(["sap", "lex", "dev"])
+        self.assertEqual(sent["to"], ["sap", "lexware", "dev"])  # lex is the Lexware sign-in
+        sap, lex, dev = self.login("sap", "pw-sap"), self.login("lexware", "pw-lex"), self.login("dev", "pw-dev")
+        x = self.call("GET", "/api/exchange", token=itsg)[1]
+        self.assertEqual(sorted(x["publishedTo"]), ["lex", "sap"])
+        mine = self.call("GET", "/api/exchange", token=sap)[1]
+        self.assertEqual([t["kind"] for t in mine["threads"]], ["cert"])
+        self.assertEqual(mine["threads"][0]["msgs"][-1]["attach"], [{"type": "package", "ref": sent["id"]}])
+        self.assertTrue(all(t["vendor"] == "lex" for t in self.call("GET", "/api/exchange", token=lex)[1]["threads"]))
+        rows = next(c for c in self.call("GET", "/api/checklists", token=dev)[1] if c["id"] == sent["id"])["rows"]
+        self.assertIn("expected_outcome", rows[0])
+        self.assertNotIn("expected_value", rows[0])
+        # a vendor asking for someone else's checklist gets its own
+        self.assertFalse(any(c["id"] == sent["id"] for c in self.call("GET", "/api/checklists?user=nobody", token=sap)[1] if "nobody" in c["to"]))
+        tc = self.call("GET", f"/api/testcases/{sent['ids'][0]}", token=sap)[1]
+        self.assertNotIn("expected_value", tc)  # vendors never receive ITSG's values
+        full = self.call("GET", "/api/testcases?run=r-live&full=1", token=itsg)[1]
+        self.assertTrue(full and all("expected_value" in t and "cot" in t for t in full))
+        S.STORE["audit"].clear()
+
+    def test_results_fail_retest_pass_and_certificate(self):
+        import json
+        S = self.S
+        S.STORE["exchange"] = {}
+        itsg, sent = self.sent_package(["sap"])
+        sap, lex = self.login("sap", "pw-sap"), self.login("lexware", "pw-lex")
+        a, b = sent["ids"]
+        right = {i: S.tc_by_id(i)["expected_value"] for i in (a, b)}
+        # round 1: a CSV with one wrong value
+        csv = f"id;value\n{a};{right[a]}\n{b};1999-01-01\n".encode()
+        code, r1 = self.raw("POST", f"/api/checklists/{sent['id']}/results?name=SAP_round1.csv", csv, sap)
+        r1 = json.loads(r1)
+        self.assertEqual((code, r1["round"]), (200, 1), r1)
+        self.assertEqual({r["id"]: r["ok"] for r in r1["rows"]}, {a: True, b: False})
+        self.assertNotIn("expected", r1["rows"][0])
+        th = self.call("GET", "/api/exchange", token=sap)[1]["threads"][0]
+        verdict = th["msgs"][-1]["attach"][0]
+        self.assertEqual((verdict["type"], verdict["ref"]["ok"], verdict["ref"]["passed"]), ("pkgverdict", False, 1))
+        self.assertNotIn(str(right[b]), json.dumps(verdict))  # the vendor never sees the expected value
+        self.assertEqual(self.call("POST", "/api/certificates", {"vendor": "sap", "package": sent["id"]}, token=itsg)[0], 409)  # failed round
+        # round 2 (retest): values typed into the checklist
+        code, r2 = self.call("POST", f"/api/checklists/{sent['id']}/submit", {"rows": [{"id": i, "value": str(v)} for i, v in right.items()]}, token=sap)
+        self.assertEqual((code, r2["round"], all(r["ok"] for r in r2["rows"])), (200, 2, True), r2)
+        reps = self.call("GET", "/api/reports?vendor=sap", token=itsg)[1]
+        self.assertEqual([r["verdict"] for r in reps[:2]], ["pass", "fail"])
+        code, cert = self.call("POST", "/api/certificates", {"vendor": "sap", "package": sent["id"], "release": "2027.1"}, token=itsg)
+        self.assertEqual(code, 200, cert)
+        x = self.call("GET", "/api/exchange", token=sap)[1]
+        self.assertEqual(x["certs"]["sap"]["seal"], cert["seal"])
+        self.assertEqual(x["threads"][0]["msgs"][-1]["attach"][0], {"type": "certificate", "ref": "sap"})
+        self.assertEqual(self.raw("GET", f"/api/certificates/{cert['id']}/html", None, sap)[0], 200)  # its own certificate
+        self.assertEqual(self.raw("GET", f"/api/certificates/{cert['id']}/html", None, lex)[0], 403)
+        self.assertEqual(self.call("GET", "/api/certificates", token=sap)[0], 403)
+        # a DTA file has no values to compare: it is stored for ITSG
+        code, stored = self.raw("POST", f"/api/checklists/{sent['id']}/results?name=SAP.dta", b"DSLW0123", sap)
+        self.assertEqual((code, json.loads(stored)["rows"]), (200, []))
+        S.STORE["audit"].clear()
+
+    def test_chat_is_grounded(self):
+        from unittest import mock
+        S = self.S
+        itsg = self.login("istg", "pw-itsg")
+        run = {"id": "r-chat", "created": S.now(), "by": "istg", "status": "done", "model": "m", "plan": {}, "seq": 1, "live": {}, "stop": False,
+               "items": [{"sec": "3.12", "title": "DBVO", "page": 135, "new_text": "nicht mehr als 6 Monate", "old_text": "nicht mindestens 6 Monate",
+                          "log": ["redaktionelle Anpassung"], "status": "review", "cases": [], "spec_change": {"change_type": "condition"}}],
+               "events": [{"seq": 1, "t": S.now(), "item": "3.12", "type": "thought", "data": {"text": "boundary at exactly 6 months"}}]}
+        S.RUNS["r-chat"] = run
+        seen = {}
+        with mock.patch.dict(S.CFG, {"key": "k"}), mock.patch.object(S.agent, "ask", lambda cfg, msgs: seen.setdefault("m", msgs) and "Because §3.12 …"):
+            code, out = self.call("POST", "/api/chat", {"question": "Why?", "run": "r-chat", "sec": "3.12"}, token=itsg)
+        self.assertEqual((code, out["answer"]), (200, "Because §3.12 …"))
+        ctx = seen["m"][1]["content"]
+        for part in ("nicht mehr als 6 Monate", "nicht mindestens 6 Monate", "redaktionelle Anpassung", "condition", "boundary at exactly 6 months"):
+            self.assertIn(part, ctx)
+        with mock.patch.dict(S.CFG, {"key": ""}):
+            self.assertEqual(self.call("POST", "/api/chat", {"question": "Why?"}, token=itsg)[0], 503)
+        S.STORE["audit"].clear()
+
 
 if __name__ == "__main__":
     unittest.main()

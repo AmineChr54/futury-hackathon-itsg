@@ -39,10 +39,21 @@ Put the narrator window on your laptop screen and the main window on the project
 opens, the browser blocked the pop-up: allow pop-ups for this file (Firefox shows a yellow bar at
 the top), then press **P** again.
 
-During the demo the bottom bar shows **one sentence** per step. A spotlight frames what the
-sentence is about (with a slight zoom) and keeps following it while the page scrolls or changes.
+During the demo a **caption next to the spotlight** shows one sentence per step, its key words
+highlighted (above the framed element, or below it when there is no room). The controls
+(`n/17 ‹ › Narrator ✕`) sit in a small pill at the bottom right. The spotlight frames what the
+sentence is about (with a slight zoom), follows it while the page scrolls or changes, and moves
+onto any dialog that opens. The cursor, its click ring, the frame and the caption animate even
+when the system asks to reduce motion, because the presenter drives them.
 Each step sets up its own state, so stepping back and forth is safe, and each one plays its action
 once (approve, ask the AI, send, upload…).
+
+**The cursor.** A mouse cursor plays every click, so the audience can follow. It glides to the
+button, presses it (a short ripple) and the real button runs, exactly as if you had clicked it. It
+scrolls lists, threads and the page to bring the next target into view. Going forward, it also
+clicks the way to the next screen (the rail, "Open the specification →", the package attachment,
+the role switch), so the whole workflow is shown click by click. **←** and `#demo=N` jump straight
+in without those navigation clicks.
 
 **Animations in Firefox.** If the zoom, the smooth scrolling or the flashing quote don't move, your
 system asks apps to reduce motion. The demo still frames every step, just without animation. To
@@ -60,23 +71,23 @@ turn the animations on, use either of these:
 | 2 | Slide | Patrick: "400 pages. Every year. By hand." |
 | 3 | Slide | Read the spec → extract rules → write test cases → dev types them in; "Every year. By hand. Zero error tolerance." |
 | 4 | Slide | The name, the tagline, three promises |
-| 5 | Step 1 | The pipeline in eight stages: Import · Index & highlight · Detect changes · Understand & approve · Generate test cases · Hand over · Compare · Report & certify |
-| 6 | Step 2 | The original v13.4 PDF is imported (168 pages, 220 sections); the archive sits next to it |
-| 7 | Step 3 | The full specification: § index left, §3.12 right with the AI's highlights; the changed sentence flashes |
-| 8 | Step 4 | Changes: the log calls §3.12 editorial; the AI finds the 6-month rule flipped (Achraf's change card) |
-| 9 | Step 5 | The examiner edits the AI's reading ("More than 6 months stops it.") and approves |
-| 10 | Step 6 | The reasoning opens: what was sent to the model, its reasoning, a check in the terminal, the extracted change. The demo types a question into the chat; the answer streams back with the quote |
-| 11 | Step 7 | Create test cases: the AI writes 5 cases, grouped by the rule they test |
-| 12 | Step 8 | The case we follow (TC-3.12-B-01, ITSG's reference employee) is highlighted and opened |
-| 13 | Step 9 | Send to developers: SAP's team is ticked, Send |
-| 14 | Step 10 | SAP's side: the notification, then the package e-mail in Messages |
-| 15 | Step 11 | The checklist: the AI recap (what changed, what to do) |
+| 5 | Step 1 | The overview dashboard is visible below, greyed out. The cursor sweeps over the eight stages: Import · Index & highlight · Detect changes · Understand & approve · Generate test cases · Hand over · Compare · Report & certify |
+| 6 | Step 2 | Click **Import**, then **Import v13.4**: the original PDF is imported (168 pages, 220 sections); the archive sits next to it |
+| 7 | Step 3 | Click **Open the specification →**. The full specification: § index left, §3.12 right with the AI's highlights; the changed sentence flashes |
+| 8 | Step 4 | Click **Changes & review**. The log calls §3.12 *editorial* (only the wording changed, nothing to test); the AI says *a condition changed* (same employee, different result). A box under the pills explains both |
+| 9 | Step 5 | Click **Edit**, type, **Save and approve**: the examiner edits the AI's reading ("More than 6 months stops it.") and approves |
+| 10 | Step 6 | Click the reasoning panel open: what was sent to the model, its reasoning, a check in the terminal, the extracted change. The demo types a question into the chat; the chat panel (input at the bottom right) answers in Markdown (key words in gray) with a **§3.12 · p. 135** source chip that opens the spec at the sentence |
+| 11 | Step 7 | Click **Create test cases →**, then **Create test cases**: the AI writes 5 cases, grouped by the rule they test |
+| 12 | Step 8 | Click the case we follow (TC-3.12-B-01, ITSG's reference employee) in the list, then **Edit**: the examiner adds “ANZAHL-AU must be 04.” to *What should happen* and clicks **Save and verify**. The computed expected value is not editable; it comes from tested code |
+| 13 | Step 9 | Click **Send to developers**: SAP's team is ticked, click **Send** |
+| 14 | Step 10 | Switch to **Vendor**. SAP's side: click the notification, then the package e-mail in Messages |
+| 15 | Step 11 | Click the **Test package** in the e-mail. The checklist: the AI recap (what changed, what to do) |
 | 16 | Step 12 | Run each test: the developer opens each case, **How to run it** (preconditions, steps), **What should happen** (in words, with the key values), then **Works as expected** |
-| 17 | Step 13 | Upload the DTA file: sent to ITSG by automatic e-mail and compared at once |
-| 18 | Step 14 | The inbox: 1 of 5 failed. SAP's screen looked right, but the exported file still has the 2024 period |
-| 19 | Step 15 | The developer asks why the file differs from the screen; ITSG answers with the quote |
-| 20 | Step 16 | “Two days later” with a clock: the fixed file passes, 5 of 5 |
-| 21 | Step 17 | Report & certificate: passed, e-mailed to SAP, **Download PDF** |
+| 17 | Step 13 | Click the upload box, pick version 1: sent to ITSG by automatic e-mail and compared at once |
+| 18 | Step 14 | Click **Messages** and the SAP thread: 1 of 5 failed. SAP's screen looked right, but the exported file still has the 2024 period |
+| 19 | Step 15 | The developer asks why the file differs from the screen; ITSG answers with the quote and a clickable § source |
+| 20 | Step 16 | “Two days later” with a clock. **Checklist** → upload version 2 → **Messages**: the fixed file passes, 5 of 5 |
+| 21 | Step 17 | Switch to **ITSG**, click **Report & certificate**, then **Issue certificate**: passed, e-mailed to SAP, **Download PDF** |
 | 22 | Slide | Before (tired guy) → after (happy squirrel), "Thank you!" |
 
 - **ITSG / Vendor** (top right) switches the role; **EN / DE** the language (recorded AI output

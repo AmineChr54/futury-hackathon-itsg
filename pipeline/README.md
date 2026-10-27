@@ -37,7 +37,7 @@ Open `http://localhost:8787/pipeline` (the live app, served by the pipeline). Th
 
 ## Sign-in and the developer loop
 
-The page opens with a **Login** tab: username `istg` (ITSG examiner) or `dev` (developer). On a local server no password is needed. With `PIPELINE_PASSWORD` set in `pipeline/.env` (or `PIPELINE_PASSWORD_ISTG` / `PIPELINE_PASSWORD_DEV` per account) the Login tab asks for it: the server checks it, hands out a session token, and every API call and the `/v1` AI proxy need that token. The server then takes the user and role from the token, not from what the browser sends. Hosting: `deploy/setup.sh`.
+The page opens with a **Login** tab: username `istg` (ITSG examiner) or `dev` (developer). On a local server no password is needed. With `PIPELINE_PASSWORD` set in `pipeline/.env` (or `PIPELINE_PASSWORD_ISTG` / `PIPELINE_PASSWORD_DEV` per account) the Login tab asks for it: the server checks it, hands out a session token, and every API call and the `/v1` AI proxy need that token. The server then takes the user and role from the token, not from what the browser sends. Hosting: `deploy/setup.sh`, or `deploy/docker.sh` to run it as a Docker container.
 
 | | ITSG | Developer |
 |---|---|---|
